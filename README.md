@@ -6,7 +6,7 @@ DeepSeek Harness（DSH）插件集合。每个子目录是一个可独立装入 
 
 | 目录 | 包名 | 版本 | 作用 | 形态 |
 | --- | --- | --- | --- | --- |
-| [pin-subagent-model](<pin-subagent-model/README.md>) | `dsh-plugin-pin-subagent-model` | 0.2.0 | 把每次委派的子 Agent 固定到指定 LLM 路由，不继承父 Agent 的实时路由 | Host 插件 bundle（纯 JS，无需构建） |
+| [pin-subagent-model](<pin-subagent-model/README.md>) | `dsh-plugin-pin-subagent-model` | 0.3.0 | 把每次委派的子 Agent 固定到指定 LLM 路由，不继承父 Agent 的实时路由；并在子代理主会话标题栏只读显示实际请求的 provider/model | Host + Web Client 双端插件 bundle（纯 JS，无需构建） |
 | [dsh-mobile](<dsh-mobile/README.md>) | `@local/dsh-mobile`（private） | 0.1.0 | 移动端布局与触控优化：侧栏抽屉、44px 触控目标、宽表格横滑、软键盘处理；桌面端不受影响 | Host + Web Client 双端插件，需构建 |
 | [dsh-smartui](<dsh-smartui/README.md>) | `@local/dsh-smartui`（private） | 0.1.2 | ChatGPT 风格外观 + 对话内安全声明式组件（卡片/表格/图表/表单/选项） | Host + Web Client 双端插件，需构建 |
 
@@ -16,8 +16,9 @@ DeepSeek Harness（DSH）插件集合。每个子目录是一个可独立装入 
 
 ```
 dsh-plugins/
-├── pin-subagent-model/     # 子 Agent 路由固定插件（bundle，无需构建）
-│   ├── index.js            # 全部实现
+├── pin-subagent-model/     # 子 Agent 路由固定 + 标题栏模型显示（bundle，无需构建）
+│   ├── index.js            # Host 侧：路由固定
+│   ├── client.js           # Client 侧：只读标题栏 chip
 │   ├── cordis.patch.yml    # bundle 层：插入 entry `pin-subagent-model`
 │   ├── locale/             # 插件管理卡片的中英文标题与说明
 │   ├── assets/icon.svg     # 插件管理卡片图标
@@ -41,7 +42,7 @@ dsh-plugins/
 
 ## 安装
 
-两种插件都作为 bundle 装入现有 profile，可在 WebUI 的 **设置 → 插件** 里启用、关闭或移除；不启动第二个 Web 服务，也不修改已安装的 DSH 核心。
+各插件都作为 bundle 装入现有 profile，可在 WebUI 的 **设置 → 插件** 里启用、关闭或移除；不启动第二个 Web 服务，也不修改已安装的 DSH 核心。
 
 ### pin-subagent-model
 
@@ -67,6 +68,8 @@ bundle 层只注册 entry `pin-subagent-model`，路由本身由 profile patch �
 未配置 `provider` / `model` 时插件仍保持启用，只记一条警告、不固定任何路由，所以先启用后配置不会破坏 profile。`patchReload: live` 下配置改动对下一次委派即生效。配置项、验证方法与取舍见 [插件文档](<pin-subagent-model/README.md>)。
 
 首次安装（或更换 bundle 版本）后需要重启 dsh，新的 bundle 层才会参与组装；之后在插件页开关只重载 entry，不必重启。
+
+0.3.0 起该插件增加 Web Client 半（子代理主会话标题栏的只读 provider/model chip）。运行中的 dsh 会按 Loader specifier/baseURL 缓存包元数据，包括“不是 client”的负结论；从 Host-only 版本升级后需**重启一次现有 dsh，再刷新现有页面**。本仓库没有前端 dev watcher，不保证 HMR；此次改动未做 live 浏览器验证。
 
 ### dsh-mobile
 
@@ -96,7 +99,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --
 
 ```bash
 # pin-subagent-model
-node --test
+node --test --test-concurrency=1
 
 # dsh-mobile / dsh-smartui
 pnpm install

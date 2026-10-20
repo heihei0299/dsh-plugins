@@ -37,6 +37,23 @@ test("exports an icon inside the package", () => {
 	assert.ok(statSync(file).size <= 256 * 1024, "the icon must stay under the 256 KiB limit");
 });
 
+test("declares the build-free browser half the client module graph reads", () => {
+	assert.equal(manifest.exports?.["./client"], "./client.js");
+	assert.ok(existsSync(path.join(root, manifest.exports["./client"])), "the exported client bundle must exist");
+	assert.ok(manifest.files.includes("client.js"), "the published package must carry the client bundle");
+	assert.equal(manifest.dsh?.client?.platform, "web");
+	const inject = manifest.dsh?.client?.inject;
+	assert.ok(Array.isArray(inject), "dsh.client.inject must list the client rows this bundle uses");
+	for (const dependency of [
+		"@deepseek-ai/dsh-api-session-controller",
+		"@deepseek-ai/dsh-client-locale",
+		"@deepseek-ai/dsh-client-ui-conversation",
+		"@deepseek-ai/dsh-client-ui-session"
+	]) {
+		assert.ok(inject.includes(dependency), `dsh.client.inject must include ${dependency}`);
+	}
+});
+
 for (const language of ["en", "zh"]) {
 	test(`locale/${language}.json localizes the plugin card`, () => {
 		assert.equal(manifest.exports?.["./locale/*.json"], "./locale/*.json");

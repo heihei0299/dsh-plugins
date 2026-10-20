@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Pin subagent model",
-    "description": "Runs every delegated child Agent on one configured model route instead of letting it inherit the parent's live route."
+    "description": "Runs every delegated child Agent on one configured model route instead of letting it inherit the parent's live route, and shows the route each subagent session actually used in its title bar."
   }
 }
