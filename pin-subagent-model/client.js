@@ -1,11 +1,20 @@
 /**
- * Browser half: show the model route a subagent session actually used, in the
- * main conversation header (the right-side embedded chat does not render that
- * header).
+ * Browser half: show the model route a subagent session actually used, inline
+ * in the composer's model row (where the native model selector sits for a
+ * parent session).
  *
  * This file is a build-free DSH client loader bundle: the running DSH reads it
  * verbatim as `window.__ModuleLoader__.load({ id, factory })`, and the factory
  * may require only the host React table. Keep it plain JavaScript.
+ *
+ * Placement: `conversation.input.right` is an additive `list` slot that the
+ * composer renders immediately before the native single-seat
+ * `conversation.input.model`. A parent-session entry returns null, so the
+ * native model selector stays completely untouched. This matters because a
+ * `single` slot cannot be conditionally skipped: replacing the model seat and
+ * returning null there would hide the native selector for parent sessions too.
+ * On an addressed child the native selector renders null (it is unavailable),
+ * leaving this read-only chip in the same model row.
  *
  * Data path (all read-only):
  * - `SessionSnapshot.subagent` tells a child session from an ordinary root
@@ -23,9 +32,10 @@
  *   that the child itself sent a request. Unknown data hides the chip instead
  *   of risking a parent route.
  *
- * Unknown data renders nothing; the header never falls back to the parent
- * route, the pin configuration, the descriptor's planned route, or a global
- * default.
+ * The chip is presentation only: no click target, no model picker, no Host
+ * RPC, no navigation, and no draft/editor writes. It never falls back to the
+ * parent route, the pin configuration, the descriptor's planned route, or a
+ * global default.
  */
 
 window.__ModuleLoader__.load({
@@ -33,10 +43,10 @@ window.__ModuleLoader__.load({
 	factory(require) {
 		const React = require("react");
 
-		/** Locale namespace for the header label. */
+		/** Locale namespace for the read-only model label. */
 		const NS = "pin-subagent-model";
-		/** Session-scoped title-adjacent action slot. */
-		const SLOT = "conversation.session.header.actions";
+		/** Additive composer slot rendered just before the native model seat. */
+		const SLOT = "conversation.input.right";
 		/** Frozen empty window used before a retained binding exposes its source. */
 		const EMPTY_WINDOW = Object.freeze({
 			entries: Object.freeze([]),
@@ -76,6 +86,18 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
+		 * Compact model name for the composer row: the last path segment of the
+		 * route's model id. The full route remains available in `title`, the
+		 * accessible label, and data attributes.
+		 * @param route - usable route.
+		 * @returns the final non-empty `/` segment, or the whole model id.
+		 */
+		function shortModelName(route) {
+			const segments = route.model.split("/").filter((segment) => segment.length > 0);
+			return segments.length > 0 ? segments[segments.length - 1] : route.model;
+		}
+
+		/**
 		 * Read the latest request/header after the child's own descriptor from
 		 * the currently loaded Session event window.
 		 * @param eventWindow - SessionEventWindow snapshot, or undefined.
@@ -104,7 +126,7 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * Pick the route to display, or null when the header must render nothing.
+		 * Pick the route to display, or null when the chip must render nothing.
 		 * @param subagent - SessionSnapshot.subagent; null on root sessions.
 		 * @param identity - `subagent` projection value.
 		 * @param ownHeader - latest request/header after identity.seq, or null.
@@ -117,7 +139,8 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * Format a route for the header chip.
+		 * Format the complete route for tooltips, accessible labels, and data
+		 * attributes.
 		 * @param route - usable route.
 		 * @returns `provider/model`, with ` · effort` when present.
 		 */
@@ -127,67 +150,100 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * Session-header action: a read-only provider/model chip on subagent
-		 * sessions only. It deliberately has no click target and never calls a
-		 * Host RPC, so it also works for ended and read-only child sessions.
-		 * @param props - session standard props plus the sessions service and t.
+		 * Composer-row entry: a read-only, compact model chip on subagent
+		 * sessions only. It has no click target and never calls a Host RPC, so
+		 * it also works for ended and read-only child sessions. Root sessions
+		 * render null and do not borrow the event source; the native model
+		 * selector in the adjacent single seat is never replaced or hidden by
+		 * this entry.
+		 * @param props - standard Session props plus the sessions service and t.
 		 * @returns the chip, or null on a root session / unknown data.
 		 */
-		function SubagentModelBadge({ sessionId, sessions, useSession, useProjection, t }) {
+		function SubagentModelChip({ sessionId, sessions, useSession, useProjection, t }) {
 			const subagent = useSession((session) => session.subagent);
 			const identity = useProjection("subagent");
-			const source = sessions.binding(sessionId)?.eventSource;
+			const isChild = subagent !== undefined && subagent !== null;
+			const source = isChild ? sessions.binding(sessionId)?.eventSource : undefined;
 			const subscribe = React.useCallback((listener) => {
-				if (source === undefined) return () => {};
+				if (!isChild || source === undefined) return () => {};
 				return source.subscribe(listener);
-			}, [source]);
+			}, [isChild, source]);
 			const getSnapshot = React.useCallback(
-				() => (source === undefined ? EMPTY_WINDOW : source.getSnapshot()),
-				[source]
+				() => (!isChild || source === undefined ? EMPTY_WINDOW : source.getSnapshot()),
+				[isChild, source]
 			);
 			const eventWindow = React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 			const route = selectActualRoute(subagent, identity, lastOwnRequestHeader(eventWindow, identity));
 			if (route === null) return null;
-			const text = routeText(route);
+			const fullText = routeText(route);
+			const shortModel = shortModelName(route);
+			const effort = effortOf(route);
 			const label = typeof t === "function" ? t("model.label") : "Subagent model";
+			const children = [
+				React.createElement("span", {
+					key: "model",
+					"aria-hidden": true,
+					style: {
+						flex: "0 1 auto",
+						minWidth: 0,
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap",
+						color: "var(--dsw-alias-label-secondary)",
+						fontSize: "13px",
+						lineHeight: "20px"
+					}
+				}, shortModel)
+			];
+			if (effort !== undefined) {
+				children.push(React.createElement("span", {
+					key: "effort",
+					"aria-hidden": true,
+					style: {
+						flex: "none",
+						color: "var(--dsw-alias-label-tertiary)",
+						fontSize: "12px",
+						lineHeight: "20px"
+					}
+				}, effort));
+			}
 			return React.createElement("span", {
 				"data-plugin": "pin-subagent-model",
-				"data-subagent-model": text,
+				"data-subagent-model": fullText,
+				"data-subagent-model-short": shortModel,
+				"data-subagent-effort": effort,
 				role: "note",
-				title: text,
-				"aria-label": `${label}: ${text}`,
+				title: fullText,
+				"aria-label": `${label}: ${fullText}`,
 				style: {
 					display: "inline-flex",
 					alignItems: "center",
+					gap: "4px",
 					minWidth: 0,
-					maxWidth: "min(360px, 40vw)",
-					padding: "0 6px",
-					color: "var(--dsw-alias-label-secondary)",
-					fontSize: "13px",
-					lineHeight: "20px",
+					maxWidth: "min(220px, 50vw)",
+					padding: "0 2px",
 					whiteSpace: "nowrap",
-					overflow: "hidden",
-					textOverflow: "ellipsis"
+					overflow: "hidden"
 				}
-			}, text);
+			}, ...children);
 		}
 
 		/** Services the browser half needs before it registers. */
 		const inject = ["slots", "locale", "sessions"];
 
 		/**
-		 * Register the locale dictionary and the header action.
+		 * Register the locale dictionary and the composer-row entry.
 		 * @param ctx - client root context with `slots`, `locale`, and `sessions`.
 		 */
 		function apply(ctx) {
-			ctx.effect(() => ctx.locale.register(NS, DICTIONARIES), "pin-subagent-model: header locale");
+			ctx.effect(() => ctx.locale.register(NS, DICTIONARIES), "pin-subagent-model: composer locale");
 			ctx.slots.inject(SLOT, () => ctx.slots.register({
 				name: SLOT,
 				id: "pin-subagent-model",
-				order: 0,
+				order: 100,
 				locale: NS,
 				inject: () => ({ sessions: ctx.sessions })
-			}, SubagentModelBadge));
+			}, SubagentModelChip));
 		}
 
 		return {
@@ -196,7 +252,8 @@ window.__ModuleLoader__.load({
 			// Test seams; the client loader only consumes apply/inject.
 			lastOwnRequestHeader,
 			routeText,
-			selectActualRoute
+			selectActualRoute,
+			shortModelName
 		};
 	}
 });

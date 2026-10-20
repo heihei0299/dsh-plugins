@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-pin-subagent-model",
-  "version": "0.3.0",
-  "description": "Pin every delegated child Agent to one LLM route and show the route each subagent session actually used",
+  "version": "0.3.1",
+  "description": "Pin every delegated child Agent to one LLM route and show the route each subagent session actually used in its composer",
   "type": "module",
   "main": "index.js",
   "exports": {

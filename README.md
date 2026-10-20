@@ -6,7 +6,7 @@ DeepSeek Harness（DSH）插件集合。每个子目录是一个可独立装入 
 
 | 目录 | 包名 | 版本 | 作用 | 形态 |
 | --- | --- | --- | --- | --- |
-| [pin-subagent-model](<pin-subagent-model/README.md>) | `dsh-plugin-pin-subagent-model` | 0.3.0 | 把每次委派的子 Agent 固定到指定 LLM 路由，不继承父 Agent 的实时路由；并在子代理主会话标题栏只读显示实际请求的 provider/model | Host + Web Client 双端插件 bundle（纯 JS，无需构建） |
+| [pin-subagent-model](<pin-subagent-model/README.md>) | `dsh-plugin-pin-subagent-model` | 0.3.1 | 把每次委派的子 Agent 固定到指定 LLM 路由，不继承父 Agent 的实时路由；并在子代理会话输入框的模型位旁只读显示实际请求的模型短名与 effort | Host + Web Client 双端插件 bundle（纯 JS，无需构建） |
 | [dsh-mobile](<dsh-mobile/README.md>) | `@local/dsh-mobile`（private） | 0.1.0 | 移动端布局与触控优化：侧栏抽屉、44px 触控目标、宽表格横滑、软键盘处理；桌面端不受影响 | Host + Web Client 双端插件，需构建 |
 | [dsh-smartui](<dsh-smartui/README.md>) | `@local/dsh-smartui`（private） | 0.1.2 | ChatGPT 风格外观 + 对话内安全声明式组件（卡片/表格/图表/表单/选项） | Host + Web Client 双端插件，需构建 |
 
@@ -16,9 +16,9 @@ DeepSeek Harness（DSH）插件集合。每个子目录是一个可独立装入 
 
 ```
 dsh-plugins/
-├── pin-subagent-model/     # 子 Agent 路由固定 + 标题栏模型显示（bundle，无需构建）
+├── pin-subagent-model/     # 子 Agent 路由固定 + 输入框模型位只读显示（bundle，无需构建）
 │   ├── index.js            # Host 侧：路由固定
-│   ├── client.js           # Client 侧：只读标题栏 chip
+│   ├── client.js           # Client 侧：只读 composer chip
 │   ├── cordis.patch.yml    # bundle 层：插入 entry `pin-subagent-model`
 │   ├── locale/             # 插件管理卡片的中英文标题与说明
 │   ├── assets/icon.svg     # 插件管理卡片图标
@@ -69,7 +69,9 @@ bundle 层只注册 entry `pin-subagent-model`，路由本身由 profile patch �
 
 首次安装（或更换 bundle 版本）后需要重启 dsh，新的 bundle 层才会参与组装；之后在插件页开关只重载 entry，不必重启。
 
-0.3.0 起该插件增加 Web Client 半（子代理主会话标题栏的只读 provider/model chip）。运行中的 dsh 会按 Loader specifier/baseURL 缓存包元数据，包括“不是 client”的负结论；从 Host-only 版本升级后需**重启一次现有 dsh，再刷新现有页面**。本仓库没有前端 dev watcher，不保证 HMR；此次改动未做 live 浏览器验证。
+0.3.0 起该插件增加 Web Client 半（子代理会话的只读 provider/model chip）。从 Host-only 0.2.x 升级时，运行中的 dsh 会按 Loader specifier/baseURL 缓存包元数据（包括“不是 client”的负结论），必须**重启一次现有 dsh，再刷新现有页面**，新 client 才会被发现。
+
+0.3.1 将 chip 从标题栏移到输入框模型位旁：注册 additive 的 `conversation.input.right` 列表项，父会话该项返回 null，原生 `conversation.input.model` 单选模型选择器完全不变；任何渲染原生 composer 的位置都可使用该项，原生输入区被隐藏时该项也随之隐藏。升级客户端 bundle 后需刷新现有页面，若仍加载旧 bundle 则重启一次。本仓库没有前端 dev watcher，不保证 HMR。验证：纯 JS 单测，以及现有本地 Chrome CDP 的 390x844 窄屏主会话检查（非真实手机）：模型标识位于输入框、标题栏无模型标识，触摸父级面包屑可返回主会话，再从原生目录打开测试子会话；父会话原生模型选择器保留，均无横向溢出或 slot 错误。侧栏嵌入面板未单独实测；原局域网 GUI URL 匿名返回 401，未绕认证。
 
 ### dsh-mobile
 

@@ -2,14 +2,15 @@
 
 Pin every delegated child Agent to one LLM route, independent of the parent
 Agent's current route and of any per-call model choice. The same package also
-adds a read-only `provider/model` chip to the main conversation header of a
-subagent session, so the route a child *actually requested* is visible without
-opening the raw log.
+adds a read-only model chip to the composer's model row in a subagent session,
+so the route a child *actually requested* is visible without opening the raw
+log. The chip sits where the native model selector appears for a parent
+session; it does not replace that selector or register any header action.
 
 It ships as a DSH plugin **bundle**: install it once, then enable or disable it
 in the WebUI plugin manager like any other plugin. The bundle has a Host half
-(route pinning) and a build-free Web Client half (the header chip); both live in
-this one package.
+(route pinning) and a build-free Web Client half (the composer chip); both live
+in this one package.
 
 ## Why
 
@@ -46,20 +47,25 @@ and every local build/test require explicit authorization.
 
 > **Upgrading from the Host-only 0.2.x build:** the running dsh caches a
 > package's client metadata (including a negative "not a client" verdict) per
-> Loader specifier/baseURL until restart. This version adds `dsh.client` and
-> `client.js`, so **restart the existing dsh process once, then refresh the
-> existing page**. This installation has no frontend dev watcher; do not expect
-> HMR or a live client update. The change that added the client half was not
-> verified in a live browser session.
+> Loader specifier/baseURL until restart. 0.3.0 added `dsh.client` and
+> `client.js`, so upgrading from 0.2.x requires one restart of the existing
+> dsh process, then a refresh of the existing page.
+>
+> **Upgrading from 0.3.0:** 0.3.1 moves the read-only chip from
+> `conversation.session.header.actions` to the composer's additive
+> `conversation.input.right` list. Replace the package and reload the existing
+> page; if the running dsh still serves the cached client bundle, restart it
+> once. This installation has no frontend dev watcher, so do not expect HMR or
+> a live client update.
 
 After installation the bundle shows up in **设置 → 插件** with its localized
 title, description and icon, together with an enable/disable switch:
 
 - **关闭**: the loader entry is disabled (written as `disabled: true` in the
   profile's `cordis.patch.yml`); `subagents.startActivation` is restored and
-  children inherit routes again. The read-only header chip belongs to the same
-  entry; if the running client has not reloaded the package's client metadata,
-  the one-time restart above still applies.
+  children inherit routes again. The read-only composer chip belongs to the
+  same entry; if the running client has not reloaded the package's client
+  metadata, the one-time reload above still applies.
 - **开启**: the decoration is applied on the next reload; no DSH restart is
   needed when the profile uses `patchReload: live`. If the client half was never
   discovered by the running process, the one-time restart above still applies.
@@ -94,28 +100,39 @@ enabling it before configuring it cannot break the profile. Profile patches
 reload live (`patchReload: live`), so a config edit reaches the next delegation
 in a running session.
 
-## Header display
+## Composer display
 
-The client half registers one action in
-`conversation.session.header.actions`, which the main `ConversationHeader`
-renders, and displays a small read-only chip such as
-`cpa/cline-pass/deepseek-v4.1-flash · max`. It has no click target, no Host
-RPC, and no way to change a model; it only reads the session that is already
-open.
+The client half registers one entry in the additive
+`conversation.input.right` list. The composer renders that list immediately
+before the native `conversation.input.model` single seat, so on a subagent
+session the chip sits in the input box's model row, next to where the native
+model selector appears for a parent session. The parent-session entry returns
+nothing, and because this is an additive list the native selector is neither
+replaced nor hidden. The plugin does not register any header slot and never
+occupies the single model seat.
+
+The visible chip is intentionally compact: the last `/` segment of the route's
+model id plus the reasoning effort in a lighter separate span, for example
+`deepseek-v4.1-flash max`. The full route, such as
+`cpa/cline-pass/deepseek-v4.1-flash · max`, remains in `title`, the accessible
+label, and data attributes. Width is capped and the model text ellipsizes on a
+narrow screen. It has no click target, no chevron, no Host RPC, no navigation,
+and no draft/editor writes; it only reads the session that is already open.
 
 The display decision is deliberately narrow:
 
 1. `SessionSnapshot.subagent` must be non-null. Ordinary root sessions render
-   nothing, even if they have their own `request/header` events.
+   nothing, do not look up a child binding, and do not subscribe to its event
+   window; they even keep their own `request/header` events invisible.
 2. The durable `subagent` projection identity must exist. Its `seq` is the
    child's own descriptor position after the projection's fork-seed reset.
 3. The client reads the current `SessionEventWindow` through
    `sessions.binding(sessionId).eventSource` and takes the **latest**
    `request/header` whose `seq` is greater than `identity.seq`. That
    `header.config` is the route the child actually sent.
-4. Only then does it render `provider/model`, plus `reasoningEffort` when the
-   request carried one. Missing identity, a missing window, or no own request
-   header renders nothing.
+4. Only then does it render the compact model name and, when the request
+   carried one, the effort. Missing identity, a missing window, or no own
+   request header renders nothing.
 
 `modelSelection.lastUsed` is intentionally **not** used for the chip. Its fold
 also sees request headers inherited from a fork seed, and a `turn/end` event
@@ -130,14 +147,16 @@ own descriptor is appended before the child is published to the subagent
 catalog, so a visible child session has its own identity boundary. A completed
 turn without an own request header stays hidden.
 
-The slot is main-header-only. The subagent right-side panel renders
-`conversation.content` with the `embedded` variant and does not render
-`ConversationHeader`, so this chip does not appear there; no sidebar support is
-claimed. The projections and event window are still durable: an ended or
-read-only child shows the chip in the main header when its loaded window still
-contains its own request header, and stays hidden if that header was truncated
-away. Updates come from the event source subscription, so the chip follows a new
-request in the open session without a page reload.
+The entry rides the native composer's tool row, not a header. Any occurrence
+that renders that native composer, including an embedded `conversation.content`
+host, gets the same `input.right` entry. If the native UI hides or replaces the
+input area (for example, a one-shot record or an unavailable continuation
+owner), the chip is hidden with it; the plugin does not take over the native
+read-only explanation. An ended continuable child shows the chip while its
+composer is visible and its loaded window contains its own request header;
+it stays hidden if that header was truncated away. Updates come from the event
+source subscription, so the chip follows a new request in the open session
+without a page reload.
 
 ## Verify
 
@@ -155,13 +174,18 @@ and the warning `pin-subagent-model: overriding requested child route ...` is
 logged. Disable the plugin in the plugin manager, repeat the call, and the
 requested route is honoured again.
 
-For the header chip, open a child session in the main conversation area (the
-embedded right-hand chat does not render `ConversationHeader`). The chip appears
-once that child's own `request/header` is in the loaded window; a root session
-never shows it. The client half added in this version was exercised by the Node
-unit tests only — no live browser verification was performed, because the
-anonymous GUI request returns 401 and this task did not read credentials.
-Restart/refresh as described in **Install** before judging the running page.
+For the chip, open a child session and look at the composer's model row. The
+chip appears beside the model seat once that child's own `request/header` is in
+the loaded window; a root session never shows it and keeps the native model
+selector unchanged. Verification covers the pure-JS Node unit suite and the
+existing local Chrome CDP session at a 390x844 viewport (not a physical phone):
+the chip appeared in the composer, no chip appeared in the header, the parent
+breadcrumb was activated by touch, and the test child was reopened from the
+native catalog. The parent session retained its native model picker; neither
+session had horizontal page overflow or slot errors. The main conversation was
+verified; the embedded panel was not separately exercised. The original LAN GUI
+URL returns 401 anonymously, and authentication was not bypassed. Reload or
+restart as described in **Install** before judging the running page.
 
 ## Tradeoffs
 
@@ -184,7 +208,7 @@ Restart/refresh as described in **Install** before judging the running page.
 
 ```
 index.js            Host entry (apply / inject / name) — route pinning
-client.js           build-free Web Client entry — read-only header chip
+client.js           build-free Web Client entry — read-only composer chip
 cordis.patch.yml    bundle layer: inserts entry `pin-subagent-model`
 locale/{en,zh}.json plugin-manager card title and description
 assets/icon.svg     plugin-manager icon (exported as ./icon)

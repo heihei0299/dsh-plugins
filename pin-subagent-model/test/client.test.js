@@ -10,10 +10,28 @@ const manifest = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"
 const clientSource = readFileSync(path.join(root, "client.js"), "utf8");
 
 const PARENT_ROUTE = { provider: "cpa", model: "parent-model", reasoningEffort: "low" };
-const OWN_ROUTE = { provider: "cpa", model: "child-model", reasoningEffort: "max" };
-const LATER_OWN_ROUTE = { provider: "cpa", model: "child-model-v2" };
+const OWN_ROUTE = { provider: "cpa", model: "cline-pass/deepseek-v4.1-flash", reasoningEffort: "max" };
+const LATER_OWN_ROUTE = { provider: "cpa", model: "gpt-6.1-sol" };
+const PATH_ROUTE = { provider: "cpa", model: "accounts/team/gpt-6.1-sol", reasoningEffort: "xhigh" };
 const PENDING_ROUTE = { provider: "cpa", model: "pending-model" };
+const CHILD = { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "continuable" } };
+const OTHER_CHILD = { address: { parentSessionId: "parent", childSessionId: "child-2", mode: "continuable" } };
 const CHILD_IDENTITY = { mode: "continuable", label: "task", seq: 10 };
+const OTHER_CHILD_IDENTITY = { mode: "continuable", label: "task", seq: 20 };
+
+const FORBIDDEN_PROPS = new Set([
+	"useInput",
+	"inputActions",
+	"useConversation",
+	"useChat",
+	"navigation",
+	"editor",
+	"setDraft",
+	"setText",
+	"selectModel",
+	"retain",
+	"send"
+]);
 
 let loaded;
 
@@ -56,13 +74,14 @@ function loadClient() {
 	return loaded;
 }
 
-/** Minimal client context capturing the registration and cleanup calls. */
-function fakeCtx() {
+/** Minimal client context capturing registration and cleanup calls. */
+function fakeCtx(sessions = { binding() {} }) {
 	const ctx = {
 		effects: [],
 		locales: [],
 		injected: [],
 		registrations: [],
+		sessions,
 		effect(factory) {
 			const dispose = factory();
 			ctx.effects.push(dispose);
@@ -86,13 +105,18 @@ function fakeCtx() {
 				ctx.registrations.push({ options, component });
 				return () => {};
 			}
-		},
-		sessions: {
-			binding() {
-				return undefined;
-			}
 		}
 	};
+	// The plugin must never reach for navigation or editor services. These getters
+	// turn any such access during apply into a test failure.
+	for (const name of ["navigation", "editor", "inputActions"]) {
+		Object.defineProperty(ctx, name, {
+			enumerable: false,
+			get() {
+				throw new Error(`plugin must not read ctx.${name}`);
+			}
+		});
+	}
 	return ctx;
 }
 
@@ -119,14 +143,22 @@ function eventWindow(entries, hasMore = false) {
 	};
 }
 
-/** Render the registered header component with explicit standard props. */
+/** Props that fail the test if the component reaches outside its read-only contract. */
+function guardedProps(values) {
+	return new Proxy(values, {
+		get(target, key, receiver) {
+			if (typeof key === "string" && FORBIDDEN_PROPS.has(key)) {
+				throw new Error(`component must not read ${key}`);
+			}
+			return Reflect.get(target, key, receiver);
+		}
+	});
+}
+
+/** Render the registered composer entry with explicit standard and injected props. */
 function renderBadge({ subagent, identity, window, projections = {}, sessionId = "child-1" }) {
 	const { plugin, React } = loadClient();
 	React.lastStop = undefined;
-	const ctx = fakeCtx();
-	plugin.apply(ctx);
-	const component = ctx.registrations[0]?.component;
-	assert.equal(typeof component, "function", "apply must register the header component");
 	let source;
 	if (window !== undefined) {
 		source = {
@@ -147,24 +179,40 @@ function renderBadge({ subagent, identity, window, projections = {}, sessionId =
 			}
 		};
 	}
-	const sessions = {
+	const sessions = new Proxy({
+		bindingCalls: [],
 		binding(id) {
+			sessions.bindingCalls.push(id);
 			return id === sessionId && source !== undefined ? { eventSource: source } : undefined;
 		}
-	};
+	}, {
+		get(target, key, receiver) {
+			if (key !== "binding" && typeof key === "string" && !key.startsWith("binding")) {
+				throw new Error(`component must not read sessions.${key}`);
+			}
+			return Reflect.get(target, key, receiver);
+		}
+	});
+	const ctx = fakeCtx(sessions);
+	plugin.apply(ctx);
+	const registration = ctx.registrations[0];
+	assert.ok(registration, "apply must register the composer entry");
+	assert.equal(typeof registration.component, "function");
+	const injected = registration.options.inject();
+	assert.equal(injected.sessions, sessions, "the entry must use the injected sessions face");
 	const requested = [];
 	const values = { subagent: identity, ...projections };
-	const badge = component({
+	const badge = registration.component(guardedProps({
 		sessionId,
-		sessions,
+		sessions: injected.sessions,
 		useSession: (selector) => selector({ subagent }),
 		useProjection: (key) => {
 			requested.push(key);
 			return values[key];
 		},
 		t: (key) => key
-	});
-	return { badge, requested, source, stop: React.lastStop };
+	}));
+	return { badge, requested, source, sessions, stop: React.lastStop };
 }
 
 test("registers one lazy factory for the package and injects the client services", () => {
@@ -177,7 +225,7 @@ test("registers one lazy factory for the package and injects the client services
 	assert.deepEqual(Array.from(plugin.inject), ["slots", "locale", "sessions"]);
 });
 
-test("registers the localized header action and tears the locale row down", () => {
+test("registers only the additive composer input-right list entry", () => {
 	const { plugin } = loadClient();
 	const ctx = fakeCtx();
 	plugin.apply(ctx);
@@ -186,22 +234,27 @@ test("registers the localized header action and tears the locale row down", () =
 	assert.equal(ctx.locales[0].namespace, "pin-subagent-model");
 	assert.equal(ctx.locales[0].dictionaries.en["model.label"], "Subagent model");
 	assert.equal(ctx.locales[0].dictionaries.zh["model.label"], "子代理模型");
-	assert.deepEqual(ctx.injected, ["conversation.session.header.actions"]);
-	assert.equal(ctx.registrations.length, 1);
+	assert.deepEqual(ctx.injected, ["conversation.input.right"]);
+	assert.equal(ctx.registrations.length, 1, "the plugin must contribute exactly one slot entry");
 	const { options } = ctx.registrations[0];
-	assert.equal(options.name, "conversation.session.header.actions");
+	assert.equal(options.name, "conversation.input.right");
 	assert.equal(options.id, "pin-subagent-model");
-	assert.equal(options.order, 0);
+	assert.equal(options.order, 100);
 	assert.equal(options.locale, "pin-subagent-model");
 	assert.equal(typeof options.inject, "function");
-	const injected = options.inject();
-	assert.equal(injected.sessions, ctx.sessions);
+	assert.deepEqual(Object.keys(options.inject()), ["sessions"]);
+	assert.equal(ctx.injected.includes("conversation.input.model"), false,
+		"the native single model seat must never be registered or replaced");
+	assert.equal(ctx.injected.some((name) => name.startsWith("conversation.session.header")), false,
+		"the plugin must not contribute any header slot");
+	assert.doesNotMatch(clientSource, /conversation\.session\.header/,
+		"the client source must contain no header registration");
 	ctx.effects[0]();
 	assert.equal(ctx.locales[0].removed, true, "disposing the plugin must remove the locale row");
 });
 
-test("renders nothing on an ordinary root session, even with a request window", () => {
-	const { badge, requested } = renderBadge({
+test("renders nothing on an ordinary root session and does not borrow its event source", () => {
+	const { badge, requested, source, sessions } = renderBadge({
 		subagent: null,
 		identity: CHILD_IDENTITY,
 		window: eventWindow([requestHeader(11, OWN_ROUTE)]),
@@ -209,12 +262,15 @@ test("renders nothing on an ordinary root session, even with a request window", 
 	});
 	assert.equal(badge, null);
 	assert.deepEqual(requested, ["subagent"]);
+	assert.equal(source.subscribes, 0, "a root session must not subscribe to a child event window");
+	assert.equal(source.snapshots, 0, "a root session must not read a child event window");
+	assert.deepEqual(sessions.bindingCalls, [], "a root session must not look up a child binding");
 });
 
 test("renders nothing without a child descriptor identity", () => {
 	for (const identity of [null, undefined]) {
 		const { badge } = renderBadge({
-			subagent: { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "unknown" } },
+			subagent: CHILD,
 			identity,
 			window: eventWindow([requestHeader(11, OWN_ROUTE)])
 		});
@@ -224,7 +280,7 @@ test("renders nothing without a child descriptor identity", () => {
 
 test("does not treat a completed turn without its own request header as a model call", () => {
 	const { badge, requested } = renderBadge({
-		subagent: { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "continuable" } },
+		subagent: CHILD,
 		identity: CHILD_IDENTITY,
 		// A turn can end without any child request/header, and lastUsed can still
 		// carry the fork seed's parent route. Hide rather than report the parent.
@@ -240,7 +296,7 @@ test("does not treat a completed turn without its own request header as a model 
 
 test("does not display a fork seed's inherited lastUsed without an own request", () => {
 	const { badge } = renderBadge({
-		subagent: { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "continuable" } },
+		subagent: CHILD,
 		identity: CHILD_IDENTITY,
 		window: eventWindow([
 			requestHeader(3, PARENT_ROUTE),
@@ -253,7 +309,7 @@ test("does not display a fork seed's inherited lastUsed without an own request",
 
 test("shows the child's own request header before the first turn completes", () => {
 	const { badge } = renderBadge({
-		subagent: { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "continuable" } },
+		subagent: CHILD,
 		identity: CHILD_IDENTITY,
 		window: eventWindow([
 			requestHeader(5, PARENT_ROUTE),
@@ -261,14 +317,58 @@ test("shows the child's own request header before the first turn completes", () 
 		])
 	});
 	assert.ok(badge, "the own request header is sufficient evidence during the first turn");
-	assert.equal(badge.props["data-subagent-model"], "cpa/child-model · max");
-	assert.equal(badge.props.title, "cpa/child-model · max");
-	assert.equal(badge.props["aria-label"], "model.label: cpa/child-model · max");
+	assert.equal(badge.type, "span");
+	assert.equal(badge.props.role, "note");
+	assert.equal(badge.props["data-subagent-model"], "cpa/cline-pass/deepseek-v4.1-flash · max");
+	assert.equal(badge.props["data-subagent-model-short"], "deepseek-v4.1-flash");
+	assert.equal(badge.props["data-subagent-effort"], "max");
+	assert.equal(badge.props.title, "cpa/cline-pass/deepseek-v4.1-flash · max");
+	assert.equal(badge.props["aria-label"], "model.label: cpa/cline-pass/deepseek-v4.1-flash · max");
+	assert.match(String(badge.props.style.maxWidth), /vw/, "the chip must stay narrow on phones");
+	assert.equal(badge.children.length, 2);
+	assert.equal(badge.children[0].type, "span");
+	assert.deepEqual(badge.children[0].children, ["deepseek-v4.1-flash"]);
+	assert.equal(badge.children[0].props["aria-hidden"], true);
+	assert.equal(badge.children[0].props.style.textOverflow, "ellipsis");
+	assert.equal(badge.children[1].type, "span");
+	assert.deepEqual(badge.children[1].children, ["max"]);
+	assert.match(badge.children[1].props.style.color, /label-tertiary/);
+	for (const key of ["onClick", "onKeyDown", "onMouseDown", "tabIndex", "href", "aria-haspopup"]) {
+		assert.equal(badge.props[key], undefined, `the chip must have no ${key}`);
+	}
+	assert.equal(badge.children.some((child) => child?.props?.onClick !== undefined), false);
+	assert.equal(badge.children.some((child) => child?.props?.role === "button"), false);
+});
+
+test("keeps the full route in the tooltip while showing only the last model segment", () => {
+	const { badge } = renderBadge({
+		subagent: CHILD,
+		identity: CHILD_IDENTITY,
+		window: eventWindow([requestHeader(12, PATH_ROUTE)])
+	});
+	assert.ok(badge);
+	assert.equal(badge.props["data-subagent-model"], "cpa/accounts/team/gpt-6.1-sol · xhigh");
+	assert.equal(badge.props["data-subagent-model-short"], "gpt-6.1-sol");
+	assert.equal(badge.props.title, "cpa/accounts/team/gpt-6.1-sol · xhigh");
+	assert.deepEqual(badge.children[0].children, ["gpt-6.1-sol"]);
+	assert.deepEqual(badge.children[1].children, ["xhigh"]);
+});
+
+test("omits the effort span when the request carried no effort", () => {
+	const { badge } = renderBadge({
+		subagent: CHILD,
+		identity: CHILD_IDENTITY,
+		window: eventWindow([requestHeader(12, LATER_OWN_ROUTE)])
+	});
+	assert.ok(badge);
+	assert.equal(badge.props["data-subagent-model"], "cpa/gpt-6.1-sol");
+	assert.equal(badge.props["data-subagent-effort"], undefined);
+	assert.equal(badge.children.length, 1);
 });
 
 test("subscribes once to the retained event source and releases it on stop", () => {
 	const { badge, source, stop } = renderBadge({
-		subagent: { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "continuable" } },
+		subagent: CHILD,
 		identity: CHILD_IDENTITY,
 		window: eventWindow([requestHeader(12, OWN_ROUTE)])
 	});
@@ -283,7 +383,7 @@ test("subscribes once to the retained event source and releases it on stop", () 
 
 test("uses the actual request header even when modelSelection has not caught up", () => {
 	const { badge } = renderBadge({
-		subagent: { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "continuable" } },
+		subagent: CHILD,
 		identity: CHILD_IDENTITY,
 		window: eventWindow([requestHeader(12, OWN_ROUTE)]),
 		// The projection may still be on another frame, or may carry a pending
@@ -291,12 +391,12 @@ test("uses the actual request header even when modelSelection has not caught up"
 		projections: { modelSelection: { lastUsed: PENDING_ROUTE, next: PENDING_ROUTE } }
 	});
 	assert.ok(badge);
-	assert.equal(badge.props["data-subagent-model"], "cpa/child-model · max");
+	assert.equal(badge.props["data-subagent-model"], "cpa/cline-pass/deepseek-v4.1-flash · max");
 });
 
 test("follows the latest own request header as the session updates", () => {
 	const { badge } = renderBadge({
-		subagent: { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "continuable" } },
+		subagent: CHILD,
 		identity: CHILD_IDENTITY,
 		window: eventWindow([
 			requestHeader(12, OWN_ROUTE),
@@ -304,13 +404,13 @@ test("follows the latest own request header as the session updates", () => {
 		], true)
 	});
 	assert.ok(badge);
-	assert.equal(badge.props["data-subagent-model"], "cpa/child-model-v2");
+	assert.equal(badge.props["data-subagent-model"], "cpa/gpt-6.1-sol");
 });
 
 test("renders nothing when no retained binding exposes an event window", () => {
-	const { badge } = renderBadge({
-		subagent: { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "one-shot" } },
-		identity: { mode: "one-shot", seq: 10 },
+	const { badge, sessions } = renderBadge({
+		subagent: CHILD,
+		identity: CHILD_IDENTITY,
 		window: undefined,
 		projections: {
 			modelSelection: { lastUsed: OWN_ROUTE, next: OWN_ROUTE },
@@ -318,6 +418,42 @@ test("renders nothing when no retained binding exposes an event window", () => {
 		}
 	});
 	assert.equal(badge, null);
+	assert.deepEqual(sessions.bindingCalls, ["child-1"]);
+});
+
+test("child, parent, and another child never share a previous route", () => {
+	const first = renderBadge({
+		subagent: CHILD,
+		identity: CHILD_IDENTITY,
+		window: eventWindow([requestHeader(12, OWN_ROUTE)]),
+		sessionId: "child-1"
+	});
+	assert.equal(first.badge.props["data-subagent-model"], "cpa/cline-pass/deepseek-v4.1-flash · max");
+
+	const parent = renderBadge({
+		subagent: null,
+		identity: CHILD_IDENTITY,
+		window: eventWindow([requestHeader(12, OWN_ROUTE)]),
+		sessionId: "parent"
+	});
+	assert.equal(parent.badge, null);
+	assert.deepEqual(parent.sessions.bindingCalls, []);
+
+	const otherEmpty = renderBadge({
+		subagent: OTHER_CHILD,
+		identity: OTHER_CHILD_IDENTITY,
+		window: eventWindow([]),
+		sessionId: "child-2"
+	});
+	assert.equal(otherEmpty.badge, null, "a different child must not inherit the previous child's route");
+
+	const other = renderBadge({
+		subagent: OTHER_CHILD,
+		identity: OTHER_CHILD_IDENTITY,
+		window: eventWindow([requestHeader(22, PATH_ROUTE)]),
+		sessionId: "child-2"
+	});
+	assert.equal(other.badge.props["data-subagent-model"], "cpa/accounts/team/gpt-6.1-sol · xhigh");
 });
 
 test("lastOwnRequestHeader ignores inherited and transient entries", () => {
@@ -327,24 +463,26 @@ test("lastOwnRequestHeader ignores inherited and transient entries", () => {
 		{ type: "transient", event: { type: "assistant/live-chunk", seq: 11, time: 11, data: {} } },
 		requestHeader(12, OWN_ROUTE)
 	]);
-	assert.equal(plugin.lastOwnRequestHeader(window, CHILD_IDENTITY).model, "child-model");
+	assert.equal(plugin.lastOwnRequestHeader(window, CHILD_IDENTITY).model, "cline-pass/deepseek-v4.1-flash");
 	const unordered = eventWindow([
 		requestHeader(15, LATER_OWN_ROUTE),
 		requestHeader(12, OWN_ROUTE)
 	]);
-	assert.equal(plugin.lastOwnRequestHeader(unordered, CHILD_IDENTITY).model, "child-model-v2");
+	assert.equal(plugin.lastOwnRequestHeader(unordered, CHILD_IDENTITY).model, "gpt-6.1-sol");
 	assert.equal(plugin.lastOwnRequestHeader(window, { mode: "continuable", label: "task", seq: 12 }), null);
 	assert.equal(plugin.lastOwnRequestHeader(undefined, CHILD_IDENTITY), null);
 	assert.equal(plugin.lastOwnRequestHeader({ entries: undefined }, CHILD_IDENTITY), null);
 });
 
-test("selectActualRoute is the single display decision", () => {
+test("selectActualRoute and the compact formatter are the single display decision", () => {
 	const { plugin } = loadClient();
-	const child = { address: { parentSessionId: "parent", childSessionId: "child-1", mode: "continuable" } };
 	assert.equal(plugin.selectActualRoute(null, CHILD_IDENTITY, OWN_ROUTE), null);
-	assert.equal(plugin.selectActualRoute(child, null, OWN_ROUTE), null);
-	assert.equal(plugin.selectActualRoute(child, CHILD_IDENTITY, null), null);
-	assert.equal(plugin.selectActualRoute(child, CHILD_IDENTITY, OWN_ROUTE), OWN_ROUTE);
-	assert.equal(plugin.routeText(OWN_ROUTE), "cpa/child-model · max");
+	assert.equal(plugin.selectActualRoute(CHILD, null, OWN_ROUTE), null);
+	assert.equal(plugin.selectActualRoute(CHILD, CHILD_IDENTITY, null), null);
+	assert.equal(plugin.selectActualRoute(CHILD, CHILD_IDENTITY, OWN_ROUTE), OWN_ROUTE);
+	assert.equal(plugin.routeText(OWN_ROUTE), "cpa/cline-pass/deepseek-v4.1-flash · max");
 	assert.equal(plugin.routeText({ provider: "cpa", model: "plain" }), "cpa/plain");
+	assert.equal(plugin.shortModelName(OWN_ROUTE), "deepseek-v4.1-flash");
+	assert.equal(plugin.shortModelName({ provider: "cpa", model: "plain" }), "plain");
+	assert.equal(plugin.shortModelName({ provider: "cpa", model: "team/path/" }), "path");
 });
