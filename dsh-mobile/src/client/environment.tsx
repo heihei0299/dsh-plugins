@@ -23,6 +23,34 @@ export interface ActivationState {
 
 const INACTIVE: ActivationState = Object.freeze({ active: false, settings: undefined, drawerClosed: true });
 
+/**
+ * Compare resolved settings by value.
+ *
+ * `readSettings` intentionally sanitises the Host value, so it allocates a new
+ * object on every read. Reference equality would therefore report a change on
+ * every resize even when the settings never moved.
+ * @param a - previously published settings.
+ * @param b - newly resolved settings.
+ * @returns true when every field matches.
+ */
+function sameSettings(a: MobileSettings | undefined, b: MobileSettings | undefined): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return a.mode === b.mode
+    && a.drawerNavigation === b.drawerNavigation
+    && a.comfortableTargets === b.comfortableTargets;
+}
+
+/**
+ * Snapshot equality for React: settings by value, activation and drawer by value.
+ * @param a - the published snapshot.
+ * @param b - the freshly resolved one.
+ * @returns true when subscribers would see no change.
+ */
+function sameState(a: ActivationState, b: ActivationState): boolean {
+  return a.active === b.active && a.drawerClosed === b.drawerClosed && sameSettings(a.settings, b.settings);
+}
+
 export const ActivationContext = React.createContext<ActivationState>(INACTIVE);
 
 export function useEnvironment(): Environment {
@@ -79,7 +107,7 @@ export function createActivationSource(form: ConfigForm, attach: (factory: () =>
   }
   function publish(): void {
     const next = resolveNow();
-    if (next.active === cached.active && next.settings === cached.settings && next.drawerClosed === cached.drawerClosed) return;
+    if (sameState(cached, next)) return;
     cached = next;
     for (const listener of listeners) listener();
   }
@@ -104,6 +132,62 @@ export function createActivationSource(form: ConfigForm, attach: (factory: () =>
     },
     getSnapshot: () => cached,
   };
+}
+
+/**
+ * Whether two snapshots need the same document-level installation.
+ *
+ * Drawer open/closed is deliberately absent: it only changes what React paints,
+ * not the stylesheet, viewport meta or keyboard listener. `mode` is absent too,
+ * because it has already done its job by deciding `active`.
+ * @param a - the snapshot the document was built from.
+ * @param b - the snapshot React just observed.
+ * @returns true when the installed effects can stay untouched.
+ */
+function sameDocumentEffects(a: ActivationState, b: ActivationState): boolean {
+  if (a.active !== b.active) return false;
+  if (!a.active) return true;
+  return a.settings?.drawerNavigation === b.settings?.drawerNavigation
+    && a.settings?.comfortableTargets === b.settings?.comfortableTargets;
+}
+
+/**
+ * Keep the document-level effects in step with an activation source.
+ *
+ * A drawer toggle wakes React through the source, but must not tear the
+ * stylesheet down and rebuild it: that is the frame the host is already busy
+ * animating. Only an activation flip or a change to the settings the installed
+ * effects are built from causes a dispose/install pair, always in that order.
+ * @param source - the activation store.
+ * @param install - installs the effects for one active state.
+ * @param attach - registers the teardown with the calling fiber.
+ * @returns the teardown disposer.
+ */
+export function observeDocumentActivation(
+  source: ActivationSource,
+  install: (settings: MobileSettings) => Disposer,
+  attach: (factory: () => Disposer) => Disposer,
+): Disposer {
+  return attach(() => {
+    let disposeInstalled: Disposer | undefined;
+    let installed: ActivationState | undefined;
+    const reconcile = (): void => {
+      const state = source.getSnapshot();
+      if (installed !== undefined && sameDocumentEffects(installed, state)) return;
+      disposeInstalled?.();
+      disposeInstalled = undefined;
+      installed = state;
+      if (state.active && state.settings !== undefined) disposeInstalled = install(state.settings);
+    };
+    const unsubscribe = source.subscribe(reconcile);
+    reconcile();
+    return () => {
+      unsubscribe();
+      disposeInstalled?.();
+      disposeInstalled = undefined;
+      installed = undefined;
+    };
+  });
 }
 
 /**

@@ -48,6 +48,8 @@ export const CONVERSATION_HEADER = '[data-slot="conversation.header"] > header';
 
 /** The composer card and the two button groups raised to a touch target. */
 export const COMPOSER_CARD = '[data-composer-card]';
+/** Resident Lexical editing surface, not a textarea. */
+export const COMPOSER_INPUT = '[data-composer-input][contenteditable="true"]';
 export const COMPOSER_BUTTONS = '[data-composer-card] button';
 export const MESSAGE_ACTIONS = '[data-actions-reveal] button';
 
@@ -88,6 +90,7 @@ export const HOST_LANDMARKS: readonly { readonly name: string; readonly selector
   { name: 'column handles', selector: COLUMN_HANDLES },
   { name: 'conversation header', selector: CONVERSATION_HEADER },
   { name: 'composer card', selector: COMPOSER_CARD },
+  { name: 'composer editing surface', selector: COMPOSER_INPUT },
   { name: 'message actions', selector: MESSAGE_ACTIONS },
   { name: 'conversation scrollport', selector: CONVERSATION_SCROLL },
   { name: 'wide markdown table', selector: WIDE_TABLE },

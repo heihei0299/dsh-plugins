@@ -1,5 +1,5 @@
 import {
-  CENTER_COLUMN, COLUMN_HANDLES, COMPOSER_BUTTONS, CONVERSATION_HEADER, CONVERSATION_SCROLL,
+  CENTER_COLUMN, COLUMN_HANDLES, COMPOSER_BUTTONS, COMPOSER_INPUT, CONVERSATION_HEADER, CONVERSATION_SCROLL,
   FRAME, MESSAGE_ACTIONS, RIGHTBAR_COLUMN, SIDEBAR_COLUMN, SIDEBAR_COLUMN_OF_FRAME,
   TABLE_WRAPPER, WIDE_TABLE,
 } from './landmarks.js';
@@ -110,7 +110,7 @@ export function buildStyles(options: StyleOptions): string {
 
   // Touch devices have no hover, so the host's hover-to-scroll table widening
   // never triggers: a 4+ column table stays clipped with no way to reach it.
-  rules.push(`${scope} ${WIDE_TABLE},${scope} ${TABLE_WRAPPER}{overflow-x:auto!important;overscroll-behavior-x:contain;touch-action:pan-x pan-y;padding-bottom:0!important}`);
+  rules.push(`${scope} ${WIDE_TABLE},${scope} ${TABLE_WRAPPER}{overflow-x:auto!important;overscroll-behavior-x:contain;touch-action:pan-x pan-y pinch-zoom;padding-bottom:0!important}`);
 
   rules.push(`${scope} :is(button,[role="button"],summary,a[href]){touch-action:manipulation}`);
 
@@ -123,9 +123,9 @@ export function buildStyles(options: StyleOptions): string {
     rules.push(`${scope} ${COMPOSER_BUTTONS},${scope} ${MESSAGE_ACTIONS}{min-width:${target};min-height:${target}}`);
   }
 
-  // iOS zooms the viewport when a focused field is under 16px; the host's own
-  // inputs are 13.33px, and only the coarse-pointer case is affected.
-  rules.push(`@media (pointer:coarse){${scope} :is(input,textarea,select){font-size:16px!important}}`);
+  // Include the resident contenteditable composer, not just native form fields.
+  // Preserve browser zoom; avoiding focus zoom must not disable pinch zoom.
+  rules.push(`@media (pointer:coarse){${scope} :is(input,textarea,select,${COMPOSER_INPUT}){font-size:16px!important}}`);
 
   // The toggle sits in the conversation header's own leading seat, so it takes
   // real layout space and the session title starts after it. A floating button
@@ -134,11 +134,14 @@ export function buildStyles(options: StyleOptions): string {
   // controls; sizes use the host's fast tier for press feedback.
   rules.push(`.dsh-mobile-toggle{display:grid;place-items:center;width:${TAP_TARGET}px;height:${TAP_TARGET}px;flex:none;border:0;border-radius:999px;cursor:pointer;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-overlay,#fff));box-shadow:0 2px 10px rgb(0 0 0 / 18%);touch-action:manipulation;-webkit-app-region:no-drag;transform:scale(1);transition:transform var(--ds-transition-duration-fast,.1s) var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
   rules.push(`.dsh-mobile-toggle:active{background:var(--dsw-alias-interactive-bg-hover-solid,var(--dsw-alias-bg-layer-2,#f3f3f3));transform:scale(.92)}`);
-  // The scrim stays mounted and floats over the whole frame — it is the one
-  // element that genuinely must cover the header too. It mirrors sidebar's `.15s`
-  // opacity fade and delayed visibility, so it clears as the drawer slides out.
-  rules.push(`.dsh-mobile-scrim{position:fixed;inset:0;z-index:39;pointer-events:none;border:0;padding:0;margin:0;background:rgb(0 0 0 / 38%);touch-action:none;cursor:pointer;opacity:0;visibility:hidden;transition:opacity .15s var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1)),visibility 0s linear .15s}`);
-  rules.push(`.dsh-mobile-scrim[data-open]{pointer-events:auto;opacity:1;visibility:visible;transition:opacity .15s var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
+  // Global panels replace the conversation header. Keep their navigation entry
+  // in a safe-area-aware bottom corner instead of covering a panel's title.
+  rules.push(`.dsh-mobile-toggle-fallback{position:fixed;inset-inline-start:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:38;pointer-events:auto}`);
+  // Keep the scrim in hit-testing throughout the drawer's exit. Delayed
+  // visibility hides it only once the shared slide/fade duration has elapsed;
+  // an initially closed (hidden) scrim still cannot intercept any input.
+  rules.push(`.dsh-mobile-scrim{position:fixed;inset:0;z-index:39;pointer-events:auto;border:0;padding:0;margin:0;background:rgb(0 0 0 / 38%);touch-action:none;cursor:pointer;opacity:0;visibility:hidden;transition:opacity ${SLIDE_DURATION} ${SLIDE_EASING},visibility 0s linear ${SLIDE_DURATION}}`);
+  rules.push(`.dsh-mobile-scrim[data-open]{opacity:1;visibility:visible;transition:opacity ${SLIDE_DURATION} ${SLIDE_EASING}}`);
   rules.push(`@media (prefers-reduced-motion:reduce){.dsh-mobile-toggle,.dsh-mobile-scrim,.dsh-mobile-scrim[data-open]{transition:none}}`);
 
   return `${rules.join('\n')}\n`;

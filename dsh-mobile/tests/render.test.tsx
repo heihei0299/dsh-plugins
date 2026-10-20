@@ -5,17 +5,21 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import en from '../locale/en.json' with { type: 'json' };
 import zh from '../locale/zh.json' with { type: 'json' };
 import { ActivationContext, EnvironmentContext, type Environment } from '../src/client/environment.js';
-import { DrawerScrim, DrawerToggle } from '../src/client/Drawer.js';
+import { DrawerFallbackToggle, DrawerScrim, DrawerToggle } from '../src/client/Drawer.js';
 import { Settings } from '../src/client/Settings.js';
 import { DEFAULT_SETTINGS, type MobileSettings } from '../src/shared/types.js';
 import type { ClientContext, ConfigSnapshot } from '../src/client/contracts.js';
 
 const locale = { active: 'en', revision: 0 };
+let panelInfo: { activePanelId: string | null } = { activePanelId: null };
 function environment(calls: string[]): Environment {
   return {
     ctx: {
       locale: { getSnapshot: () => locale, subscribe: () => () => {} },
-      layout: { toggleSidebar: () => { calls.push('toggleSidebar'); } },
+      layout: {
+        toggleSidebar: () => { calls.push('toggleSidebar'); },
+        panelInfo: { getSnapshot: () => panelInfo, subscribe: () => () => {} },
+      },
     } as unknown as ClientContext,
     form: { getSnapshot: () => snapshot, subscribe: () => () => {}, set: async () => true },
     t: (key, values) => {
@@ -70,7 +74,20 @@ test('the toggle is a real button with an accessible name, not a div with a hand
   const html = render(<DrawerToggle />, true, { ...DEFAULT_SETTINGS }, true);
   assert.match(html, /^<button type="button"/);
   assert.match(html, /aria-controls="dsh-mobile-drawer"/);
+  assert.match(html, /aria-haspopup="dialog"/);
   assert.match(html, /<svg[^>]*aria-hidden="true"/);
+});
+
+test('global panels keep a navigation entry without duplicating the conversation header toggle', () => {
+  try {
+    assert.equal(render(<DrawerFallbackToggle />, true, { ...DEFAULT_SETTINGS }, true), '');
+    panelInfo = { activePanelId: 'subagents' };
+    assert.match(render(<DrawerFallbackToggle />, true, { ...DEFAULT_SETTINGS }, true), /class="dsh-mobile-toggle dsh-mobile-toggle-fallback"/);
+    assert.equal(render(<DrawerFallbackToggle />, false, undefined, true), '');
+    assert.equal(render(<DrawerFallbackToggle />, true, { ...DEFAULT_SETTINGS, drawerNavigation: false }, true), '');
+  } finally {
+    panelInfo = { activePanelId: null };
+  }
 });
 
 test('settings exposes all three fields and the current values', () => {

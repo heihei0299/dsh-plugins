@@ -45,9 +45,23 @@ export interface SlotOptions {
   order?: number;
 }
 
+/** Read-only host source; navigation ownership remains with the host. */
+export interface HostSource<T> {
+  getSnapshot(): T;
+  subscribe(listener: () => void): Disposer;
+}
+
 /** `ctx.layout` face this plugin uses: the host still owns every geometry decision. */
 export interface LayoutService {
+  readonly panelInfo: HostSource<{ readonly activePanelId: string | null }>;
   toggleSidebar(): void;
+}
+
+/** The same public main-view ownership projection used by the host's session tree. */
+export interface SessionsService {
+  readonly list: HostSource<{
+    readonly byId: Readonly<Record<string, { readonly retainedBy: { readonly mainView?: number } }>>;
+  }>;
 }
 
 export interface ClientContext {
@@ -59,4 +73,5 @@ export interface ClientContext {
   locale: LocaleService;
   configForms: { get(id: string): ConfigForm };
   layout: LayoutService;
+  sessions: SessionsService;
 }

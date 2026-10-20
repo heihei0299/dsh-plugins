@@ -46,7 +46,9 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 
 - **依赖宿主 DOM 地标**，不依赖哈希类名。全部集中在 [`src/client/landmarks.ts`](<src/client/landmarks.ts>)，并由两道机械检查守护（构建产物断言 + `dsh-compat-check`）。地标缺失时样式自然不命中，插件退化为「只是多一个按钮」，不抛异常。
 - **抽屉状态是宿主自己的**。插件只调用公开的 `ctx.layout.toggleSidebar()`，并读宿主写在帧上的 `data-sidebar-collapsed`，不另存一份状态。
-- **抽屉不做位移动画**。实测：宿主重排网格轨道期间，该列的 `transform` transition 会被创建但永远停在 `currentTime:0`，抽屉会卡在屏外。所以这条列上不加 `transition`。
+- **抽屉使用宿主的滑动时长与缓动**，遮罩按相同时长淡出，退出完成前仍拦截触摸；关闭过程中的重复遮罩点击不会重新打开抽屉。开关抽屉及不影响启用状态的窗口缩放，不重装样式、viewport 或键盘监听。
+- **抽屉具有模态焦点管理**：进入时聚焦内部控件，Tab 在抽屉内循环，Esc 关闭，退出时恢复焦点；宿主菜单/弹窗优先处理自己的键盘与焦点。会话主视图或全局面板成功切换后收起，不因展开分组或无关列表更新收起；没有对话头部的全局面板保留底角导航按钮，避免收起后失去入口。
+- **键盘补偿保留页面缩放**：页面放大时不把可视视口缩小误认成键盘；视口事件按帧合并，仅补偿值变化时写入。输入框的 16px 规则覆盖实际 contenteditable 编辑器，宽表格允许双指缩放。
 - **View 标签（对话/轨迹）不放大**。实测把它们升到 44px 会让头部从 76px 涨到 95px——用 19px 常驻阅读空间换很少点的两个标签，不划算。
 - **头部只改横向内边距**（20/28px → 12px）。改 `min-height` 反而让两行头部更高（76→80px）。
 - **抽屉宽度取 `min(86vw, 320px)`**，不使用宿主拖拽出的宽度偏好。
@@ -58,7 +60,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 ```bash
 pnpm install
 pnpm run typecheck
-pnpm test                # 48 项，串行
+pnpm test                # 回归用例，串行
 pnpm run build           # dist/host/index.js + dist/client.js
 pnpm run verify:bundle   # 惰性 factory、仅宿主 React、地标契约、注册与清理
 ```

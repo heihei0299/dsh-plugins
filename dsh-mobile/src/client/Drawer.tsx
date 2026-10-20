@@ -1,49 +1,60 @@
 import * as React from 'react';
-import { ActivationContext, useEnvironment } from './environment.js';
+import { ActivationContext, isDrawerClosed, useEnvironment } from './environment.js';
+import { DRAWER_ID, installDrawerInteraction, installDrawerTarget } from './install-drawer.js';
 
 /**
- * Floating navigation control for the drawer layout.
+ * Header navigation control for the drawer layout.
  *
  * The host keeps ownership of the sidebar state: this only calls
  * `ctx.layout.toggleSidebar()`, the same action the host's own collapse button
- * and Mod+B shortcut use. Rendered into the frame-wide overlay layer, which is
- * click-through until a child opts back into pointer events.
+ * and Mod+B shortcut use. It occupies the header's leading seat.
  * @returns the toggle button, or nothing while the mobile layout is inactive.
  */
-export function DrawerToggle() {
+export function DrawerToggle({ floating = false }: { floating?: boolean } = {}) {
   const { ctx, t } = useEnvironment();
   const activation = React.useContext(ActivationContext);
   if (!activation.active || activation.settings?.drawerNavigation !== true) return null;
   const label = activation.drawerClosed ? t('nav.open') : t('nav.close');
-  return <button type="button" className="dsh-mobile-toggle" aria-label={label} title={label}
-    aria-expanded={!activation.drawerClosed} aria-controls="dsh-mobile-drawer"
+  return <button type="button" className={floating ? 'dsh-mobile-toggle dsh-mobile-toggle-fallback' : 'dsh-mobile-toggle'} aria-label={label} title={label}
+    aria-expanded={!activation.drawerClosed} aria-controls={DRAWER_ID} aria-haspopup="dialog"
     onClick={() => { ctx.layout.toggleSidebar(); }}>
     <DrawerGlyph closed={activation.drawerClosed} />
   </button>;
+}
+
+/** Global panels have no conversation header: retain a way to reopen navigation. */
+export function DrawerFallbackToggle() {
+  const { ctx } = useEnvironment();
+  const panel = React.useSyncExternalStore(
+    listener => ctx.layout.panelInfo.subscribe(listener),
+    () => ctx.layout.panelInfo.getSnapshot(),
+    () => ctx.layout.panelInfo.getSnapshot(),
+  );
+  return panel.activePanelId === null ? null : <DrawerToggle floating />;
 }
 
 /**
  * Scrim behind the open drawer; tapping it closes the drawer through the same
  * host action, so no separate state can drift.
  *
- * It stays MOUNTED for the plugin's lifetime and is driven purely by opacity,
- * for two reasons: mounting a full-viewport element is exactly the kind of work
- * that lands on the frame the host is already blocking while it rebuilds the
- * sidebar, and an always-mounted layer keeps the compositor's layer for the scrim
- * warm so a fade never has to allocate one. `visibility` (not `display`) keeps it
- * out of hit-testing while closed without discarding the layer.
+ * It stays mounted across drawer toggles while drawer navigation is enabled.
+ * Opacity and delayed visibility keep the closing scrim in hit-testing until
+ * the slide finishes; repeated taps during that exit must not reopen the drawer.
  * @returns the scrim button, or nothing while the mobile layout is inactive.
  */
 export function DrawerScrim() {
   const { ctx, t } = useEnvironment();
   const activation = React.useContext(ActivationContext);
   const enabled = activation.active && activation.settings?.drawerNavigation === true;
-  if (!enabled) return null;
   const open = !activation.drawerClosed;
+  const label = t('nav.label');
+  React.useLayoutEffect(() => enabled ? installDrawerTarget() : undefined, [enabled]);
+  React.useLayoutEffect(() => enabled && open ? installDrawerInteraction(ctx, label) : undefined, [enabled, open, ctx, label]);
+  if (!enabled) return null;
   return <button type="button" className="dsh-mobile-scrim" aria-label={t('nav.close')} tabIndex={-1}
     aria-hidden={open ? undefined : 'true'}
     data-open={open ? '' : undefined}
-    onClick={() => { ctx.layout.toggleSidebar(); }} />;
+    onClick={() => { if (open && !isDrawerClosed()) ctx.layout.toggleSidebar(); }} />;
 }
 
 function DrawerGlyph({ closed }: { closed: boolean }) {

@@ -88,7 +88,7 @@ test('the open drawer rule states its own specificity instead of relying on orde
 test('wide tables become horizontally scrollable on touch', () => {
   assert.match(full, /\.md-table-wide/);
   assert.match(full, /overflow-x:auto!important/);
-  assert.match(full, /touch-action:pan-x pan-y/);
+  assert.match(full, /touch-action:pan-x pan-y pinch-zoom/);
 });
 
 test('tap targets rise to the documented minimum, without inflating the header', () => {
@@ -108,6 +108,14 @@ test('tap targets rise to the documented minimum, without inflating the header',
   assert.match(targetRule, /data-actions-reveal/);
 });
 
+test('global-panel navigation stays below the scrim in a safe-area-aware bottom corner', () => {
+  const rule = full.split('\n').find(line => line.startsWith('.dsh-mobile-toggle-fallback{')) ?? '';
+  assert.match(rule, /position:fixed/);
+  assert.match(rule, /bottom:max\(12px,env\(safe-area-inset-bottom\)\)/);
+  assert.match(rule, /inset-inline-start:max\(12px,env\(safe-area-inset-left\)\)/);
+  assert.match(rule, /z-index:38;pointer-events:auto/);
+});
+
 test('the header rule touches horizontal padding only', () => {
   const headerRule = full.split('\n').find(line => line.includes('[data-slot="conversation.header"] > header')) ?? '';
   assert.match(headerRule, /padding-inline:12px/);
@@ -115,8 +123,20 @@ test('the header rule touches horizontal padding only', () => {
   assert.doesNotMatch(headerRule, /padding:/);
 });
 
-test('iOS focus zoom is prevented only where it applies', () => {
-  assert.match(full, /@media \(pointer:coarse\)\{html\[data-dsh-mobile\] :is\(input,textarea,select\)\{font-size:16px!important\}\}/);
+test('iOS focus zoom protection includes the actual contenteditable composer', () => {
+  assert.ok(full.includes('@media (pointer:coarse){html[data-dsh-mobile] :is(input,textarea,select,[data-composer-input][contenteditable="true"]){font-size:16px!important}}'));
+});
+
+test('the scrim intercepts taps until the drawer exit finishes', () => {
+  const closed = full.split('\n').find(line => line.startsWith('.dsh-mobile-scrim{')) ?? '';
+  const open = full.split('\n').find(line => line.startsWith('.dsh-mobile-scrim[data-open]{')) ?? '';
+  assert.match(closed, /pointer-events:auto/);
+  assert.match(closed, /visibility:hidden/);
+  assert.ok(closed.includes(`opacity ${SLIDE_DURATION} ${SLIDE_EASING}`));
+  assert.ok(closed.includes(`visibility 0s linear ${SLIDE_DURATION}`));
+  assert.match(open, /visibility:visible/);
+  assert.doesNotMatch(open, /visibility 0s linear/);
+  assert.match(full, /@media \(prefers-reduced-motion:reduce\)\{\.dsh-mobile-toggle,\.dsh-mobile-scrim,\.dsh-mobile-scrim\[data-open\]\{transition:none\}\}/);
 });
 
 test('safe-area padding is paired with the dynamic viewport height', () => {

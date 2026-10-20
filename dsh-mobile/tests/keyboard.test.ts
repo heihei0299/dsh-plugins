@@ -27,6 +27,29 @@ test('a scrolled visual viewport subtracts its offset instead of double counting
   assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 600, visualOffsetTop: Number.NaN }), 244);
 });
 
+test('page zoom is not mistaken for a keyboard', () => {
+  // The reported false positive: 844/422 at scale 2 is a zoomed reader, not a
+  // 337px keyboard. Any valid scale above 1 is left to the browser.
+  assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 422, visualOffsetTop: 0, scale: 2 }), 0);
+  assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 422, visualOffsetTop: 0, scale: 2.0001 }), 0);
+  assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 422, visualOffsetTop: 40, scale: 2 }), 0);
+  // Zoomed with a keyboard open still reports no inferred inset.
+  assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 300, visualOffsetTop: 0, scale: 2 }), 0);
+  assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 500, visualOffsetTop: 0, scale: 1.5 }), 0);
+});
+
+test('scale 1 keeps the existing keyboard formula', () => {
+  assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 500, visualOffsetTop: 0, scale: 1 }), Math.floor(844 * MAX_INSET_RATIO));
+  assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 600, visualOffsetTop: 0, scale: 1 }), 244);
+  assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 600, visualOffsetTop: 40, scale: 1 }), 204);
+});
+
+test('an absent or invalid scale keeps the existing formula', () => {
+  for (const scale of [undefined, 0, -2, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.equal(computeKeyboardInset({ layoutHeight: 844, visualHeight: 600, visualOffsetTop: 0, scale }), 244);
+  }
+});
+
 test('the result is a whole non-negative pixel count', () => {
   const value = computeKeyboardInset({ layoutHeight: 844.6, visualHeight: 500.2, visualOffsetTop: 0.3 });
   assert.ok(Number.isInteger(value));

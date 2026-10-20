@@ -33,6 +33,7 @@ test('declares a web client bundle with the services it injects', () => {
   assert.equal(manifest.dsh.client.immediately, true);
   assert.equal(manifest.exports['./client'], './dist/client.js');
   assert.ok(Array.isArray(manifest.dsh.client.inject) && manifest.dsh.client.inject.length > 0);
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-api-session-controller'), 'drawer navigation observes the host session ownership source');
 });
 
 test('exports an icon inside the package', () => {

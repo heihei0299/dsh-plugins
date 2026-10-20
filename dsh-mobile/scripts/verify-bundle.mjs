@@ -26,7 +26,7 @@ const plugin = registration.factory(name => {
 });
 assert.deepEqual([...new Set(imports)], ['react']);
 assert.equal(typeof plugin.apply, 'function');
-for (const service of ['slots', 'locale', 'configForms', 'layout']) {
+for (const service of ['slots', 'locale', 'configForms', 'layout', 'sessions']) {
   assert.ok(plugin.inject.includes(service), `the client half must inject "${service}"`);
 }
 
@@ -41,6 +41,7 @@ const LANDMARKS = [
   '[data-slot="root"]',
   '[data-slot="sidebar"]',
   '[data-composer-card]',
+  '[data-composer-input]',
   '[data-conversation-scroll]',
   '[data-actions-reveal]',
   '[data-sidebar-collapsed]',
@@ -97,7 +98,11 @@ const ctx = {
     bind: () => key => key, getSnapshot: () => ({ active: 'en', revision: 0 }), subscribe: () => () => {},
   },
   configForms: { get: id => { assert.equal(id, 'dsh-mobile'); return form; } },
-  layout: { toggleSidebar() {} },
+  layout: {
+    toggleSidebar() {},
+    panelInfo: { getSnapshot: () => ({ activePanelId: null }), subscribe: () => () => {} },
+  },
+  sessions: { list: { getSnapshot: () => ({ byId: {} }), subscribe: () => () => {} } },
   slots: {
     inject(name, factory) { const dispose = factory(); cleanups.push(dispose); return dispose; },
     register(options) { const key = `${options.name}:${options.key ?? options.id}`; assert.ok(!slots.has(key), `duplicate slot registration ${key}`); slots.add(key); return () => slots.delete(key); },

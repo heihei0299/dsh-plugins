@@ -9,7 +9,8 @@ import type { Disposer } from './contracts.js';
  *   viewport for the keyboard instead of scrolling the page under it.
  *
  * iOS ignores `interactive-widget`; `installKeyboardInset` covers that case.
- * The original attribute is restored verbatim on disposal, including absence.
+ * An existing node always stays in the document: disposal restores its original
+ * content attribute verbatim, or removes the attribute again when it was absent.
  * @returns a disposer restoring the original meta content.
  */
 export function installViewport(): Disposer {
@@ -26,7 +27,8 @@ export function installViewport(): Disposer {
   const without = parts.filter(part => !/^(?:viewport-fit|interactive-widget)\s*=/i.test(part));
   tag.setAttribute('content', [...without, 'viewport-fit=cover', 'interactive-widget=resizes-content'].join(', '));
   return () => {
-    if (previous === null) tag.remove();
+    if (existing === null) tag.remove();
+    else if (previous === null) tag.removeAttribute('content');
     else tag.setAttribute('content', previous);
   };
 }

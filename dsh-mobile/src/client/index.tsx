@@ -6,15 +6,16 @@ import { HEADER_LEADING_SLOT, OVERLAY_SLOT } from './landmarks.js';
 import { SETTINGS_STYLES } from './styles.js';
 import type { ClientContext, Disposer } from './contracts.js';
 import {
-  ActivationContext, createActivationSource, createEnvironment, EnvironmentContext, type ActivationSource,
+  ActivationContext, createActivationSource, createEnvironment, EnvironmentContext,
+  observeDocumentActivation, type ActivationSource,
 } from './environment.js';
 import { installStyles } from './install-styles.js';
 import { installViewport } from './install-viewport.js';
 import { installKeyboardInset } from './install-keyboard.js';
-import { DrawerScrim, DrawerToggle } from './Drawer.js';
+import { DrawerFallbackToggle, DrawerScrim, DrawerToggle } from './Drawer.js';
 import { Settings } from './Settings.js';
 
-export const inject = ['slots', 'locale', 'configForms', 'layout'];
+export const inject = ['slots', 'locale', 'configForms', 'layout', 'sessions'];
 
 /** Style-tag identity for the settings row, which is styled even while inactive. */
 const SETTINGS_STYLE_ID = '@local/dsh-mobile/settings.css';
@@ -53,19 +54,8 @@ export function apply(ctx: ClientContext): void {
 
   // One reconciler owns every document-level write, so activation and
   // deactivation stay symmetric even when they interleave with a disposal.
-  ctx.effect(() => {
-    let disposeActive: Disposer | undefined;
-    const reconcile = (): void => {
-      disposeActive?.();
-      disposeActive = undefined;
-      const state = source.getSnapshot();
-      if (!state.active || state.settings === undefined) return;
-      disposeActive = activate(state.settings);
-    };
-    const unsubscribe = source.subscribe(reconcile);
-    reconcile();
-    return () => { unsubscribe(); disposeActive?.(); disposeActive = undefined; };
-  });
+  // Drawer open/closed changes are React-only and never reach this effect.
+  observeDocumentActivation(source, activate, factory => ctx.effect(factory));
 
   // The settings row must stay styled while the layout is off — it is how the
   // user turns it back on — so its sheet lives for the plugin's lifetime.
@@ -79,16 +69,16 @@ export function apply(ctx: ClientContext): void {
 
   function Surface({ children }: { children: React.ReactNode }) {
     const state = React.useSyncExternalStore(
-      listener => source.subscribe(listener),
-      () => source.getSnapshot(),
-      () => source.getSnapshot(),
+      source.subscribe,
+      source.getSnapshot,
+      source.getSnapshot,
     );
     return <EnvironmentContext.Provider value={environment}>
       <ActivationContext.Provider value={state}>{children}</ActivationContext.Provider>
     </EnvironmentContext.Provider>;
   }
   function MobileScrim(): React.ReactElement {
-    return <Surface><DrawerScrim /></Surface>;
+    return <Surface><DrawerScrim /><DrawerFallbackToggle /></Surface>;
   }
   function MobileToggle(): React.ReactElement {
     return <Surface><DrawerToggle /></Surface>;
