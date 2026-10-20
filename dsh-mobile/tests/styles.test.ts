@@ -46,12 +46,18 @@ test('the drawer follows the host attribute instead of a private state', () => {
   assert.match(full, /:not\(\[data-sidebar-collapsed\]\) .*translateX\(0\)/);
 });
 
-test('the drawer never animates its transform', () => {
-  // Measured in the browser: while the host reflows its own grid tracks, a
-  // transform transition on this column is created but never progresses
-  // (playState running, currentTime 0), leaving the drawer permanently
-  // off-screen. The column must therefore transition nothing.
-  assert.doesNotMatch(full, /transition:[^;}]*transform/);
+test('the drawer leaves its slide to WAAPI, not to a CSS transition', () => {
+  // The host remounts ~561 sidebar elements on open, blocking the main thread for
+  // 200-370ms. A CSS transition is evaluated on that stalled pipeline, so the
+  // slide starts late or not at all; drawer-motion.ts drives the same transform
+  // through WAAPI so the compositor owns it. Keep the column free of a
+  // transform transition, and keep the slide out of the stylesheet.
+  const columnRule = full.split('\n').find(line => line.includes('position:fixed') && line.includes('[data-slot="sidebar"]')) ?? '';
+  assert.ok(columnRule.length > 0);
+  assert.doesNotMatch(columnRule, /transition:[^;}]*transform/);
+  // The drawer paints its own background: the panel body is unmounted while
+  // collapsed, so an unbacked pane would slide in empty and then fill in.
+  assert.match(columnRule, /background:var\(--dsw-alias-bg-layer-1/);
 });
 
 test('the open drawer rule states its own specificity instead of relying on order', () => {

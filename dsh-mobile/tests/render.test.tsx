@@ -40,15 +40,23 @@ test('nothing renders while the mobile layout is inactive', () => {
   assert.equal(html, '');
 });
 
-test('drawer mode renders a toggle and the scrim only when the drawer is open', () => {
+test('the scrim stays mounted and is driven by an attribute, not by unmounting', () => {
+  // Mounting a full-viewport element is work that lands on the frame the host is
+  // already blocking while it rebuilds the sidebar, so the scrim is created once
+  // and only toggles state afterwards.
   const closed = render(<><DrawerScrim /><DrawerToggle /></>, true, { ...DEFAULT_SETTINGS }, true);
   assert.match(closed, /class="dsh-mobile-toggle"/);
-  assert.doesNotMatch(closed, /dsh-mobile-scrim/);
+  assert.match(closed, /class="dsh-mobile-scrim"/, 'the scrim is present while closed');
+  assert.doesNotMatch(closed, /data-open/, 'but it is not marked open');
+  assert.match(closed, /aria-hidden="true"/);
   assert.match(closed, /aria-expanded="false"/);
   assert.match(closed, /aria-label="Open navigation"/);
 
   const open = render(<><DrawerScrim /><DrawerToggle /></>, true, { ...DEFAULT_SETTINGS }, false);
-  assert.match(open, /class="dsh-mobile-scrim"/);
+  assert.match(open, /class="dsh-mobile-scrim"[^>]*data-open=""/);
+  const openScrim = /<button[^>]*class="dsh-mobile-scrim"[^>]*>/.exec(open)?.[0] ?? '';
+  assert.ok(openScrim.length > 0);
+  assert.doesNotMatch(openScrim, /aria-hidden/, 'an open scrim is exposed to assistive tech');
   assert.match(open, /aria-expanded="true"/);
   assert.match(open, /aria-label="Close navigation"/);
 });
@@ -93,4 +101,30 @@ test('translations have matching keys and interpolation placeholders', () => {
     assert.deepEqual(en.ui[key].match(/\{[^}]+\}/g), zh.ui[key].match(/\{[^}]+\}/g), `placeholder mismatch in ${key}`);
   }
   assert.ok(en.meta.title && zh.meta.title && en.meta.description && zh.meta.description);
+});
+
+test('the tap slides first, then tells the host — never the other way round', async () => {
+  // Ordering is the whole point: if the host re-renders first, the first visible
+  // frame is its own jump and the animation only catches up afterwards, which is
+  // exactly the latency the user reported as "不跟手".
+  const { openDrawerToggle } = await import('../src/client/Drawer.js');
+  const order: string[] = [];
+  const ctx = {
+    layout: { toggleSidebar: () => { order.push('host'); } },
+  } as unknown as ClientContext;
+  openDrawerToggle(ctx, true, opening => { order.push(`slide:${String(opening)}`); });
+  assert.deepEqual(order, ['slide:true', 'host']);
+
+  // Closing aims the other way.
+  order.length = 0;
+  openDrawerToggle(ctx, false, opening => { order.push(`slide:${String(opening)}`); });
+  assert.deepEqual(order, ['slide:false', 'host']);
+});
+
+test('without a motion driver the host action still runs', async () => {
+  const { openDrawerToggle } = await import('../src/client/Drawer.js');
+  let toggled = 0;
+  const ctx = { layout: { toggleSidebar: () => { toggled += 1; } } } as unknown as ClientContext;
+  openDrawerToggle(ctx, true);
+  assert.equal(toggled, 1, 'reduced-motion / disabled drawer must still navigate');
 });

@@ -7,6 +7,15 @@ export interface Environment {
   ctx: ClientContext;
   form: ConfigForm;
   t: Translate;
+  /**
+   * Starts the drawer slide immediately, from the click handler.
+   *
+   * Waiting for the host's attribute mutation costs a frame of latency — the
+   * difference between a control that feels attached to the finger and one that
+   * answers late. The observer in drawer-motion sees the resulting mutation and
+   * skips its own run because the driver already targets that state.
+   */
+  slideDrawer?(opening: boolean): void;
 }
 
 export const EnvironmentContext = React.createContext<Environment | null>(null);
@@ -116,6 +125,6 @@ export function isDrawerClosed(): boolean {
   return frame?.hasAttribute(COLLAPSED_ATTRIBUTE) !== false;
 }
 
-export function createEnvironment(ctx: ClientContext, form: ConfigForm): Environment {
-  return { ctx, form, t: ctx.locale.bind(LOCALE_NS) };
+export function createEnvironment(ctx: ClientContext, form: ConfigForm, slideDrawer?: (opening: boolean) => void): Environment {
+  return { ctx, form, t: ctx.locale.bind(LOCALE_NS), slideDrawer };
 }

@@ -1,5 +1,26 @@
 import * as React from 'react';
 import { ActivationContext, useEnvironment } from './environment.js';
+import type { ClientContext } from './contracts.js';
+
+/** Scrim fade time; kept just under the drawer's close animation so it clears first. */
+export const SCRIM_FADE_MS = 160;
+
+/**
+ * Flip the drawer, starting the slide before asking the host.
+ *
+ * Order matters. `slideDrawer` runs on the tap; `toggleSidebar()` makes the host
+ * re-render. Doing it the other way round means the first visible frame is the
+ * host's own jump, and the animation only catches up afterwards — which is the
+ * "不跟手" the user reported. The motion driver ignores the attribute mutation
+ * that follows because it already targets that state.
+ * @param ctx - client context providing the host's layout action.
+ * @param drawerClosed - current state, so the slide can be aimed correctly.
+ * @param slide - optional optimistic slide starter.
+ */
+export function openDrawerToggle(ctx: ClientContext, drawerClosed: boolean, slide?: (opening: boolean) => void): void {
+  slide?.(drawerClosed);
+  ctx.layout.toggleSidebar();
+}
 
 /**
  * Floating navigation control for the drawer layout.
@@ -11,13 +32,13 @@ import { ActivationContext, useEnvironment } from './environment.js';
  * @returns the toggle button, or nothing while the mobile layout is inactive.
  */
 export function DrawerToggle() {
-  const { ctx, t } = useEnvironment();
+  const { ctx, t, slideDrawer } = useEnvironment();
   const activation = React.useContext(ActivationContext);
   if (!activation.active || activation.settings?.drawerNavigation !== true) return null;
   const label = activation.drawerClosed ? t('nav.open') : t('nav.close');
   return <button type="button" className="dsh-mobile-toggle" aria-label={label} title={label}
     aria-expanded={!activation.drawerClosed} aria-controls="dsh-mobile-drawer"
-    onClick={() => { ctx.layout.toggleSidebar(); }}>
+    onClick={() => { openDrawerToggle(ctx, activation.drawerClosed, slideDrawer); }}>
     <DrawerGlyph closed={activation.drawerClosed} />
   </button>;
 }
@@ -25,14 +46,25 @@ export function DrawerToggle() {
 /**
  * Scrim behind the open drawer; tapping it closes the drawer through the same
  * host action, so no separate state can drift.
- * @returns the scrim button, or nothing while the drawer is closed.
+ *
+ * It stays MOUNTED for the plugin's lifetime and is driven purely by opacity,
+ * for two reasons: mounting a full-viewport element is exactly the kind of work
+ * that lands on the frame the host is already blocking while it rebuilds the
+ * sidebar, and an always-mounted layer keeps the compositor's layer for the scrim
+ * warm so a fade never has to allocate one. `visibility` (not `display`) keeps it
+ * out of hit-testing while closed without discarding the layer.
+ * @returns the scrim button, or nothing while the mobile layout is inactive.
  */
 export function DrawerScrim() {
-  const { ctx, t } = useEnvironment();
+  const { ctx, t, slideDrawer } = useEnvironment();
   const activation = React.useContext(ActivationContext);
-  if (!activation.active || activation.settings?.drawerNavigation !== true || activation.drawerClosed) return null;
+  const enabled = activation.active && activation.settings?.drawerNavigation === true;
+  if (!enabled) return null;
+  const open = !activation.drawerClosed;
   return <button type="button" className="dsh-mobile-scrim" aria-label={t('nav.close')} tabIndex={-1}
-    onClick={() => { ctx.layout.toggleSidebar(); }} />;
+    aria-hidden={open ? undefined : 'true'}
+    data-open={open ? '' : undefined}
+    onClick={() => { openDrawerToggle(ctx, activation.drawerClosed, slideDrawer); }} />;
 }
 
 function DrawerGlyph({ closed }: { closed: boolean }) {
