@@ -1,0 +1,6 @@
+- insert:
+    - id: dsh-smartui
+      name: '@local/dsh-smartui'
+      config:
+        appearance: chatgpt
+        enableComponents: true

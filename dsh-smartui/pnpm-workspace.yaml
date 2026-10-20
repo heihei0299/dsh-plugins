@@ -1,0 +1,3 @@
+# Installation scripts are allowed only for the explicitly authorized esbuild binary.
+onlyBuiltDependencies:
+  - esbuild

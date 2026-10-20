@@ -1,0 +1,5 @@
+# Only source code and README files are committed: every other document stays
+# untracked, including agent instructions and per-plugin notes.
+*.md
+!README.md
+node_modules/

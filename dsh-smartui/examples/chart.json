@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "title": "月度趋势 · 虚构示例",
+  "summary": "示例数据仅用于演示柱状图、折线图和数据表，不是实际业务数据。",
+  "blocks": [
+    { "id": "bars", "type": "chart", "title": "收入与成本（虚构单位）", "chartType": "bar", "series": [
+      { "id": "income", "label": "收入", "points": [{ "label": "一月", "value": 120 }, { "label": "二月", "value": 180 }, { "label": "三月", "value": 150 }] },
+      { "id": "cost", "label": "成本", "points": [{ "label": "一月", "value": 90 }, { "label": "二月", "value": 100 }, { "label": "三月", "value": 80 }] }
+    ] },
+    { "id": "line", "type": "chart", "title": "净变化（虚构单位）", "chartType": "line", "series": [{ "id": "change", "label": "净变化", "points": [{ "label": "一月", "value": -20 }, { "label": "二月", "value": 0 }, { "label": "三月", "value": 30 }] }] }
+  ]
+}

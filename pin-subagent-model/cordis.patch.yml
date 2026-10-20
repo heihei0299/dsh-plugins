@@ -1,0 +1,20 @@
+# Bundle layer contributed by dsh-plugin-pin-subagent-model.
+#
+# It only registers the entry and its id; the pin itself is profile
+# configuration, so one package can serve any route. Set it with an
+# id-targeted override in the profile's cordis.patch.yml:
+#
+#   - id: pin-subagent-model
+#     config:
+#       provider: cpa
+#       model: cline-pass/deepseek-v4.1-flash
+#       reasoningEffort: max
+#       providers: [spawn, fork]
+#       onConflict: override
+#
+# Until `provider` and `model` are set the plugin stays enabled, logs one
+# warning, and pins nothing — enabling it before configuring it cannot break
+# the profile.
+- insert:
+    - id: pin-subagent-model
+      name: dsh-plugin-pin-subagent-model

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "title": "需求收集 · 示例",
+  "summary": "填写非敏感的项目需求，点击填入对话后审阅原生草稿，再点击发送继续。",
+  "blocks": [
+    { "id": "requirements", "type": "form", "title": "基本信息", "actionId": "collect_requirements", "fields": [
+      { "id": "project", "label": "项目名称", "type": "text", "required": true, "placeholder": "例如：团队知识库" },
+      { "id": "people", "label": "预计使用人数", "type": "number", "min": 1, "max": 10000, "required": true },
+      { "id": "priority", "label": "首要目标", "type": "select", "required": true, "options": [{ "value": "simple", "label": "简单易用" }, { "value": "scale", "label": "便于扩展" }] },
+      { "id": "notes", "label": "补充说明", "type": "textarea" },
+      { "id": "private", "label": "需要私有部署", "type": "checkbox" }
+    ] }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "name": "@local/dsh-smartui",
+  "version": "0.1.2",
+  "description": "ChatGPT-inspired DSH appearance and safe declarative conversation components",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22", "dsh": "0.2.1-rc.2" },
+  "packageManager": "pnpm@10.28.0",
+  "exports": {
+    ".": "./dist/host/index.js",
+    "./client": "./dist/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./assets/icon.svg"
+  },
+  "files": ["dist/", "cordis.patch.yml", "locale/*.json", "assets/icon.svg", "README.md", "LICENSE"],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-tool",
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "verify:bundle": "node scripts/verify-bundle.mjs",
+    "test": "tsx --test --test-concurrency=1 tests/*.test.ts tests/*.test.tsx tests/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "~3.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "esbuild": "^0.25.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

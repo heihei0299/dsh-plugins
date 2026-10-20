@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "子 Agent 模型固定",
+    "description": "让每个被委派的子 Agent 统一运行在指定模型路由上，不继承父 Agent 的当前路由。"
+  }
+}
