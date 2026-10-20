@@ -102,29 +102,3 @@ test('translations have matching keys and interpolation placeholders', () => {
   }
   assert.ok(en.meta.title && zh.meta.title && en.meta.description && zh.meta.description);
 });
-
-test('the tap slides first, then tells the host — never the other way round', async () => {
-  // Ordering is the whole point: if the host re-renders first, the first visible
-  // frame is its own jump and the animation only catches up afterwards, which is
-  // exactly the latency the user reported as "不跟手".
-  const { openDrawerToggle } = await import('../src/client/Drawer.js');
-  const order: string[] = [];
-  const ctx = {
-    layout: { toggleSidebar: () => { order.push('host'); } },
-  } as unknown as ClientContext;
-  openDrawerToggle(ctx, true, opening => { order.push(`slide:${String(opening)}`); });
-  assert.deepEqual(order, ['slide:true', 'host']);
-
-  // Closing aims the other way.
-  order.length = 0;
-  openDrawerToggle(ctx, false, opening => { order.push(`slide:${String(opening)}`); });
-  assert.deepEqual(order, ['slide:false', 'host']);
-});
-
-test('without a motion driver the host action still runs', async () => {
-  const { openDrawerToggle } = await import('../src/client/Drawer.js');
-  let toggled = 0;
-  const ctx = { layout: { toggleSidebar: () => { toggled += 1; } } } as unknown as ClientContext;
-  openDrawerToggle(ctx, true);
-  assert.equal(toggled, 1, 'reduced-motion / disabled drawer must still navigate');
-});

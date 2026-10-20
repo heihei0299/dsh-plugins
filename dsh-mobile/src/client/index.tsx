@@ -11,8 +11,6 @@ import {
 import { installStyles } from './install-styles.js';
 import { installViewport } from './install-viewport.js';
 import { installKeyboardInset } from './install-keyboard.js';
-import { observeDrawerMotion, type DrawerMotionDriver } from './drawer-motion.js';
-import { COLLAPSED_ATTRIBUTE, FRAME, SIDEBAR_COLUMN } from './landmarks.js';
 import { DrawerScrim, DrawerToggle } from './Drawer.js';
 import { Settings } from './Settings.js';
 
@@ -30,30 +28,18 @@ const OVERLAY_SLOT_OPTIONS = { name: OVERLAY_SLOT, id: 'dsh-mobile-drawer', orde
  * Ordering matters: the stylesheet and the root attribute go on first so the
  * very first frame after activation is already the mobile layout, and the
  * keyboard/veport listeners are installed underneath a single teardown.
+ *
+ * The drawer's motion needs no JavaScript at all: it is a pair of CSS rules that
+ * copy the host's own `sidebar-right` transition, so the browser schedules it
+ * exactly like the shipped panel next door.
  * @param settings - resolved settings for this activation.
- * @param onDriver - receives the live motion driver, or undefined on teardown.
  * @returns a disposer restoring the document exactly.
  */
-function activate(
-  settings: { drawerNavigation: boolean; comfortableTargets: boolean },
-  onDriver: (driver: DrawerMotionDriver | undefined) => void,
-): Disposer {
+function activate(settings: { drawerNavigation: boolean; comfortableTargets: boolean }): Disposer {
   const restoreStyles = installStyles({ ...settings });
   const restoreViewport = installViewport();
   const restoreKeyboard = installKeyboardInset();
-  let disposeMotion = (): void => {};
-  if (settings.drawerNavigation) {
-    const motion = observeDrawerMotion({
-      root: document.documentElement,
-      frame: () => document.querySelector(FRAME),
-      column: () => document.querySelector(SIDEBAR_COLUMN),
-      attribute: COLLAPSED_ATTRIBUTE,
-      reducedMotion: () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true,
-    });
-    onDriver(motion.driver);
-    disposeMotion = () => { motion.dispose(); onDriver(undefined); };
-  }
-  return () => { disposeMotion(); restoreKeyboard(); restoreViewport(); restoreStyles(); };
+  return () => { restoreKeyboard(); restoreViewport(); restoreStyles(); };
 }
 
 /** Browser half: mobile layout, drawer surface and the settings row. */
@@ -62,10 +48,7 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(LOCALE_NS, 'zh', zh.ui));
 
   const form = ctx.configForms.get(SETTINGS_ID);
-  // The current slide driver, published so the toggle can start a slide on the
-  // tap itself instead of waiting for the host's next render.
-  let driver: DrawerMotionDriver | undefined;
-  const environment = createEnvironment(ctx, form, opening => { driver?.run(opening); });
+  const environment = createEnvironment(ctx, form);
   const source: ActivationSource = createActivationSource(form, factory => ctx.effect(factory));
 
   // One reconciler owns every document-level write, so activation and
@@ -77,11 +60,11 @@ export function apply(ctx: ClientContext): void {
       disposeActive = undefined;
       const state = source.getSnapshot();
       if (!state.active || state.settings === undefined) return;
-      disposeActive = activate(state.settings, next => { driver = next; });
+      disposeActive = activate(state.settings);
     };
     const unsubscribe = source.subscribe(reconcile);
     reconcile();
-    return () => { unsubscribe(); disposeActive?.(); disposeActive = undefined; driver = undefined; };
+    return () => { unsubscribe(); disposeActive?.(); disposeActive = undefined; };
   });
 
   // The settings row must stay styled while the layout is off — it is how the

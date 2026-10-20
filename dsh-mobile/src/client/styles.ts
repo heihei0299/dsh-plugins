@@ -3,7 +3,6 @@ import {
   FRAME, MESSAGE_ACTIONS, RIGHTBAR_COLUMN, SIDEBAR_COLUMN, SIDEBAR_COLUMN_OF_FRAME,
   TABLE_WRAPPER, WIDE_TABLE,
 } from './landmarks.js';
-import { SLIDING_ATTRIBUTE } from './drawer-motion.js';
 import { ROOT_ATTRIBUTE } from '../shared/types.js';
 
 /** Recommended minimum touch target, in px. */
@@ -15,6 +14,22 @@ export const DRAWER_MAX_RATIO = 0.86;
 export const DRAWER_MAX_PX = 320;
 /** Style-tag identity for the module loader's ownership bookkeeping. */
 export const STYLE_TAG_ID = '@local/dsh-mobile/mobile.css';
+
+/**
+ * The host's own motion vocabulary, read from `--ds-*` tokens in ui-theme.
+ *
+ * `sidebar-right` — the shipped right panel — is the reference implementation
+ * for an edge panel sliding in, and this stylesheet copies it exactly instead of
+ * inventing timings: the same `--ds-transition-duration-slow` (.3s), the same
+ * `--ds-ease-in-out` (cubic-bezier(.4,0,.2,1)), and the same delayed-`visibility`
+ * trick so the panel stays painted for the whole slide out and only then hides.
+ */
+export const SLIDE_DURATION = 'var(--ds-transition-duration-slow,.3s)';
+export const SLIDE_EASING = 'var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))';
+/** Slide + delayed visibility, matching sidebar-right's two-property transition. */
+export const SLIDE_TRANSITION = `transform ${SLIDE_DURATION} ${SLIDE_EASING},visibility 0s linear ${SLIDE_DURATION}`;
+/** When opening, visibility flips immediately: only the transform animates. */
+export const OPEN_TRANSITION = `transform ${SLIDE_DURATION} ${SLIDE_EASING}`;
 
 export interface StyleOptions {
   /** Replace the permanent rail with a drawer opened from a floating button. */
@@ -58,22 +73,25 @@ export function buildStyles(options: StyleOptions): string {
     // Only where the column is painted changes; whether it is open stays the
     // host's own fact, read off the attribute it already sets on the frame.
     //
-    // No CSS `transition` here: the slide is driven by drawer-motion.ts through
-    // WAAPI. A CSS transition is evaluated on the same main thread the host
-    // blocks for 200-370ms while it remounts ~561 sidebar elements, so it starts
-    // late and stalls; a committed WAAPI animation is owned by the compositor.
+    // Motion is the host's own, copied from `sidebar-right`:
+    //   closed: transform off-screen + visibility hidden, both transitioned,
+    //           visibility delayed by the slide duration so the panel stays
+    //           painted while it slides out and hides only at the end.
+    //   open:   visibility visible immediately, transform back to 0, so ONLY the
+    //           transform animates.
+    // Plus one difference that is not cosmetic: the open state drops
+    // `visibility`'s own delayed transition, exactly as the host does, otherwise
+    // the panel would stay invisible for .3s before appearing.
     //
     // The drawer paints its OWN opaque background. The host unmounts the panel
     // content while collapsed and rebuilds it on open, so without this the user
     // sees an empty sliding pane that fills in a quarter of a second later.
-    rules.push(`${scope} ${SIDEBAR_COLUMN}{position:fixed;inset-block:0;inset-inline-start:0;width:${drawerWidth}!important;max-width:${drawerWidth};z-index:40;height:100dvh;box-sizing:border-box;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));box-shadow:0 0 24px rgb(0 0 0 / 32%);transform:translateX(-100%)}`);
+    rules.push(`${scope} ${SIDEBAR_COLUMN}{position:fixed;inset-block:0;inset-inline-start:0;width:${drawerWidth}!important;max-width:${drawerWidth};z-index:40;height:100dvh;box-sizing:border-box;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));box-shadow:0 0 24px rgb(0 0 0 / 32%);transform:translateX(-100%);visibility:hidden;transition:${SLIDE_TRANSITION}}`);
     rules.push(`${scope} ${SIDEBAR_COLUMN} > *{width:100%!important}`);
-    rules.push(`${scope} ${FRAME}:not([data-sidebar-collapsed]) ${SIDEBAR_COLUMN_OF_FRAME}{transform:translateX(0)!important}`);
-    // Layer/paint hints exist only while a slide is actually running (the driver
-    // owns the attribute), so an idle drawer costs nothing and a 627-element
-    // subtree never keeps a large compositor layer alive.
-    rules.push(`${scope} ${SIDEBAR_COLUMN}[${SLIDING_ATTRIBUTE}]{contain:layout paint;will-change:transform}`);
-    rules.push(`@media (prefers-reduced-motion:reduce){${scope} ${SIDEBAR_COLUMN}[${SLIDING_ATTRIBUTE}]{will-change:auto}}`);
+    rules.push(`${scope} ${FRAME}:not([data-sidebar-collapsed]) ${SIDEBAR_COLUMN_OF_FRAME}{transform:translateX(0)!important;visibility:visible;transition:${OPEN_TRANSITION}}`);
+    // Respect the OS preference the same way the host does: drop the motion, keep
+    // the state change.
+    rules.push(`@media (prefers-reduced-motion:reduce){${scope} ${SIDEBAR_COLUMN},${scope} ${FRAME}:not([data-sidebar-collapsed]) ${SIDEBAR_COLUMN_OF_FRAME}{transition:none}}`);
   }
 
   // Column-resize handles are pointer-only; on touch they only swallow taps.
@@ -111,19 +129,17 @@ export function buildStyles(options: StyleOptions): string {
 
   // The toggle and scrim live in the frame-wide overlay layer, which is
   // click-through until a child opts back into pointer events.
-  rules.push(`.dsh-mobile-toggle{position:fixed;top:calc(10px + env(safe-area-inset-top));inset-inline-start:12px;z-index:35;pointer-events:auto;display:grid;place-items:center;width:${TAP_TARGET}px;height:${TAP_TARGET}px;border:0;border-radius:999px;cursor:pointer;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-overlay,#fff));box-shadow:0 2px 10px rgb(0 0 0 / 18%);touch-action:manipulation;transition:transform 90ms ease,background-color 90ms ease;transform:scale(1)}`);
-  // Touch has no :hover, and the drawer's own slide cannot begin until the host
-  // finishes its 200-370ms remount — so this immediate press state is the only
-  // feedback the user gets in that window. Without it the button feels dead.
+  // Press feedback uses the host's fast tier and easing, like sidebar's own
+  // controls; it is the only feedback available while the host remounts the panel.
+  rules.push(`.dsh-mobile-toggle{position:fixed;top:calc(10px + env(safe-area-inset-top));inset-inline-start:12px;z-index:35;pointer-events:auto;display:grid;place-items:center;width:${TAP_TARGET}px;height:${TAP_TARGET}px;border:0;border-radius:999px;cursor:pointer;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-overlay,#fff));box-shadow:0 2px 10px rgb(0 0 0 / 18%);touch-action:manipulation;transform:scale(1);transition:transform var(--ds-transition-duration-fast,.1s) var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
   rules.push(`.dsh-mobile-toggle:active{background:var(--dsw-alias-interactive-bg-hover-solid,var(--dsw-alias-bg-layer-2,#f3f3f3));transform:scale(.92)}`);
-  rules.push(`@media (prefers-reduced-motion:reduce){.dsh-mobile-toggle{transition:none}}`);
-  // The scrim stays mounted and uses opacity + visibility, so opening never pays
-  // for creating a full-viewport layer on the frame the host is already blocking.
-  // `visibility` keeps it out of hit-testing without discarding the compositor
-  // layer that `display:none` would throw away.
-  rules.push(`.dsh-mobile-scrim{position:fixed;inset:0;z-index:39;pointer-events:none;border:0;padding:0;margin:0;background:rgb(0 0 0 / 38%);touch-action:none;cursor:pointer;opacity:0;visibility:hidden;transition:opacity 160ms ease,visibility 0s linear 160ms}`);
-  rules.push(`.dsh-mobile-scrim[data-open]{pointer-events:auto;opacity:1;visibility:visible;transition:opacity 160ms ease,visibility 0s}`);
-  rules.push(`@media (prefers-reduced-motion:reduce){.dsh-mobile-scrim,.dsh-mobile-scrim[data-open]{transition:none}}`);
+  // The scrim mirrors sidebar's `.15s` opacity fade and the same delayed
+  // visibility: it fades out over the drawer's slide and hides only at the end.
+  // It stays mounted, so opening never pays for allocating a full-viewport layer
+  // on the frame the host is already blocking.
+  rules.push(`.dsh-mobile-scrim{position:fixed;inset:0;z-index:39;pointer-events:none;border:0;padding:0;margin:0;background:rgb(0 0 0 / 38%);touch-action:none;cursor:pointer;opacity:0;visibility:hidden;transition:opacity .15s var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1)),visibility 0s linear .15s}`);
+  rules.push(`.dsh-mobile-scrim[data-open]{pointer-events:auto;opacity:1;visibility:visible;transition:opacity .15s var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
+  rules.push(`@media (prefers-reduced-motion:reduce){.dsh-mobile-toggle,.dsh-mobile-scrim,.dsh-mobile-scrim[data-open]{transition:none}}`);
 
   return `${rules.join('\n')}\n`;
 }

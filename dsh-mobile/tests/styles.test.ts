@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildStyles, SETTINGS_STYLES, TAP_TARGET } from '../src/client/styles.js';
+import {
+  OPEN_TRANSITION, SETTINGS_STYLES, SLIDE_DURATION, SLIDE_EASING, SLIDE_TRANSITION, TAP_TARGET, buildStyles,
+} from '../src/client/styles.js';
 import { HOST_LANDMARKS } from '../src/client/landmarks.js';
 
 const full = buildStyles({ drawerNavigation: true, comfortableTargets: true });
@@ -46,18 +48,29 @@ test('the drawer follows the host attribute instead of a private state', () => {
   assert.match(full, /:not\(\[data-sidebar-collapsed\]\) .*translateX\(0\)/);
 });
 
-test('the drawer leaves its slide to WAAPI, not to a CSS transition', () => {
-  // The host remounts ~561 sidebar elements on open, blocking the main thread for
-  // 200-370ms. A CSS transition is evaluated on that stalled pipeline, so the
-  // slide starts late or not at all; drawer-motion.ts drives the same transform
-  // through WAAPI so the compositor owns it. Keep the column free of a
-  // transform transition, and keep the slide out of the stylesheet.
-  const columnRule = full.split('\n').find(line => line.includes('position:fixed') && line.includes('[data-slot="sidebar"]')) ?? '';
-  assert.ok(columnRule.length > 0);
-  assert.doesNotMatch(columnRule, /transition:[^;}]*transform/);
+test('the drawer slide copies the host\'s own sidebar-right transition', () => {
+  // No hand-rolled timing: this is the exact recipe the shipped right panel uses
+  // for an edge pane sliding in — the host's slow tier, its shared easing, and
+  // `visibility` delayed by the slide duration so the pane stays painted while it
+  // slides out and hides only at the end.
+  assert.equal(SLIDE_DURATION, 'var(--ds-transition-duration-slow,.3s)');
+  assert.equal(SLIDE_EASING, 'var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))');
+  assert.equal(SLIDE_TRANSITION, `transform ${SLIDE_DURATION} ${SLIDE_EASING},visibility 0s linear ${SLIDE_DURATION}`);
+  // Opening must NOT delay visibility, or the panel stays invisible for .3s.
+  assert.equal(OPEN_TRANSITION, `transform ${SLIDE_DURATION} ${SLIDE_EASING}`);
+
+  const closedRule = full.split('\n').find(line => line.includes('position:fixed') && line.includes('[data-slot="sidebar"]')) ?? '';
+  assert.ok(closedRule.length > 0);
+  assert.match(closedRule, /transition:transform var\(--ds-transition-duration-slow/);
+  assert.match(closedRule, /visibility:hidden/);
+  assert.match(closedRule, /visibility 0s linear var\(--ds-transition-duration-slow/);
   // The drawer paints its own background: the panel body is unmounted while
   // collapsed, so an unbacked pane would slide in empty and then fill in.
-  assert.match(columnRule, /background:var\(--dsw-alias-bg-layer-1/);
+  assert.match(closedRule, /background:var\(--dsw-alias-bg-layer-1/);
+
+  const openRule = full.split('\n').find(line => line.includes(':not([data-sidebar-collapsed])') && line.includes('translateX(0)')) ?? '';
+  assert.match(openRule, /visibility:visible/);
+  assert.doesNotMatch(openRule, /visibility 0s linear/, 'opening must not delay visibility');
 });
 
 test('the open drawer rule states its own specificity instead of relying on order', () => {
