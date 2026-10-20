@@ -95,7 +95,12 @@ test('tap targets rise to the documented minimum, without inflating the header',
   assert.equal(TAP_TARGET, 44);
   assert.match(full, /min-width:44px;min-height:44px/);
   assert.doesNotMatch(plain, /min-width:44px;min-height:44px/);
-  assert.match(full, /\.dsh-mobile-toggle\{[^}]*width:44px;height:44px/);
+  // The toggle takes real layout space in the header's leading seat; it must not
+  // be position:fixed, which covered the session title on a real phone.
+  const toggleRule = full.split('\n').find(line => line.startsWith('.dsh-mobile-toggle{')) ?? '';
+  assert.match(toggleRule, /width:44px;height:44px/);
+  assert.doesNotMatch(toggleRule, /position:fixed/);
+  assert.match(toggleRule, /flex:none/);
   // Measured on the live page: 44px View tabs grow the header from 76px to 95px.
   const targetRule = full.split('\n').find(line => line.includes('min-width:44px;min-height:44px')) ?? '';
   assert.doesNotMatch(targetRule, /data-conversation-tabs/, 'View tabs must stay at the host size');

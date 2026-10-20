@@ -123,7 +123,7 @@ const sandboxPlugin = sandboxRegistration.factory(name => {
   return React;
 });
 sandboxPlugin.apply(ctx);
-assert.equal(slots.size, 2, 'the plugin registers the drawer surface and the settings row');
+assert.equal(slots.size, 3, 'the plugin registers the header toggle, the scrim and the settings row');
 assert.equal(locales.size, 2, 'both dictionaries are registered');
 assert.ok(attributes.has('data-dsh-mobile'), 'activation marks the document root');
 cleanups.reverse().forEach(dispose => dispose());

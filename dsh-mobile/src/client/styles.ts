@@ -127,16 +127,16 @@ export function buildStyles(options: StyleOptions): string {
   // inputs are 13.33px, and only the coarse-pointer case is affected.
   rules.push(`@media (pointer:coarse){${scope} :is(input,textarea,select){font-size:16px!important}}`);
 
-  // The toggle and scrim live in the frame-wide overlay layer, which is
-  // click-through until a child opts back into pointer events.
-  // Press feedback uses the host's fast tier and easing, like sidebar's own
-  // controls; it is the only feedback available while the host remounts the panel.
-  rules.push(`.dsh-mobile-toggle{position:fixed;top:calc(10px + env(safe-area-inset-top));inset-inline-start:12px;z-index:35;pointer-events:auto;display:grid;place-items:center;width:${TAP_TARGET}px;height:${TAP_TARGET}px;border:0;border-radius:999px;cursor:pointer;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-overlay,#fff));box-shadow:0 2px 10px rgb(0 0 0 / 18%);touch-action:manipulation;transform:scale(1);transition:transform var(--ds-transition-duration-fast,.1s) var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
+  // The toggle sits in the conversation header's own leading seat, so it takes
+  // real layout space and the session title starts after it. A floating button
+  // here covered the first characters of the title on a real phone.
+  // Marked `data-window-drag`-exempt by the host's no-drag rule for header
+  // controls; sizes use the host's fast tier for press feedback.
+  rules.push(`.dsh-mobile-toggle{display:grid;place-items:center;width:${TAP_TARGET}px;height:${TAP_TARGET}px;flex:none;border:0;border-radius:999px;cursor:pointer;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-overlay,#fff));box-shadow:0 2px 10px rgb(0 0 0 / 18%);touch-action:manipulation;-webkit-app-region:no-drag;transform:scale(1);transition:transform var(--ds-transition-duration-fast,.1s) var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
   rules.push(`.dsh-mobile-toggle:active{background:var(--dsw-alias-interactive-bg-hover-solid,var(--dsw-alias-bg-layer-2,#f3f3f3));transform:scale(.92)}`);
-  // The scrim mirrors sidebar's `.15s` opacity fade and the same delayed
-  // visibility: it fades out over the drawer's slide and hides only at the end.
-  // It stays mounted, so opening never pays for allocating a full-viewport layer
-  // on the frame the host is already blocking.
+  // The scrim stays mounted and floats over the whole frame — it is the one
+  // element that genuinely must cover the header too. It mirrors sidebar's `.15s`
+  // opacity fade and delayed visibility, so it clears as the drawer slides out.
   rules.push(`.dsh-mobile-scrim{position:fixed;inset:0;z-index:39;pointer-events:none;border:0;padding:0;margin:0;background:rgb(0 0 0 / 38%);touch-action:none;cursor:pointer;opacity:0;visibility:hidden;transition:opacity .15s var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1)),visibility 0s linear .15s}`);
   rules.push(`.dsh-mobile-scrim[data-open]{pointer-events:auto;opacity:1;visibility:visible;transition:opacity .15s var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
   rules.push(`@media (prefers-reduced-motion:reduce){.dsh-mobile-toggle,.dsh-mobile-scrim,.dsh-mobile-scrim[data-open]{transition:none}}`);

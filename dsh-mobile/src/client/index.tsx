@@ -2,7 +2,7 @@ import * as React from 'react';
 import en from '../../locale/en.json' with { type: 'json' };
 import zh from '../../locale/zh.json' with { type: 'json' };
 import { LOCALE_NS, SETTINGS_ID } from '../shared/types.js';
-import { OVERLAY_SLOT } from './landmarks.js';
+import { HEADER_LEADING_SLOT, OVERLAY_SLOT } from './landmarks.js';
 import { SETTINGS_STYLES } from './styles.js';
 import type { ClientContext, Disposer } from './contracts.js';
 import {
@@ -87,13 +87,20 @@ export function apply(ctx: ClientContext): void {
       <ActivationContext.Provider value={state}>{children}</ActivationContext.Provider>
     </EnvironmentContext.Provider>;
   }
-  function MobileOverlay(): React.ReactElement {
-    return <Surface><DrawerScrim /><DrawerToggle /></Surface>;
+  function MobileScrim(): React.ReactElement {
+    return <Surface><DrawerScrim /></Surface>;
+  }
+  function MobileToggle(): React.ReactElement {
+    return <Surface><DrawerToggle /></Surface>;
   }
   function MobileSettings(): React.ReactElement {
     return <Surface><Settings /></Surface>;
   }
 
-  ctx.slots.inject(OVERLAY_SLOT, () => ctx.slots.register(OVERLAY_SLOT_OPTIONS, MobileOverlay));
+  // The toggle takes the header's own leading seat, so the session title starts
+  // after it instead of being covered by a floating button.
+  ctx.slots.inject(HEADER_LEADING_SLOT, () => ctx.slots.register({ name: HEADER_LEADING_SLOT }, MobileToggle));
+  // The scrim has to cover the whole frame, so it stays in the floating layer.
+  ctx.slots.inject(OVERLAY_SLOT, () => ctx.slots.register(OVERLAY_SLOT_OPTIONS, MobileScrim));
   ctx.slots.inject('settings.general.item', () => ctx.slots.register(SETTINGS_SLOT_OPTIONS, MobileSettings));
 }

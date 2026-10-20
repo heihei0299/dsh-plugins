@@ -94,13 +94,26 @@ export const HOST_LANDMARKS: readonly { readonly name: string; readonly selector
 ]);
 
 /**
- * Frame-wide floating layer (`shell.overlay`) hosts the drawer toggle and scrim.
+ * Conversation header's leading seat (`grid-area:1/1`), where the drawer toggle
+ * belongs.
  *
- * It is a root-scoped *list* slot — additive, never mounted-only-conditionally and
- * never contended — so this plugin can never displace a host control. The
- * alternative, `conversation.header.leading`, is a *single* slot: whichever
- * plugin registers first wins, and this one would silently lose its only way to
- * open the drawer. The layer is click-through by design and children opt back
- * into pointer events, which is exactly the behaviour a floating control needs.
+ * The header is a two-column grid — `auto minmax(0,1fr)` — whose first column is
+ * exactly a navigation control's width, and the host ships that slot EMPTY in the
+ * web composition (verified: the only occupant is the `display:contents` anchor).
+ * Putting the toggle here makes the title start after it, which is the whole
+ * point: a `position:fixed` button floated over the header covered the first
+ * characters of the session title on a real phone.
+ *
+ * A *single* slot is only a contention risk if someone else wants it; nothing in
+ * this composition does, and losing the seat degrades to "no drawer toggle"
+ * rather than to corrupt layout.
+ */
+export const HEADER_LEADING_SLOT = 'conversation.header.leading';
+
+/**
+ * Frame-wide floating layer (`shell.overlay`), used for the drawer scrim only.
+ *
+ * Kept for the scrim because a scrim genuinely must float over the whole frame
+ * (including the header) rather than participate in the header's grid.
  */
 export const OVERLAY_SLOT = 'shell.overlay';
