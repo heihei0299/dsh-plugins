@@ -1,0 +1,9 @@
+# Bundle layer contributed by @local/dsh-mobile.
+#
+# It registers the entry only. Everything the user can turn on or off lives in
+# the Host-backed `dsh-mobile` settings namespace, so enabling this bundle can
+# never break a desktop profile: with `mode: auto` nothing applies above the
+# narrow/touch condition, and `mode: off` removes every trace at runtime.
+- insert:
+    - id: dsh-mobile
+      name: '@local/dsh-mobile'

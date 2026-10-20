@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "title": "Mobile · touch layout",
+    "description": "Narrow-screen and touch layout, comfortable tap targets and on-screen-keyboard handling: the sidebar becomes a drawer, content takes the full width and wide tables scroll. Desktop layout is unchanged."
+  },
+  "ui": {
+    "settings.title": "Mobile experience",
+    "settings.description": "Applies only on narrow or touch devices; desktop keeps the native layout. Settings are stored per profile.",
+    "settings.mode": "When to apply",
+    "settings.mode.auto": "Automatic (narrow or touch)",
+    "settings.mode.on": "Always",
+    "settings.mode.off": "Off",
+    "settings.drawer": "Sidebar drawer navigation",
+    "settings.targets": "Larger tap targets",
+    "settings.on": "On",
+    "settings.off": "Off",
+    "settings.saving": "Saving…",
+    "settings.refused": "The Host rejected this change; the last accepted settings are shown.",
+    "settings.error": "Saving failed. Check the connection and retry.",
+    "settings.unavailable": "This profile serves no mobile settings, or they are read-only.",
+    "settings.loading": "Reading this profile's mobile settings…",
+    "state.active": "Mobile layout active",
+    "state.inactive": "Desktop layout active",
+    "nav.open": "Open navigation",
+    "nav.close": "Close navigation",
+    "nav.label": "Navigation drawer"
+  }
+}

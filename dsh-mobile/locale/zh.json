@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "title": "Mobile · 移动端体验",
+    "description": "窄屏与触屏下的布局、触控目标与软键盘处理：侧栏改为抽屉、内容占满宽度、宽表格可横向滑动。桌面端不受影响。"
+  },
+  "ui": {
+    "settings.title": "移动端体验",
+    "settings.description": "仅在窄屏或触屏设备生效；桌面端保持原生布局。设置对当前 profile 生效。",
+    "settings.mode": "启用方式",
+    "settings.mode.auto": "自动（窄屏或触屏）",
+    "settings.mode.on": "始终启用",
+    "settings.mode.off": "关闭",
+    "settings.drawer": "侧栏抽屉导航",
+    "settings.targets": "放大触控目标",
+    "settings.on": "开启",
+    "settings.off": "关闭",
+    "settings.saving": "正在保存…",
+    "settings.refused": "Host 未接受此次修改，当前显示最近一次已接受的设置。",
+    "settings.error": "设置保存失败，请检查连接后重试。",
+    "settings.unavailable": "当前 profile 未提供移动端配置，或不允许修改配置。",
+    "settings.loading": "正在读取当前 profile 的移动端设置…",
+    "state.active": "移动端布局已启用",
+    "state.inactive": "当前为桌面布局",
+    "nav.open": "打开导航",
+    "nav.close": "关闭导航",
+    "nav.label": "导航抽屉"
+  }
+}
