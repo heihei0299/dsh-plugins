@@ -1,7 +1,7 @@
 import {
   CENTER_COLUMN, COLUMN_HANDLES, COMPOSER_BUTTONS, COMPOSER_INPUT, CONVERSATION_HEADER, CONVERSATION_SCROLL,
   FRAME, HEADER_ACTIONS, MESSAGE_ACTIONS, RIGHTBAR_COLUMN, SIDEBAR_COLUMN, SIDEBAR_COLUMN_OF_FRAME,
-  TABLE_WRAPPER, WIDE_TABLE,
+  TABLE_WRAPPER, WIDE_TABLE, BADGES_ATTRIBUTE,
 } from './landmarks.js';
 import { ROOT_ATTRIBUTE } from '../shared/types.js';
 
@@ -114,9 +114,11 @@ export function buildStyles(options: StyleOptions): string {
   // never triggers: a 4+ column table stays clipped with no way to reach it.
   rules.push(`${scope} ${WIDE_TABLE},${scope} ${TABLE_WRAPPER}{overflow-x:auto!important;overscroll-behavior-x:contain;touch-action:pan-x pan-y pinch-zoom;padding-bottom:0!important}`);
 
-  // Keep the title readable when subagent/background badges compete with it in
-  // the same row: the badges truncate first instead of pushing the crumbs out.
-  rules.push(`${scope} ${HEADER_ACTIONS} > *{max-width:min(34vw,132px);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`);
+  // Retire a host badge only while its compact replacement is rendered. The
+  // component publishes which categories it covers on the slot anchor, so an
+  // unreadable projection falls back to the host control instead of nothing.
+  rules.push(`${scope} ${HEADER_ACTIONS}[${BADGES_ATTRIBUTE}~="subagents"] > *:not(.dsh-mobile-badge-group):is([aria-label*="子智能体"],[aria-label*="subagent" i],:has([aria-label*="子智能体"]),:has([aria-label*="subagent" i])){display:none}`);
+  rules.push(`${scope} ${HEADER_ACTIONS}[${BADGES_ATTRIBUTE}~="jobs"] > *:not(.dsh-mobile-badge-group):is([aria-label*="后台任务"],[aria-label*="job" i],:has([aria-label*="后台任务"]),:has([aria-label*="job" i])){display:none}`);
 
   rules.push(`${scope} :is(button,[role="button"],summary,a[href]){touch-action:manipulation}`);
 
@@ -147,6 +149,23 @@ export function buildStyles(options: StyleOptions): string {
   // Global panels replace the conversation header. Keep their navigation entry
   // in a safe-area-aware bottom corner instead of covering a panel's title.
   rules.push(`.dsh-mobile-toggle-fallback{position:fixed;inset-inline-start:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:38;pointer-events:auto;width:${TAP_TARGET}px;height:${TAP_TARGET}px}`);
+  // Compact status badges: an icon plus a count instead of the host's long
+  // localized label, so the session title keeps its width on a 390px header.
+  rules.push(`.dsh-mobile-badge-group{position:relative;display:inline-flex;align-items:center;gap:6px;flex:none}`);
+  rules.push(`.dsh-mobile-badge{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:2px;height:24px;min-width:30px;padding:0 7px;border:0;border-radius:12px;cursor:pointer;background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-bg-layer-2,#f2f4f7));color:var(--dsw-alias-label-secondary,var(--dsw-alias-label-primary));font-size:11px;line-height:1;touch-action:manipulation;-webkit-app-region:no-drag;transition:background var(--ds-transition-duration-fast,.1s) var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
+  rules.push(`.dsh-mobile-badge svg{width:13px;height:13px;flex:none}`);
+  rules.push(`.dsh-mobile-badge-count{font-variant-numeric:tabular-nums}`);
+  rules.push(`.dsh-mobile-badge-dot{position:absolute;top:3px;inset-inline-end:3px;width:5px;height:5px;border-radius:999px;background:var(--dsw-alias-state-business-primary,#2f6bff)}`);
+  rules.push(`.dsh-mobile-badge:active{background:var(--dsw-alias-interactive-bg-hover-solid,var(--dsw-alias-bg-layer-1,#e8ebf0))}`);
+  rules.push(`.dsh-mobile-badge-panel{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:60;box-sizing:border-box;width:min(240px,calc(100vw - 24px));padding:6px;border-radius:var(--dsw-radius-lg,14px);background:var(--dsw-specific-menu,var(--dsw-alias-bg-layer-1,#fff));box-shadow:var(--dsw-elevation-prominent,0 10px 30px rgb(16 24 40 / 22%));border:.5px solid var(--dsw-alias-border-l1,var(--dsw-alias-border-l2,#e5e7eb))}`);
+  rules.push(`.dsh-mobile-badge-panel-title{padding:4px 8px 6px;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:16px}`);
+  rules.push(`.dsh-mobile-badge-empty{padding:8px;color:var(--dsw-alias-label-tertiary);font-size:12px}`);
+  rules.push(`.dsh-mobile-badge-row{display:flex;align-items:center;gap:8px;width:100%;min-height:32px;padding:6px 8px;border:0;border-radius:var(--dsw-radius-sm,8px);background:0 0;color:var(--dsw-alias-label-primary);font:inherit;font-size:12.5px;text-align:start;cursor:pointer}`);
+  rules.push(`.dsh-mobile-badge-row:active{background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-bg-layer-2,#f2f4f7))}`);
+  rules.push(`.dsh-mobile-badge-row-dot{width:6px;height:6px;flex:none;border-radius:999px;background:var(--dsw-alias-border-l4,var(--dsw-alias-label-caption,#b6bdc8))}`);
+  rules.push(`.dsh-mobile-badge-row[data-live] .dsh-mobile-badge-row-dot{background:var(--dsw-alias-state-business-primary,#2f6bff)}`);
+  rules.push(`.dsh-mobile-badge-row-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}`);
+  rules.push(`.dsh-mobile-badge-row-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-size:11px}`);
   // Keep the scrim in hit-testing throughout the drawer's exit. Delayed
   // visibility hides it only once the shared slide/fade duration has elapsed;
   // an initially closed (hidden) scrim still cannot intercept any input.

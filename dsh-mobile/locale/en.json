@@ -23,6 +23,12 @@
     "state.inactive": "Desktop layout active",
     "nav.open": "Open navigation",
     "nav.close": "Close navigation",
-    "nav.label": "Navigation drawer"
+    "nav.label": "Navigation drawer",
+    "badge.subagents": "{count} subagents",
+    "badge.jobs": "{count} background tasks",
+    "badge.subagents.panel": "Subagents",
+    "badge.jobs.panel": "Background tasks",
+    "badge.subagents.running": "running",
+    "badge.empty": "Nothing yet"
   }
 }

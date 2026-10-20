@@ -45,6 +45,8 @@ const LANDMARKS = [
   '[data-conversation-scroll]',
   '[data-actions-reveal]',
   '[data-sidebar-collapsed]',
+  '[data-slot="conversation.session.header.actions"]',
+  'data-dsh-mobile-badges',
   '.md-table-wide',
 ];
 for (const landmark of LANDMARKS) assert.ok(source.includes(landmark), `the client bundle lost host landmark ${landmark}`);
@@ -132,7 +134,7 @@ const sandboxPlugin = sandboxRegistration.factory(name => {
   return React;
 });
 sandboxPlugin.apply(ctx);
-assert.equal(slots.size, 3, 'the plugin registers the header toggle, the scrim and the settings row');
+assert.equal(slots.size, 4, 'the plugin registers the header toggle, the scrim, the status badges and the settings row');
 assert.equal(locales.size, 2, 'both dictionaries are registered');
 assert.ok(attributes.has('data-dsh-mobile'), 'activation marks the document root');
 cleanups.reverse().forEach(dispose => dispose());

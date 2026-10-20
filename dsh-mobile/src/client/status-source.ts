@@ -35,13 +35,20 @@ export interface JobRow {
   readonly id: string;
   readonly label?: string;
   readonly status: string;
+  readonly progress?: string;
 }
 
 /** The parts of a session list snapshot the badges read. */
 export interface SessionFacts {
   readonly byId?: Readonly<Record<string, { readonly running?: boolean; readonly origin?: string } | undefined>>;
   readonly projectionsBySession?: Readonly<Record<string, {
-    readonly values: { readonly subagentCatalog?: readonly { readonly id: string; readonly label?: string }[] };
+    readonly values: {
+      readonly subagentCatalog?: readonly {
+        readonly id: string;
+        readonly label?: string;
+        readonly mode?: 'one-shot' | 'continuable' | 'unknown' | 'external';
+      }[];
+    };
   } | undefined>>;
 }
 

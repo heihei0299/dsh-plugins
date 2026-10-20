@@ -52,6 +52,14 @@ export const CONVERSATION_HEADER = '[data-slot="conversation.header"] > header';
  */
 export const HEADER_ACTIONS = '[data-slot="conversation.session.header.actions"]';
 
+/**
+ * Attribute the badge component writes on HEADER_ACTIONS: the categories it is
+ * currently replacing (`subagents`, `jobs`). The sheet retires a host badge only
+ * for a category that is actually present here, so an unreadable projection
+ * falls back to the host's own control.
+ */
+export const BADGES_ATTRIBUTE = 'data-dsh-mobile-badges';
+
 /** The composer card and the two button groups raised to a touch target. */
 export const COMPOSER_CARD = '[data-composer-card]';
 /** Resident Lexical editing surface, not a textarea. */

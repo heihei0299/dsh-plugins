@@ -14,6 +14,7 @@ import { installViewport } from './install-viewport.js';
 import { installKeyboardInset } from './install-keyboard.js';
 import { DrawerFallbackToggle, DrawerScrim, DrawerToggle } from './Drawer.js';
 import { Settings } from './Settings.js';
+import { StatusBadges } from './StatusBadges.js';
 
 export const inject = ['slots', 'locale', 'configForms', 'layout', 'sessions', 'jobs'];
 
@@ -22,6 +23,9 @@ const SETTINGS_STYLE_ID = '@local/dsh-mobile/settings.css';
 /** Hoisted so every render passes the same props object. */
 const SETTINGS_SLOT_OPTIONS = { name: 'settings.general.item', id: 'dsh-mobile', order: 85 } as const;
 const OVERLAY_SLOT_OPTIONS = { name: OVERLAY_SLOT, id: 'dsh-mobile-drawer', order: 40 } as const;
+/** The host's own subagent and job badges live in this slot; ours replaces them. */
+const HEADER_ACTIONS_SLOT = 'conversation.session.header.actions';
+const HEADER_ACTIONS_SLOT_OPTIONS = { name: HEADER_ACTIONS_SLOT, id: 'dsh-mobile-status', order: 5 } as const;
 
 /**
  * Install everything the active layout needs and return one disposer.
@@ -86,11 +90,17 @@ export function apply(ctx: ClientContext): void {
   function MobileSettings(): React.ReactElement {
     return <Surface><Settings /></Surface>;
   }
+  function MobileBadges(props: { sessionId?: string }): React.ReactElement {
+    return <Surface><StatusBadges sessionId={props.sessionId} /></Surface>;
+  }
 
   // The toggle takes the header's own leading seat, so the session title starts
   // after it instead of being covered by a floating button.
   ctx.slots.inject(HEADER_LEADING_SLOT, () => ctx.slots.register({ name: HEADER_LEADING_SLOT }, MobileToggle));
   // The scrim has to cover the whole frame, so it stays in the floating layer.
   ctx.slots.inject(OVERLAY_SLOT, () => ctx.slots.register(OVERLAY_SLOT_OPTIONS, MobileScrim));
+  // Same documented slot the host's own subagent/job badges use; the sheet
+  // retires a host badge only while its compact replacement is rendered.
+  ctx.slots.inject(HEADER_ACTIONS_SLOT, () => ctx.slots.register(HEADER_ACTIONS_SLOT_OPTIONS, MobileBadges));
   ctx.slots.inject('settings.general.item', () => ctx.slots.register(SETTINGS_SLOT_OPTIONS, MobileSettings));
 }

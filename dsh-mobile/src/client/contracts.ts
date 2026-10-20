@@ -74,9 +74,14 @@ export interface SessionsService {
 /** `ctx.jobs` face: the reference-counted background-job rosters. */
 export interface JobsService {
   readonly state: HostSource<{
-    readonly rows: Readonly<Record<string, readonly { readonly id: string; readonly label?: string; readonly status: string }[]>>;
+    readonly rows: Readonly<Record<string, readonly { readonly id: string; readonly label?: string; readonly status: string; readonly progress?: string }[]>>;
   }>;
   watchRows(sessionId: string): Disposer;
+}
+
+/** `ctx.uiWorkspace` face used to jump to a subagent's conversation. */
+export interface WorkspaceService {
+  openSession(target: string): void;
 }
 
 export interface ClientContext {
@@ -90,4 +95,6 @@ export interface ClientContext {
   layout: LayoutService;
   sessions: SessionsService;
   jobs: JobsService;
+  /** Present whenever the host's workspace UI is loaded; navigation is skipped without it. */
+  uiWorkspace?: WorkspaceService;
 }

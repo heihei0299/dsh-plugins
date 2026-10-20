@@ -128,11 +128,32 @@ test('the header keeps its height while gaining breathing room under the tabs', 
   assert.doesNotMatch(headerRule, /padding:/);
 });
 
-test('header status badges truncate before they squeeze the title', () => {
-  const rule = full.split('\n').find(line => line.includes('[data-slot="conversation.session.header.actions"] > *')) ?? '';
-  assert.match(rule, /max-width:min\(34vw,132px\)/);
-  assert.match(rule, /min-width:0/);
-  assert.match(rule, /text-overflow:ellipsis/);
+test('host badges are retired only for a category this plugin replaces', () => {
+  const subagents = full.split('\n').find(line => line.includes('[data-dsh-mobile-badges~="subagents"]')) ?? '';
+  const jobs = full.split('\n').find(line => line.includes('[data-dsh-mobile-badges~="jobs"]')) ?? '';
+  assert.match(subagents, /aria-label\*="子智能体"/);
+  assert.match(subagents, /aria-label\*="subagent" i/);
+  assert.match(jobs, /aria-label\*="后台任务"/);
+  assert.match(jobs, /aria-label\*="job" i/);
+  // The plugin's own badges must never match their own hide rule.
+  for (const rule of [subagents, jobs]) {
+    assert.match(rule, /> \*:not\(\.dsh-mobile-badge-group\)/);
+    assert.match(rule, /display:none\}/);
+  }
+  // No attribute means no replacement rendered, so nothing is hidden.
+  assert.doesNotMatch(full, /\[data-dsh-mobile-badges\] > \*/);
+});
+
+test('compact badges are icon-plus-count pills', () => {
+  const badge = full.split('\n').find(line => line.startsWith('.dsh-mobile-badge{')) ?? '';
+  assert.match(badge, /height:24px;min-width:30px/);
+  assert.match(badge, /font-size:11px/);
+  assert.match(full, /\.dsh-mobile-badge svg\{width:13px;height:13px/);
+  assert.match(full, /\.dsh-mobile-badge-count\{font-variant-numeric:tabular-nums\}/);
+  const dot = full.split('\n').find(line => line.startsWith('.dsh-mobile-badge-dot{')) ?? '';
+  assert.match(dot, /width:5px;height:5px/);
+  // The panel must not exceed the viewport on a narrow phone.
+  assert.match(full, /\.dsh-mobile-badge-panel\{[^}]*width:min\(240px,calc\(100vw - 24px\)\)/);
 });
 
 test('iOS focus zoom protection includes the actual contenteditable composer', () => {
