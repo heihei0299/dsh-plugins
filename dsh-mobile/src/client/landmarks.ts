@@ -46,6 +46,12 @@ export const COLUMN_HANDLES = '[data-slot="root"] > div > [data-side]';
 /** Conversation header (`<header>`) inside its root-scoped slot. */
 export const CONVERSATION_HEADER = '[data-slot="conversation.header"] > header';
 
+/**
+ * Subagent and background-task badges, rendered by their own plugins into this
+ * documented slot, which sits beside the session title in the header.
+ */
+export const HEADER_ACTIONS = '[data-slot="conversation.session.header.actions"]';
+
 /** The composer card and the two button groups raised to a touch target. */
 export const COMPOSER_CARD = '[data-composer-card]';
 /** Resident Lexical editing surface, not a textarea. */
@@ -89,6 +95,7 @@ export const HOST_LANDMARKS: readonly { readonly name: string; readonly selector
   { name: 'centre column', selector: CENTER_COLUMN },
   { name: 'column handles', selector: COLUMN_HANDLES },
   { name: 'conversation header', selector: CONVERSATION_HEADER },
+  { name: 'header status badges', selector: HEADER_ACTIONS },
   { name: 'composer card', selector: COMPOSER_CARD },
   { name: 'composer editing surface', selector: COMPOSER_INPUT },
   { name: 'message actions', selector: MESSAGE_ACTIONS },

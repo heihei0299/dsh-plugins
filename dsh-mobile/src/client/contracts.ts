@@ -60,8 +60,23 @@ export interface LayoutService {
 /** The same public main-view ownership projection used by the host's session tree. */
 export interface SessionsService {
   readonly list: HostSource<{
-    readonly byId: Readonly<Record<string, { readonly retainedBy: { readonly mainView?: number } }>>;
+    readonly byId: Readonly<Record<string, {
+      readonly retainedBy: { readonly mainView?: number };
+      readonly running?: boolean;
+      readonly origin?: string;
+    }>>;
+    readonly projectionsBySession?: Readonly<Record<string, {
+      readonly values: { readonly subagentCatalog?: readonly { readonly id: string; readonly label?: string }[] };
+    } | undefined>>;
   }>;
+}
+
+/** `ctx.jobs` face: the reference-counted background-job rosters. */
+export interface JobsService {
+  readonly state: HostSource<{
+    readonly rows: Readonly<Record<string, readonly { readonly id: string; readonly label?: string; readonly status: string }[]>>;
+  }>;
+  watchRows(sessionId: string): Disposer;
 }
 
 export interface ClientContext {
@@ -74,4 +89,5 @@ export interface ClientContext {
   configForms: { get(id: string): ConfigForm };
   layout: LayoutService;
   sessions: SessionsService;
+  jobs: JobsService;
 }

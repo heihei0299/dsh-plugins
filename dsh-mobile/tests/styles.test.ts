@@ -98,9 +98,13 @@ test('tap targets rise to the documented minimum, without inflating the header',
   // The toggle takes real layout space in the header's leading seat; it must not
   // be position:fixed, which covered the session title on a real phone.
   const toggleRule = full.split('\n').find(line => line.startsWith('.dsh-mobile-toggle{')) ?? '';
-  assert.match(toggleRule, /width:44px;height:44px/);
+  // 32px visual box keeps the title row at 30px; the ::after overlay supplies
+  // the 44px tap surface without spending layout space.
+  assert.match(toggleRule, /width:32px;height:32px/);
   assert.doesNotMatch(toggleRule, /position:fixed/);
   assert.match(toggleRule, /flex:none/);
+  const hitArea = full.split('\n').find(line => line.startsWith('.dsh-mobile-toggle::after{')) ?? '';
+  assert.match(hitArea, /inset:-6px/);
   // Measured on the live page: 44px View tabs grow the header from 76px to 95px.
   const targetRule = full.split('\n').find(line => line.includes('min-width:44px;min-height:44px')) ?? '';
   assert.doesNotMatch(targetRule, /data-conversation-tabs/, 'View tabs must stay at the host size');
@@ -116,11 +120,19 @@ test('global-panel navigation stays below the scrim in a safe-area-aware bottom 
   assert.match(rule, /z-index:38;pointer-events:auto/);
 });
 
-test('the header rule touches horizontal padding only', () => {
+test('the header keeps its height while gaining breathing room under the tabs', () => {
   const headerRule = full.split('\n').find(line => line.includes('[data-slot="conversation.header"] > header')) ?? '';
   assert.match(headerRule, /padding-inline:12px/);
+  assert.match(headerRule, /padding-bottom:6px/);
   assert.doesNotMatch(headerRule, /min-height/, 'overriding the header min-height made it taller, not shorter');
   assert.doesNotMatch(headerRule, /padding:/);
+});
+
+test('header status badges truncate before they squeeze the title', () => {
+  const rule = full.split('\n').find(line => line.includes('[data-slot="conversation.session.header.actions"] > *')) ?? '';
+  assert.match(rule, /max-width:min\(34vw,132px\)/);
+  assert.match(rule, /min-width:0/);
+  assert.match(rule, /text-overflow:ellipsis/);
 });
 
 test('iOS focus zoom protection includes the actual contenteditable composer', () => {

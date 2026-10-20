@@ -26,7 +26,7 @@ const plugin = registration.factory(name => {
 });
 assert.deepEqual([...new Set(imports)], ['react']);
 assert.equal(typeof plugin.apply, 'function');
-for (const service of ['slots', 'locale', 'configForms', 'layout', 'sessions']) {
+for (const service of ['slots', 'locale', 'configForms', 'layout', 'sessions', 'jobs']) {
   assert.ok(plugin.inject.includes(service), `the client half must inject "${service}"`);
 }
 
@@ -103,6 +103,10 @@ const ctx = {
     panelInfo: { getSnapshot: () => ({ activePanelId: null }), subscribe: () => () => {} },
   },
   sessions: { list: { getSnapshot: () => ({ byId: {} }), subscribe: () => () => {} } },
+  jobs: {
+    state: { getSnapshot: () => ({ rows: {} }), subscribe: () => () => {} },
+    watchRows: () => () => {},
+  },
   slots: {
     inject(name, factory) { const dispose = factory(); cleanups.push(dispose); return dispose; },
     register(options) { const key = `${options.name}:${options.key ?? options.id}`; assert.ok(!slots.has(key), `duplicate slot registration ${key}`); slots.add(key); return () => slots.delete(key); },

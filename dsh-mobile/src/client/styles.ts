@@ -1,6 +1,6 @@
 import {
   CENTER_COLUMN, COLUMN_HANDLES, COMPOSER_BUTTONS, COMPOSER_INPUT, CONVERSATION_HEADER, CONVERSATION_SCROLL,
-  FRAME, MESSAGE_ACTIONS, RIGHTBAR_COLUMN, SIDEBAR_COLUMN, SIDEBAR_COLUMN_OF_FRAME,
+  FRAME, HEADER_ACTIONS, MESSAGE_ACTIONS, RIGHTBAR_COLUMN, SIDEBAR_COLUMN, SIDEBAR_COLUMN_OF_FRAME,
   TABLE_WRAPPER, WIDE_TABLE,
 } from './landmarks.js';
 import { ROOT_ATTRIBUTE } from '../shared/types.js';
@@ -100,7 +100,9 @@ export function buildStyles(options: StyleOptions): string {
   // Horizontal padding only: the host's 20px/28px gutters cost ~48px of a 390px
   // header. Vertical metrics stay the host's, because overriding min-height made
   // the two-row header TALLER (76px -> 80px) rather than shorter.
-  rules.push(`${scope} ${CONVERSATION_HEADER}{padding-inline:12px}`);
+  // 6px under the tabs keeps the view row off the divider without growing the
+  // header: the 32px toggle leaves enough slack inside the host's 76px.
+  rules.push(`${scope} ${CONVERSATION_HEADER}{padding-inline:12px;padding-bottom:6px}`);
   // overscroll containment keeps a downward pull inside the transcript instead
   // of navigating/refreshing away a streaming answer.
   // The keyboard inset is padding on the scrollport: verified on the live page
@@ -111,6 +113,10 @@ export function buildStyles(options: StyleOptions): string {
   // Touch devices have no hover, so the host's hover-to-scroll table widening
   // never triggers: a 4+ column table stays clipped with no way to reach it.
   rules.push(`${scope} ${WIDE_TABLE},${scope} ${TABLE_WRAPPER}{overflow-x:auto!important;overscroll-behavior-x:contain;touch-action:pan-x pan-y pinch-zoom;padding-bottom:0!important}`);
+
+  // Keep the title readable when subagent/background badges compete with it in
+  // the same row: the badges truncate first instead of pushing the crumbs out.
+  rules.push(`${scope} ${HEADER_ACTIONS} > *{max-width:min(34vw,132px);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}`);
 
   rules.push(`${scope} :is(button,[role="button"],summary,a[href]){touch-action:manipulation}`);
 
@@ -130,13 +136,17 @@ export function buildStyles(options: StyleOptions): string {
   // The toggle sits in the conversation header's own leading seat, so it takes
   // real layout space and the session title starts after it. A floating button
   // here covered the first characters of the title on a real phone.
+  // 32px visually, 44px hit area: a 44px box forced the title row to 44px and
+  // the header to 90px on a 390px phone, for no extra reach.
   // Marked `data-window-drag`-exempt by the host's no-drag rule for header
   // controls; sizes use the host's fast tier for press feedback.
-  rules.push(`.dsh-mobile-toggle{display:grid;place-items:center;width:${TAP_TARGET}px;height:${TAP_TARGET}px;flex:none;border:0;border-radius:999px;cursor:pointer;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-overlay,#fff));box-shadow:0 2px 10px rgb(0 0 0 / 18%);touch-action:manipulation;-webkit-app-region:no-drag;transform:scale(1);transition:transform var(--ds-transition-duration-fast,.1s) var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
+  rules.push(`.dsh-mobile-toggle{position:relative;display:grid;place-items:center;width:32px;height:32px;flex:none;border:0;border-radius:999px;cursor:pointer;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-overlay,#fff));box-shadow:0 1px 6px rgb(0 0 0 / 14%);touch-action:manipulation;-webkit-app-region:no-drag;transform:scale(1);transition:transform var(--ds-transition-duration-fast,.1s) var(--ds-ease-in-out,cubic-bezier(.4,0,.2,1))}`);
+  // Invisible 44px tap surface that costs no layout space.
+  rules.push(`.dsh-mobile-toggle::after{content:"";position:absolute;inset:-6px;border-radius:999px}`);
   rules.push(`.dsh-mobile-toggle:active{background:var(--dsw-alias-interactive-bg-hover-solid,var(--dsw-alias-bg-layer-2,#f3f3f3));transform:scale(.92)}`);
   // Global panels replace the conversation header. Keep their navigation entry
   // in a safe-area-aware bottom corner instead of covering a panel's title.
-  rules.push(`.dsh-mobile-toggle-fallback{position:fixed;inset-inline-start:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:38;pointer-events:auto}`);
+  rules.push(`.dsh-mobile-toggle-fallback{position:fixed;inset-inline-start:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));z-index:38;pointer-events:auto;width:${TAP_TARGET}px;height:${TAP_TARGET}px}`);
   // Keep the scrim in hit-testing throughout the drawer's exit. Delayed
   // visibility hides it only once the shared slide/fade duration has elapsed;
   // an initially closed (hidden) scrim still cannot intercept any input.
