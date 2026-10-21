@@ -6,6 +6,7 @@
   "ui": {
     "brand": "SmartUI",
     "document": "Interactive response",
+    "documentShown": "Card shown in the conversation ({blocks} blocks)",
     "preparing": "Preparing an interactive response…",
     "running": "Validating the response…",
     "fallback": "Interactive view unavailable. The recorded response is preserved below.",

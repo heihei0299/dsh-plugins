@@ -6,6 +6,7 @@
   "ui": {
     "brand": "SmartUI",
     "document": "交互式回答",
+    "documentShown": "卡片已在对话中展示（{blocks} 个区块）",
     "preparing": "正在准备交互式回答…",
     "running": "正在校验展示数据…",
     "fallback": "无法显示交互组件，已记录的回答保留如下。",

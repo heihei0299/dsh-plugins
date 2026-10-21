@@ -21,23 +21,34 @@ const plugin = registration.factory(name => {
 assert.deepEqual([...new Set(imports)], ['react']);
 assert.equal(typeof plugin.apply, 'function');
 assert.ok(plugin.inject.includes('slots'));
+assert.ok(plugin.inject.includes('uiConversation'), 'The Turn-level row needs the Conversation Definition registry');
 // Contract smoke test, not live DSH or visual verification.
 const cleanups = [];
 const locales = new Set();
 const slots = new Set();
+const definitions = new Set();
 const form = { getSnapshot: () => ({ status: 'loading', value: undefined, writable: false }), subscribe: () => () => {} };
 const ctx = {
   effect(factory) { const dispose = factory(); cleanups.push(dispose); return dispose; },
   locale: { register(ns, locale) { const key = `${ns}:${locale}`; assert.ok(!locales.has(key)); locales.add(key); return () => locales.delete(key); }, bind: () => key => key },
   configForms: { get: id => { assert.equal(id, 'dsh-smartui'); return form; } },
   theme: { overrideTokens() { throw new Error('No theme should activate before Host settings are accepted'); } },
+  uiConversation: {
+    events: {
+      register(definition) {
+        assert.equal(definition.kind, 'smartui-document'); assert.equal(definition.target, 'chat');
+        assert.ok(!definitions.has(definition.kind)); definitions.add(definition.kind);
+        return () => definitions.delete(definition.kind);
+      },
+    },
+  },
   slots: {
     inject(name, factory) { const dispose = factory(); cleanups.push(dispose); return dispose; },
     register(options, component) { const key = `${options.name}:${options.key ?? options.id}`; assert.ok(!slots.has(key)); assert.equal(typeof component, 'function'); slots.add(key); return () => slots.delete(key); },
   },
 };
 plugin.apply(ctx);
-assert.equal(slots.size, 3); assert.equal(locales.size, 2);
+assert.equal(slots.size, 4); assert.equal(locales.size, 2); assert.equal(definitions.size, 1);
 cleanups.reverse().forEach(dispose => dispose());
-assert.equal(slots.size, 0); assert.equal(locales.size, 0);
+assert.equal(slots.size, 0); assert.equal(locales.size, 0); assert.equal(definitions.size, 0);
 console.log('Bundle contract verified: lazy factory, host React only, exported resources, registration and cleanup. Live DSH/browser verification remains separate.');

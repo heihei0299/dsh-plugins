@@ -810,6 +810,37 @@
   color: var(--smartui-text);
 }
 
+/* Compact tool row: the document itself is a separate Turn-level Chat row. */
+.smartui-compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  color: var(--smartui-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.smartui-compact-mark {
+  color: var(--smartui-accent);
+  font-size: 12px;
+  line-height: 1;
+}
+.smartui-compact-title {
+  color: var(--smartui-text);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.smartui-compact-meta {
+  color: var(--smartui-muted);
+}
+/* Turn-level Chat row: the card spans the transcript column, outside process fold. */
+.smartui-node {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* Launcher and settings remain visually subordinate to content. */
 .smartui-launcher {
   display: flex;

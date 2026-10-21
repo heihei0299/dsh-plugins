@@ -43,6 +43,43 @@ export interface LocaleService {
 export interface SlotOptions {
   name: string; key?: string; id?: string; order?: number;
 }
+/** Structural slice of one durable or transient Session event. */
+export interface SessionEventLike { type: string; seq: number; data?: unknown }
+export interface TurnLocationLike { turn: number; status: 'open' | 'closed' | 'unknown'; steps: readonly unknown[]; data: unknown }
+export type ConversationLocationLike =
+  | { kind: 'session' }
+  | { kind: 'turn'; turn: TurnLocationLike }
+  | { kind: 'step'; turn: TurnLocationLike; step: unknown }
+  | { kind: 'unresolved' };
+export interface ConversationMatchLike { event: SessionEventLike; role: 'start' | 'update'; location: ConversationLocationLike }
+export interface ConversationNodeContextLike<State> {
+  key: string; kind: string; id: string;
+  matches: readonly ConversationMatchLike[];
+  start: ConversationMatchLike | undefined;
+  state: State | undefined;
+  current: ReadonlyMap<string, unknown>;
+}
+export interface ConversationMatchResultLike { id: string; role: 'start' | 'update'; exclusive?: true }
+/** Read-only row published by one Conversation Definition for a Chat target. */
+export interface ConversationViewNodeLike {
+  key: string; kind: string; id: string; target: string;
+  anchorSeq: number; location: ConversationLocationLike;
+  visibility: 'visible' | 'hidden';
+  groupTree?: 'exchange' | 'input' | 'turn' | 'process';
+  data: unknown;
+}
+/** Minimal Event-to-Node state machine accepted by `uiConversation.events`. */
+export interface ConversationNodeDefinition<State> {
+  kind: string; target?: string;
+  match(event: SessionEventLike): ConversationMatchResultLike | null;
+  start(context: ConversationNodeContextLike<State>, match: ConversationMatchLike): State;
+  update(context: ConversationNodeContextLike<State> & { state: State }, match: ConversationMatchLike): State;
+  buildViewNode(context: ConversationNodeContextLike<State>): ConversationViewNodeLike | null;
+}
+/** Keyed Chat row this plugin renders outside the foldable process group. */
+export interface ChatNodeProps extends SessionProps {
+  node: { key: string; kind: string; id: string; data: unknown };
+}
 export interface ClientContext {
   effect(factory: () => Disposer): Disposer;
   slots: {
@@ -52,4 +89,6 @@ export interface ClientContext {
   locale: LocaleService;
   configForms: { get<T extends SmartUISettings>(id: string): ConfigForm };
   theme: { overrideTokens(source: string, tokens: Record<string, { light: string; dark: string }>): Disposer };
+  /** Conversation Definition registry; the only official way to add a durable Chat row. */
+  uiConversation: { events: { register<State>(definition: ConversationNodeDefinition<State>): Disposer } };
 }

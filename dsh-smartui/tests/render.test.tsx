@@ -7,9 +7,11 @@ import en from '../locale/en.json' with { type: 'json' };
 import zh from '../locale/zh.json' with { type: 'json' };
 import { EnvironmentContext, type Environment } from '../src/client/environment.js';
 import { BlockView } from '../src/client/components.js';
+import { DocumentNode } from '../src/client/DocumentNode.js';
+import { DocumentView } from '../src/client/DocumentView.js';
 import { ToolView } from '../src/client/ToolView.js';
 import { validateDocument } from '../src/shared/validation.js';
-import type { ClientContext, ToolViewProps } from '../src/client/contracts.js';
+import type { ChatNodeProps, ClientContext, ConfigSnapshot, ToolViewProps } from '../src/client/contracts.js';
 import type { ChartBlock } from '../src/shared/types.js';
 const settings = { status: 'ready' as const, value: { appearance: 'chatgpt' as const, enableComponents: true }, writable: true, revision: 1 };
 const locale = { active: 'en', revision: 0 };
@@ -37,18 +39,46 @@ test('model-provided HTML remains escaped text in cards, tables and fields', () 
   const html = render(<BlockView block={{ id: 'card', type: 'card', body: payload }} callId="call" disabled={false} onFill={() => {}} />);
   assert.ok(!html.includes('<script>')); assert.ok(!html.includes('<img ')); assert.match(html, /&lt;script&gt;/);
 });
-test('a settled tool displays recorded document; failure and unknown schema preserve text only', () => {
+test('a settled tool reports the recorded document without repeating the card', () => {
   const props: ToolViewProps = {
     sessionId: 'session', callId: 'call', toolName: 'render_smart_ui', phase: 'result',
     block: { meta: { smartui: { schemaVersion: 1, summary: 'Recorded summary', blocks: [{ id: 'card', type: 'card', body: 'Real card' }] } }, content: [{ type: 'text', text: 'Text fallback' }] },
     inputActions: { captureInsertion: () => ({ start: 0, end: 0, draftRev: 0 }), insertText: () => { throw new Error('Rendering must not mutate input'); } },
     useInput: selector => selector({ phase: 'plain', draft: '' }),
   };
-  assert.match(render(<ToolView {...props} />), /Real card/);
+  const compact = render(<ToolView {...props} />);
+  assert.ok(!compact.includes('Real card'));
+  assert.match(compact, /Card shown in the conversation \(1 blocks\)/);
   const failed = render(<ToolView {...props} block={{ ...props.block, isError: true }} />);
   assert.ok(!failed.includes('Real card')); assert.match(failed, /Text fallback/);
   const unsupported = render(<ToolView {...props} block={{ ...props.block, meta: { smartui: { schemaVersion: 2 } } }} />);
   assert.ok(!unsupported.includes('Real card')); assert.match(unsupported, /Text fallback/);
+});
+function settingsWith(enableComponents: boolean): Environment {
+  return {
+    ...environment,
+    form: {
+      ...environment.form,
+      getSnapshot: (): ConfigSnapshot => ({ status: 'ready', value: { appearance: 'chatgpt', enableComponents }, writable: true, revision: 1 }),
+    },
+  };
+}
+test('the Turn-level row renders the card outside the fold and follows the settings gate', () => {
+  const document = validateDocument({ schemaVersion: 1, summary: 'Recorded summary', blocks: [{ id: 'card', type: 'card', body: 'Real card' }] });
+  const props: ChatNodeProps = {
+    sessionId: 'session',
+    node: { key: 'smartui:call', kind: 'smartui-document', id: 'call', data: { callId: 'call', document } },
+    inputActions: { captureInsertion: () => ({ start: 0, end: 0, draftRev: 0 }), insertText: () => { throw new Error('Rendering must not mutate input'); } },
+    useInput: selector => selector({ phase: 'plain', draft: '' }),
+  };
+  const html = renderToStaticMarkup(<EnvironmentContext.Provider value={settingsWith(true)}><DocumentNode {...props} /></EnvironmentContext.Provider>);
+  assert.match(html, /Real card/); assert.match(html, /data-smartui-call="call"/); assert.match(html, /smartui-document/);
+  const disabled = renderToStaticMarkup(<EnvironmentContext.Provider value={settingsWith(false)}><DocumentNode {...props} /></EnvironmentContext.Provider>);
+  assert.equal(disabled, '');
+  const malformed = renderToStaticMarkup(<EnvironmentContext.Provider value={settingsWith(true)}><DocumentNode {...props} node={{ ...props.node, data: { callId: 'call' } }} /></EnvironmentContext.Provider>);
+  assert.equal(malformed, '');
+  const direct = render(<DocumentView document={document} callId="call" editable inputActions={props.inputActions} />);
+  assert.match(direct, /Real card/); assert.match(direct, /View recorded UI document/);
 });
 function chart(values: number[], chartType: ChartBlock['chartType'] = 'line') {
   return render(<BlockView block={{ id: 'chart', type: 'chart', title: 'Trend', chartType, series: [{
