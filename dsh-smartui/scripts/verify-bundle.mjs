@@ -27,6 +27,12 @@ const cleanups = [];
 const locales = new Set();
 const slots = new Set();
 const definitions = new Set();
+const nativeFlow = {
+  options: { name: 'conversation.chat.flow', priority: 100 }, component: () => null,
+  locale: 'chat', store: {}, children: {}, inject: () => ({}),
+};
+const flowEntries = [nativeFlow];
+const flowListeners = new Set();
 const form = { getSnapshot: () => ({ status: 'loading', value: undefined, writable: false }), subscribe: () => () => {} };
 const ctx = {
   effect(factory) { const dispose = factory(); cleanups.push(dispose); return dispose; },
@@ -44,11 +50,27 @@ const ctx = {
   },
   slots: {
     inject(name, factory) { const dispose = factory(); cleanups.push(dispose); return dispose; },
-    register(options, component) { const key = `${options.name}:${options.key ?? options.id}`; assert.ok(!slots.has(key)); assert.equal(typeof component, 'function'); slots.add(key); return () => slots.delete(key); },
+    entries(name) { assert.equal(name, 'conversation.chat.flow'); return flowEntries; },
+    subscribe(name, listener) {
+      assert.equal(name, 'conversation.chat.flow'); flowListeners.add(listener);
+      return () => flowListeners.delete(listener);
+    },
+    register(options, component) {
+      const key = `${options.name}:${options.key ?? options.id}`;
+      assert.ok(!slots.has(key)); assert.equal(typeof component, 'function'); slots.add(key);
+      const flow = options.name === 'conversation.chat.flow' ? { ...options, options, component } : undefined;
+      if (flow) flowEntries.unshift(flow);
+      return () => {
+        slots.delete(key);
+        if (flow) { const index = flowEntries.indexOf(flow); if (index !== -1) flowEntries.splice(index, 1); }
+      };
+    },
   },
 };
 plugin.apply(ctx);
-assert.equal(slots.size, 4); assert.equal(locales.size, 2); assert.equal(definitions.size, 1);
+assert.equal(slots.size, 5); assert.equal(locales.size, 2); assert.equal(definitions.size, 1);
+assert.equal(flowEntries.length, 2); assert.equal(flowListeners.size, 1);
 cleanups.reverse().forEach(dispose => dispose());
 assert.equal(slots.size, 0); assert.equal(locales.size, 0); assert.equal(definitions.size, 0);
+assert.deepEqual(flowEntries, [nativeFlow]); assert.equal(flowListeners.size, 0);
 console.log('Bundle contract verified: lazy factory, host React only, exported resources, registration and cleanup. Live DSH/browser verification remains separate.');

@@ -41,8 +41,20 @@ export interface LocaleService {
   subscribe(listener: () => void): Disposer;
 }
 export interface SlotOptions {
-  name: string; key?: string; id?: string; order?: number;
+  name: string; key?: string; id?: string; order?: number; priority?: number;
+  locale?: string; store?: unknown; children?: Readonly<Record<string, unknown>>; inject?: unknown;
 }
+/** Public Slot registry entry fields needed to wrap, not replace, the native flow. */
+export interface ChatFlowEntryLike {
+  options: SlotOptions;
+  component: ComponentType<ChatFlowProps>;
+  locale?: string; store?: unknown; children?: Readonly<Record<string, unknown>>; inject?: unknown;
+}
+/** Native keyed snapshot hook, including its optional field selector. */
+export type ChatNodeSelector = <Result = ConversationViewNodeLike | undefined>(
+  key: string, select?: (node: ConversationViewNodeLike | undefined) => Result,
+) => Result;
+export interface ChatFlowProps { useChatNode: ChatNodeSelector }
 /** Structural slice of one durable or transient Session event. */
 export interface SessionEventLike { type: string; seq: number; data?: unknown }
 export interface TurnLocationLike { turn: number; status: 'open' | 'closed' | 'unknown'; steps: readonly unknown[]; data: unknown }
@@ -85,6 +97,8 @@ export interface ClientContext {
   slots: {
     inject(slot: string, register: () => Disposer): Disposer;
     register<P>(options: SlotOptions, component: ComponentType<P>): Disposer;
+    entries(name: 'conversation.chat.flow'): readonly ChatFlowEntryLike[];
+    subscribe(name: 'conversation.chat.flow', listener: () => void): Disposer;
   };
   locale: LocaleService;
   configForms: { get<T extends SmartUISettings>(id: string): ConfigForm };

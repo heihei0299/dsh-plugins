@@ -10,6 +10,8 @@
 
 `0.1.3` 起，已记录文档不再只住在工具行里：`smartuiDocumentDefinition` 把它发布为该轮的一条 Turn 级 Chat 行（`groupTree: 'turn'`），回答结束后的「工作步骤」折叠不会把卡片一起收起；工具行只保留一行摘要。类型检查、49 项串行测试、构建和产物契约检查通过，并在运行中的页面上用真实历史重放确认卡片位于折叠之外。
 
+**`0.1.4` 会话正文折叠修复**：同一轮先输出主计划、后输出补充时，普通助手正文不再随整轮「工作步骤」一起收起。通过公开 Slot 注册包装现有 Chat flow，仅在渲染层把含回复内容的 `assistant-step` 视为 Turn 级节点；原始节点、推理/工具分组、历史记录及原生渲染器均不改动。类型检查、57 项串行测试（含 8 项正文折叠回归）、本地构建及产物契约检查通过；**运行中页面上的折叠与禁用恢复效果仍待浏览器验收**。
+
 首版针对 DSH `0.2.1-rc.2`。插件安装到一个 profile 后，影响该 profile 下所有会话；不会启动第二个 Web 服务或修改已安装 DSH 核心。
 
 **交接状态、已验证项、未验证项与接手步骤见 [HANDOFF.md](<HANDOFF.md>)。**
@@ -24,6 +26,7 @@
 - 操作仅填入当前会话的原生草稿；**用户审阅并发送后才进入后续对话**。有文字选区、命令草稿、编辑器锁定或 revision 变化时拒绝写入，不退回覆盖草稿。
 - UI 文档随标准工具结果 metadata 保存；未提交表单、排序及展开状态不承诺刷新恢复。
 - 每份文档是该轮的一条独立 Chat 行，位于「工作步骤」折叠之外；工具行只保留摘要，不重复渲染卡片。
+- 普通助手正文（包括较早的主计划和后续补充）始终可见；推理和工具记录仍由原生「工作步骤」控制。复用原生流式更新、Markdown、图片和消息操作，不复制正文或修改会话日志。
 
 ### 显示与可用性
 
@@ -51,7 +54,7 @@ pnpm run verify:bundle    # 检查惰性 factory、宿主 React、资源与清�
 获安装授权后，可在现有 DSH 插件管理器选择本地 bundle，或使用同样经过版本检查与 profile 写锁的官方 CLI：
 
 ```bash
-dsh plugin --profile web add link:/home/shial/Project/dsh-smartui --offline
+dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --offline --ignore-scripts
 ```
 
 `link:` 使用已准备好的工作区与依赖；离线安装不从注册表补齐缺失包。不手改 profile 的依赖清单或 patch，也不启动另一个服务器。
@@ -69,7 +72,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-smartui --offline
 
 设置由 Host 的 `dsh-smartui` entry 持久化，经现有 ConfigForms 传输，不另建 Remote 或浏览器存储。加载期间不抢先应用主题；Host 拒绝保存时保留最后接受的配置。
 
-关闭组件后，工具定义仍注册，但 Host 拒绝新的文档，提示词要求使用普通文本；历史卡片只保留文本展示。禁用整个 bundle 则撤销 Client 注册、主题层及 Host 工具。没有渲染器时，标准工具摘要仍可读。
+关闭组件后，工具定义仍注册，但 Host 拒绝新的文档，提示词要求使用普通文本；历史卡片只保留文本展示。普通正文的折叠修复独立于外观和组件开关；禁用整个 bundle 才恢复宿主原生折叠规则，并撤销 Client 注册、主题层及 Host 工具。没有渲染器时，标准工具摘要仍可读。
 
 ## 使用
 
