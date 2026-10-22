@@ -95,6 +95,6 @@ export interface ClientContext {
   layout: LayoutService;
   sessions: SessionsService;
   jobs: JobsService;
-  /** Present whenever the host's workspace UI is loaded; navigation is skipped without it. */
-  uiWorkspace?: WorkspaceService;
+  /** Required Cordis dependency: access without injection throws, even with optional chaining. */
+  uiWorkspace: WorkspaceService;
 }

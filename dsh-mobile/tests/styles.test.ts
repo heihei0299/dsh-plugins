@@ -109,7 +109,16 @@ test('tap targets rise to the documented minimum, without inflating the header',
   const targetRule = full.split('\n').find(line => line.includes('min-width:44px;min-height:44px')) ?? '';
   assert.doesNotMatch(targetRule, /data-conversation-tabs/, 'View tabs must stay at the host size');
   assert.match(targetRule, /data-composer-card/);
+  assert.match(targetRule, /data-composer-dock/);
   assert.match(targetRule, /data-actions-reveal/);
+});
+
+test('footer dialog controls get touch targets and keep the sticky safe area', () => {
+  const targets = full.split('\n').find(line => line.includes('min-width:44px;min-height:44px')) ?? '';
+  assert.ok(targets.includes('[data-composer-dock] button[aria-haspopup="dialog"]'));
+  assert.ok(full.includes('html[data-dsh-mobile] [data-composer-dock]{padding-bottom:env(safe-area-inset-bottom)}'));
+  assert.doesNotMatch(plain, /\[data-composer-dock\] button/);
+  assert.doesNotMatch(full, /\[data-composer-dock\][^{]*\{[^}]*pointer-events:none/);
 });
 
 test('global-panel navigation stays below the scrim in a safe-area-aware bottom corner', () => {
@@ -152,8 +161,47 @@ test('compact badges are icon-plus-count pills', () => {
   assert.match(full, /\.dsh-mobile-badge-count\{font-variant-numeric:tabular-nums\}/);
   const dot = full.split('\n').find(line => line.startsWith('.dsh-mobile-badge-dot{')) ?? '';
   assert.match(dot, /width:5px;height:5px/);
-  // The panel must not exceed the viewport on a narrow phone.
-  assert.match(full, /\.dsh-mobile-badge-panel\{[^}]*width:min\(240px,calc\(100vw - 24px\)\)/);
+});
+
+test('the status popup is an icon-anchored card, not a bottom sheet', () => {
+  const panel = full.split('\n').find(line => line.startsWith('.dsh-mobile-badge-panel{')) ?? '';
+  // Top layer + JS-written coordinates: fixed in the viewport, never pinned to
+  // the bottom edge and never stretched across the screen.
+  assert.match(panel, /position:fixed;inset:auto/);
+  assert.doesNotMatch(panel, /inset:auto 0 0|bottom:0|inset:0/);
+  assert.match(panel, /width:min\(360px,calc\(100vw - 24px\)\)/);
+  assert.match(panel, /max-width:calc\(100vw - 24px\)/);
+  assert.match(panel, /max-height:calc\(100dvh - 24px\)/);
+  assert.doesNotMatch(panel, /560px|78dvh|margin:0 auto/);
+  assert.match(panel, /border-radius:16px/, 'all four corners stay rounded');
+  assert.match(panel, /background:var\(--dsw-alias-bg-layer-1/);
+  // Closed popovers must not be painted: the author `display:none` is lifted
+  // only by the native open state.
+  assert.match(panel, /display:none/);
+  assert.match(full, /\.dsh-mobile-badge-panel:popover-open\{display:flex\}/);
+  // A sheet is exactly what the user rejected: no modal, no scrim, no backdrop.
+  assert.doesNotMatch(full, /::backdrop/);
+  assert.doesNotMatch(full, /dsh-mobile-badge-panel\[open\]/);
+  assert.match(full, /\.dsh-mobile-badge-panel-list\{[^}]*overflow-y:auto;overscroll-behavior:contain/);
+  assert.match(full, /\.dsh-mobile-badge-panel-close::after\{content:"";position:absolute;inset:-6px/, '32px visual close keeps a 44px hit area');
+});
+
+test('popup rows stack label, status and progress instead of crowding one line', () => {
+  const body = full.split('\n').find(line => line.startsWith('.dsh-mobile-badge-row-body{')) ?? '';
+  assert.match(body, /flex-direction:column/);
+  const label = full.split('\n').find(line => line.startsWith('.dsh-mobile-badge-row-label{')) ?? '';
+  assert.match(label, /white-space:normal;overflow-wrap:anywhere/);
+  assert.match(label, /font-size:13px/);
+  const detail = full.split('\n').find(line => line.startsWith('.dsh-mobile-badge-row-detail{')) ?? '';
+  assert.match(detail, /white-space:pre-wrap;overflow-wrap:anywhere/);
+  const row = full.split('\n').find(line => line.startsWith('.dsh-mobile-badge-row{')) ?? '';
+  assert.match(row, /min-height:48px/, 'rows stay tappable without turning the card into a screen');
+});
+
+test('status panels use an opaque theme surface instead of the translucent menu token', () => {
+  const panel = full.split('\n').find(line => line.startsWith('.dsh-mobile-badge-panel{')) ?? '';
+  assert.ok(panel.includes('background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff))'));
+  assert.doesNotMatch(panel, /--dsw-specific-menu|opacity:|backdrop-filter:/);
 });
 
 test('iOS focus zoom protection includes the actual contenteditable composer', () => {

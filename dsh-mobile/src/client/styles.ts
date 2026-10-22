@@ -1,5 +1,5 @@
 import {
-  CENTER_COLUMN, COLUMN_HANDLES, COMPOSER_BUTTONS, COMPOSER_INPUT, CONVERSATION_HEADER, CONVERSATION_SCROLL,
+  CENTER_COLUMN, COLUMN_HANDLES, COMPOSER_BUTTONS, COMPOSER_DOCK, COMPOSER_DOCK_BUTTONS, COMPOSER_INPUT, CONVERSATION_HEADER, CONVERSATION_SCROLL,
   FRAME, HEADER_ACTIONS, MESSAGE_ACTIONS, RIGHTBAR_COLUMN, SIDEBAR_COLUMN, SIDEBAR_COLUMN_OF_FRAME,
   TABLE_WRAPPER, WIDE_TABLE, BADGES_ATTRIBUTE,
 } from './landmarks.js';
@@ -121,14 +121,18 @@ export function buildStyles(options: StyleOptions): string {
   rules.push(`${scope} ${HEADER_ACTIONS}[${BADGES_ATTRIBUTE}~="jobs"] > *:not(.dsh-mobile-badge-group):is([aria-label*="后台任务"],[aria-label*="job" i],:has([aria-label*="后台任务"]),:has([aria-label*="job" i])){display:none}`);
 
   rules.push(`${scope} :is(button,[role="button"],summary,a[href]){touch-action:manipulation}`);
+  // The dock is outside data-composer-card, so the card's larger targets never
+  // reached these 20–22px-high controls. Reserve the safe area on the sticky
+  // footer itself: padding on the surrounding scrollport alone can scroll away.
+  rules.push(`${scope} ${COMPOSER_DOCK}{padding-bottom:env(safe-area-inset-bottom)}`);
 
   if (options.comfortableTargets) {
     const target = `${TAP_TARGET}px`;
-    // Composer controls and message actions only. The View tabs are deliberately
+    // Composer card/dock controls and message actions. The View tabs are deliberately
     // excluded: raising them to 44px grows their row from 35px to 54px and takes
     // the header from 76px to 95px on a 390px screen — a permanent 19px loss of
     // transcript against ~4 tap targets that sit in a row the user taps rarely.
-    rules.push(`${scope} ${COMPOSER_BUTTONS},${scope} ${MESSAGE_ACTIONS}{min-width:${target};min-height:${target}}`);
+    rules.push(`${scope} ${COMPOSER_BUTTONS},${scope} ${COMPOSER_DOCK_BUTTONS},${scope} ${MESSAGE_ACTIONS}{min-width:${target};min-height:${target}}`);
   }
 
   // Include the resident contenteditable composer, not just native form fields.
@@ -157,15 +161,46 @@ export function buildStyles(options: StyleOptions): string {
   rules.push(`.dsh-mobile-badge-count{font-variant-numeric:tabular-nums}`);
   rules.push(`.dsh-mobile-badge-dot{position:absolute;top:3px;inset-inline-end:3px;width:5px;height:5px;border-radius:999px;background:var(--dsw-alias-state-business-primary,#2f6bff)}`);
   rules.push(`.dsh-mobile-badge:active{background:var(--dsw-alias-interactive-bg-hover-solid,var(--dsw-alias-bg-layer-1,#e8ebf0))}`);
-  rules.push(`.dsh-mobile-badge-panel{position:absolute;top:calc(100% + 6px);inset-inline-end:0;z-index:60;box-sizing:border-box;width:min(240px,calc(100vw - 24px));padding:6px;border-radius:var(--dsw-radius-lg,14px);background:var(--dsw-specific-menu,var(--dsw-alias-bg-layer-1,#fff));box-shadow:var(--dsw-elevation-prominent,0 10px 30px rgb(16 24 40 / 22%));border:.5px solid var(--dsw-alias-border-l1,var(--dsw-alias-border-l2,#e5e7eb))}`);
-  rules.push(`.dsh-mobile-badge-panel-title{padding:4px 8px 6px;color:var(--dsw-alias-label-tertiary);font-size:11px;line-height:16px}`);
-  rules.push(`.dsh-mobile-badge-empty{padding:8px;color:var(--dsw-alias-label-tertiary);font-size:12px}`);
-  rules.push(`.dsh-mobile-badge-row{display:flex;align-items:center;gap:8px;width:100%;min-height:32px;padding:6px 8px;border:0;border-radius:var(--dsw-radius-sm,8px);background:0 0;color:var(--dsw-alias-label-primary);font:inherit;font-size:12.5px;text-align:start;cursor:pointer}`);
-  rules.push(`.dsh-mobile-badge-row:active{background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-bg-layer-2,#f2f4f7))}`);
-  rules.push(`.dsh-mobile-badge-row-dot{width:6px;height:6px;flex:none;border-radius:999px;background:var(--dsw-alias-border-l4,var(--dsw-alias-label-caption,#b6bdc8))}`);
-  rules.push(`.dsh-mobile-badge-row[data-live] .dsh-mobile-badge-row-dot{background:var(--dsw-alias-state-business-primary,#2f6bff)}`);
-  rules.push(`.dsh-mobile-badge-row-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}`);
-  rules.push(`.dsh-mobile-badge-row-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-size:11px}`);
+  // Status popup: a compact card anchored to its icon. It is a native popover,
+  // so the browser paints it in the TOP LAYER: the host header's
+  // `overflow:hidden` and `container-type:inline-size` cannot clip it, and no
+  // ancestor stacking context can offset it. `inset:auto` plus a top/left written
+  // by `StatusPanel` keeps it beside the icon — never pinned to the screen bottom
+  // and never a full-screen dimming sheet. `display:none` until open keeps the
+  // author rule from fighting the UA's closed-popover rule.
+  rules.push(`.dsh-mobile-badge-panel{position:fixed;inset:auto;margin:0;box-sizing:border-box;display:none;flex-direction:column;width:min(360px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:16px;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));color:var(--dsw-alias-label-primary,#17212f);box-shadow:0 12px 32px rgb(0 0 0 / 18%);overflow:hidden}`);
+  rules.push(`.dsh-mobile-badge-panel:popover-open{display:flex}`);
+  rules.push(`.dsh-mobile-badge-panel-header{display:flex;align-items:center;gap:10px;flex:none;padding:10px 12px 6px}`);
+  rules.push(`.dsh-mobile-badge-panel-icon{display:grid;place-items:center;flex:none;width:26px;height:26px;border-radius:8px;background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-bg-layer-2,#f2f4f7));color:var(--dsw-alias-label-secondary,#667085)}`);
+  rules.push(`.dsh-mobile-badge-panel-icon svg{width:16px;height:16px}`);
+  rules.push(`.dsh-mobile-badge-panel-heading{flex:1;min-width:0}`);
+  rules.push(`.dsh-mobile-badge-panel-title{margin:0;font-size:14px;font-weight:600;line-height:20px}`);
+  rules.push(`.dsh-mobile-badge-panel-summary{margin:1px 0 0;color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:16px}`);
+  // 32px visual box, 44px hit area via ::after: a big close button would turn the
+  // card back into a panel, a small one would be unhittable on a phone.
+  rules.push(`.dsh-mobile-badge-panel-close{position:relative;display:grid;place-items:center;flex:none;width:32px;height:32px;padding:0;border:0;border-radius:999px;background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-bg-layer-2,#f2f4f7));color:var(--dsw-alias-label-secondary,#667085);cursor:pointer;touch-action:manipulation}`);
+  rules.push(`.dsh-mobile-badge-panel-close::after{content:"";position:absolute;inset:-6px;border-radius:999px}`);
+  rules.push(`.dsh-mobile-badge-panel-close svg{width:16px;height:16px}`);
+  rules.push(`.dsh-mobile-badge-panel-hint{flex:none;margin:0;padding:0 12px 8px;color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:16px}`);
+  rules.push(`.dsh-mobile-badge-panel-list{flex:1 1 auto;min-height:0;margin:0;padding:0 6px 6px;list-style:none;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}`);
+  rules.push(`.dsh-mobile-badge-panel-list > li + li{border-top:.5px solid var(--dsw-alias-border-l2,#e5e7eb)}`);
+  rules.push(`.dsh-mobile-badge-empty{padding:20px 8px;text-align:center;color:var(--dsw-alias-label-secondary,#667085);font-size:13px}`);
+  // The label owns its own line and wraps completely; status and progress each
+  // get a line of their own, so a long task name never collides with raw English
+  // status text the way it did in the old 240px dropdown.
+  rules.push(`.dsh-mobile-badge-row{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;min-height:48px;padding:8px 6px;border:0;border-radius:10px;background:none;color:inherit;font:inherit;text-align:start}`);
+  rules.push(`.dsh-mobile-badge-row:is(button){cursor:pointer;touch-action:manipulation}`);
+  rules.push(`.dsh-mobile-badge-row:is(button):active,.dsh-mobile-badge-panel-close:active{background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-bg-layer-2,#f2f4f7))}`);
+  rules.push(`.dsh-mobile-badge-row:focus-visible,.dsh-mobile-badge-panel-close:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#2f6bff);outline-offset:-2px}`);
+  rules.push(`.dsh-mobile-badge-row-body{display:flex;flex-direction:column;align-items:flex-start;gap:4px;flex:1;min-width:0}`);
+  rules.push(`.dsh-mobile-badge-row-label{max-width:100%;font-size:13px;font-weight:500;line-height:19px;white-space:normal;overflow-wrap:anywhere}`);
+  rules.push(`.dsh-mobile-badge-row-meta{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:1px 6px;border-radius:999px;background:var(--dsw-alias-interactive-bg-hover,#f2f4f7);color:var(--dsw-alias-label-secondary,#667085);font-size:11px;line-height:16px}`);
+  rules.push(`.dsh-mobile-badge-row-dot{width:6px;height:6px;flex:none;border-radius:999px;background:var(--dsw-alias-label-caption,#98a2b3)}`);
+  rules.push(`.dsh-mobile-badge-row-meta[data-tone="live"] .dsh-mobile-badge-row-dot{background:var(--dsw-alias-state-business-primary,#2f6bff)}`);
+  rules.push(`.dsh-mobile-badge-row-meta[data-tone="success"] .dsh-mobile-badge-row-dot{background:var(--dsw-static-green-500,#22c55e)}`);
+  rules.push(`.dsh-mobile-badge-row-meta[data-tone="error"] .dsh-mobile-badge-row-dot{background:var(--dsw-static-red-500,#ef4444)}`);
+  rules.push(`.dsh-mobile-badge-row-detail{max-width:100%;color:var(--dsw-alias-label-secondary,#667085);font-size:12px;line-height:16px;white-space:pre-wrap;overflow-wrap:anywhere}`);
+  rules.push(`.dsh-mobile-badge-row-arrow{flex:none;width:16px;height:16px;color:var(--dsw-alias-label-secondary,#667085)}`);
   // Keep the scrim in hit-testing throughout the drawer's exit. Delayed
   // visibility hides it only once the shared slide/fade duration has elapsed;
   // an initially closed (hidden) scrim still cannot intercept any input.

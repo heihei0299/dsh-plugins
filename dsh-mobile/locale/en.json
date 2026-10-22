@@ -28,7 +28,17 @@
     "badge.jobs": "{count} background tasks",
     "badge.subagents.panel": "Subagents",
     "badge.jobs.panel": "Background tasks",
-    "badge.subagents.running": "running",
+    "badge.subagents.running": "Running",
+    "badge.subagents.idle": "Idle",
+    "badge.subagents.hint": "Select a subagent to open its conversation",
+    "badge.jobs.hint": "Background task status and latest progress",
+    "badge.panel.summary": "{count} total · {live} running",
+    "badge.close": "Close panel",
+    "badge.job.running": "Running",
+    "badge.job.stopping": "Stopping",
+    "badge.job.completed": "Completed",
+    "badge.job.failed": "Failed",
+    "badge.job.killed": "Stopped",
     "badge.empty": "Nothing yet"
   }
 }

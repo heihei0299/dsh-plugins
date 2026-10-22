@@ -35,6 +35,7 @@ test('declares a web client bundle with the services it injects', () => {
   assert.ok(Array.isArray(manifest.dsh.client.inject) && manifest.dsh.client.inject.length > 0);
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-api-session-controller'), 'drawer navigation observes the host session ownership source');
   assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-api-job-controller'), 'the status badge counts host background jobs');
+  assert.ok(manifest.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-workspace'), 'subagent rows require the host conversation navigation owner');
 });
 
 test('exports an icon inside the package', () => {

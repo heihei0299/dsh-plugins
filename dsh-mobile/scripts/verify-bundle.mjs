@@ -26,7 +26,7 @@ const plugin = registration.factory(name => {
 });
 assert.deepEqual([...new Set(imports)], ['react']);
 assert.equal(typeof plugin.apply, 'function');
-for (const service of ['slots', 'locale', 'configForms', 'layout', 'sessions', 'jobs']) {
+for (const service of ['slots', 'locale', 'configForms', 'layout', 'sessions', 'jobs', 'uiWorkspace']) {
   assert.ok(plugin.inject.includes(service), `the client half must inject "${service}"`);
 }
 
@@ -41,6 +41,7 @@ const LANDMARKS = [
   '[data-slot="root"]',
   '[data-slot="sidebar"]',
   '[data-composer-card]',
+  '[data-composer-dock]',
   '[data-composer-input]',
   '[data-conversation-scroll]',
   '[data-actions-reveal]',

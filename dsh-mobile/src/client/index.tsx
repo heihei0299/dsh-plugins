@@ -16,7 +16,7 @@ import { DrawerFallbackToggle, DrawerScrim, DrawerToggle } from './Drawer.js';
 import { Settings } from './Settings.js';
 import { StatusBadges } from './StatusBadges.js';
 
-export const inject = ['slots', 'locale', 'configForms', 'layout', 'sessions', 'jobs'];
+export const inject = ['slots', 'locale', 'configForms', 'layout', 'sessions', 'jobs', 'uiWorkspace'];
 
 /** Style-tag identity for the settings row, which is styled even while inactive. */
 const SETTINGS_STYLE_ID = '@local/dsh-mobile/settings.css';

@@ -29,6 +29,16 @@
     "badge.subagents.panel": "子智能体",
     "badge.jobs.panel": "后台任务",
     "badge.subagents.running": "运行中",
+    "badge.subagents.idle": "未运行",
+    "badge.subagents.hint": "点击子智能体，进入对应对话",
+    "badge.jobs.hint": "查看后台任务的状态与最新进度",
+    "badge.panel.summary": "共 {count} 项 · {live} 项运行中",
+    "badge.close": "关闭面板",
+    "badge.job.running": "运行中",
+    "badge.job.stopping": "正在停止",
+    "badge.job.completed": "已完成",
+    "badge.job.failed": "失败",
+    "badge.job.killed": "已终止",
     "badge.empty": "暂无记录"
   }
 }

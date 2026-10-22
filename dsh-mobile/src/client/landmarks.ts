@@ -65,6 +65,9 @@ export const COMPOSER_CARD = '[data-composer-card]';
 /** Resident Lexical editing surface, not a textarea. */
 export const COMPOSER_INPUT = '[data-composer-input][contenteditable="true"]';
 export const COMPOSER_BUTTONS = '[data-composer-card] button';
+/** Footer readings sit outside the card; keep their host-owned dialog controls tappable. */
+export const COMPOSER_DOCK = '[data-composer-dock]';
+export const COMPOSER_DOCK_BUTTONS = '[data-composer-dock] button[aria-haspopup="dialog"]';
 export const MESSAGE_ACTIONS = '[data-actions-reveal] button';
 
 /**
@@ -105,6 +108,7 @@ export const HOST_LANDMARKS: readonly { readonly name: string; readonly selector
   { name: 'conversation header', selector: CONVERSATION_HEADER },
   { name: 'header status badges', selector: HEADER_ACTIONS },
   { name: 'composer card', selector: COMPOSER_CARD },
+  { name: 'composer statistics dock', selector: COMPOSER_DOCK },
   { name: 'composer editing surface', selector: COMPOSER_INPUT },
   { name: 'message actions', selector: MESSAGE_ACTIONS },
   { name: 'conversation scrollport', selector: CONVERSATION_SCROLL },

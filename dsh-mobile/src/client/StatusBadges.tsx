@@ -1,20 +1,14 @@
 import * as React from 'react';
 import { ActivationContext, useEnvironment } from './environment.js';
 import { BADGES_ATTRIBUTE, HEADER_ACTIONS } from './landmarks.js';
+import type { Translate } from './contracts.js';
+import { StatusPanel, type StatusPanelRow as PanelRow } from './StatusPanel.js';
 import {
   formatCount, jobCounts, subagentCounts, type BadgeCount, type JobRow, type SessionFacts,
 } from './status-source.js';
 
 /** Re-exported for tests: the header-slot attribute the stylesheet reads. */
 export { BADGES_ATTRIBUTE };
-
-interface PanelRow {
-  key: string;
-  label: string;
-  meta?: string;
-  live?: boolean;
-  sessionId?: string;
-}
 
 /**
  * Collapsed subagent/background-task badges for the mobile conversation header.
@@ -48,7 +42,11 @@ export function StatusBadges({ sessionId }: { sessionId?: string }) {
     jobSource.subscribe, jobSource.getSnapshot, jobSource.getSnapshot,
   );
   const rootRef = React.useRef<HTMLSpanElement | null>(null);
+  const subagentsRef = React.useRef<HTMLButtonElement | null>(null);
+  const jobsRef = React.useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = React.useState<'subagents' | 'jobs' | null>(null);
+  const dismiss = React.useCallback(() => { setOpen(null); }, []);
+  const panelId = React.useId();
 
   const subagents = React.useMemo(() => subagentCounts(sessions, sessionId), [sessions, sessionId]);
   const background = React.useMemo(
@@ -74,80 +72,83 @@ export function StatusBadges({ sessionId }: { sessionId?: string }) {
     return () => { slot.removeAttribute(BADGES_ATTRIBUTE); };
   }, [showSubagents, showJobs]);
 
+  React.useEffect(() => { setOpen(null); }, [active, sessionId]);
+  // A panel whose badge disappeared must not keep rendering against a stale
+  // anchor: the popover would have nothing to point at.
   React.useEffect(() => {
-    if (open === null) return;
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || event.defaultPrevented) return;
-      event.preventDefault();
-      setOpen(null);
-    };
-    const onPointerDown = (event: PointerEvent): void => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (rootRef.current?.contains(target)) return;
-      setOpen(null);
-    };
-    document.addEventListener('keydown', onKeyDown, true);
-    document.addEventListener('pointerdown', onPointerDown, true);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown, true);
-      document.removeEventListener('pointerdown', onPointerDown, true);
-    };
-  }, [open]);
+    if ((open === 'subagents' && !showSubagents) || (open === 'jobs' && !showJobs)) setOpen(null);
+  }, [open, showSubagents, showJobs]);
 
   if (!showSubagents && !showJobs) return null;
 
   const rows = open === 'subagents'
-    ? subagentRows(sessions, sessionId, t('badge.subagents.running'))
+    ? subagentRows(sessions, sessionId, t('badge.subagents.running'), t('badge.subagents.idle'))
     : open === 'jobs'
-      ? jobRows(sessionId === undefined ? undefined : jobs.rows[sessionId])
+      ? jobRows(sessionId === undefined ? undefined : jobs.rows[sessionId], t)
       : [];
 
   return <span className="dsh-mobile-badge-group" ref={rootRef}>
     {showSubagents && <Badge
       kind="subagents"
+      buttonRef={subagentsRef}
       icon={<RobotGlyph />}
       count={subagents}
       label={t('badge.subagents', { count: String(subagents.total) })}
+      panelId={panelId}
       open={open === 'subagents'}
       onToggle={() => { setOpen(current => current === 'subagents' ? null : 'subagents'); }}
     />}
     {showJobs && <Badge
       kind="jobs"
+      buttonRef={jobsRef}
       icon={<StackGlyph />}
       count={background}
       label={t('badge.jobs', { count: String(background.total) })}
+      panelId={panelId}
       open={open === 'jobs'}
       onToggle={() => { setOpen(current => current === 'jobs' ? null : 'jobs'); }}
     />}
-    {open !== null && <BadgePanel
+    {open !== null && (open === 'subagents' ? showSubagents : showJobs) && <StatusPanel
+      // A new kind means a new anchor: remount so the popover re-opens beside
+      // the icon that is actually pressed, instead of sliding from the old one.
+      key={open}
+      id={panelId}
+      anchorRef={open === 'subagents' ? subagentsRef : jobsRef}
       title={open === 'subagents' ? t('badge.subagents.panel') : t('badge.jobs.panel')}
+      summary={t('badge.panel.summary', { count: rows.length, live: rows.filter(row => row.live).length })}
+      hint={t(open === 'subagents' ? 'badge.subagents.hint' : 'badge.jobs.hint')}
+      closeLabel={t('badge.close')}
+      icon={open === 'subagents' ? <RobotGlyph /> : <StackGlyph />}
       empty={t('badge.empty')}
       rows={rows}
+      onDismiss={dismiss}
       onPick={row => {
+        if (row.sessionId !== undefined) ctx.uiWorkspace.openSession(row.sessionId);
         setOpen(null);
-        if (row.sessionId === undefined) return;
-        ctx.uiWorkspace?.openSession(row.sessionId);
       }}
     />}
   </span>;
 }
 
-function Badge({ kind, icon, count, label, open, onToggle }: {
+function Badge({ kind, buttonRef, icon, count, label, panelId, open, onToggle }: {
   kind: 'subagents' | 'jobs';
+  buttonRef: React.RefObject<HTMLButtonElement | null>;
   icon: React.ReactNode;
   count: BadgeCount;
   label: string;
+  panelId: string;
   open: boolean;
   onToggle(): void;
 }) {
   return <button
     type="button"
+    ref={buttonRef}
     className={`dsh-mobile-badge dsh-mobile-badge-${kind}`}
     data-live={count.live ? '' : undefined}
     aria-label={label}
     aria-expanded={open}
-    aria-haspopup="menu"
+    aria-haspopup="dialog"
+    aria-controls={open ? panelId : undefined}
     title={label}
     onClick={onToggle}
   >
@@ -155,35 +156,6 @@ function Badge({ kind, icon, count, label, open, onToggle }: {
     <span className="dsh-mobile-badge-count">{formatCount(count.total)}</span>
     {count.live && <span className="dsh-mobile-badge-dot" aria-hidden="true" />}
   </button>;
-}
-
-function BadgePanel({ title, empty, rows, onPick }: {
-  title: string;
-  empty: string;
-  rows: readonly PanelRow[];
-  onPick(row: PanelRow): void;
-}) {
-  const ref = React.useRef<HTMLDivElement | null>(null);
-  React.useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
-  }, []);
-  return <div className="dsh-mobile-badge-panel" role="menu" aria-label={title} ref={ref}>
-    <div className="dsh-mobile-badge-panel-title">{title}</div>
-    {rows.length === 0
-      ? <div className="dsh-mobile-badge-empty">{empty}</div>
-      : rows.map(row => <button
-        key={row.key}
-        type="button"
-        role="menuitem"
-        className="dsh-mobile-badge-row"
-        data-live={row.live ? '' : undefined}
-        onClick={() => { onPick(row); }}
-      >
-        <span className="dsh-mobile-badge-row-dot" aria-hidden="true" />
-        <span className="dsh-mobile-badge-row-label">{row.label}</span>
-        {row.meta !== undefined && <span className="dsh-mobile-badge-row-meta">{row.meta}</span>}
-      </button>)}
-  </div>;
 }
 
 /**
@@ -197,26 +169,32 @@ export function subagentRows(
   snapshot: SessionFacts,
   sessionId: string | undefined,
   runningLabel: string,
+  idleLabel = 'idle',
 ): PanelRow[] {
   if (sessionId === undefined) return [];
   const entries = snapshot.projectionsBySession?.[sessionId]?.values.subagentCatalog ?? [];
   return entries.map(entry => {
     const live = snapshot.byId?.[entry.id]?.running === true;
-    return { key: entry.id, label: entry.label ?? entry.id, live, sessionId: entry.id, ...live ? { meta: runningLabel } : {} };
+    return { key: entry.id, label: entry.label ?? entry.id, live, sessionId: entry.id, meta: live ? runningLabel : idleLabel, tone: live ? 'live' : 'neutral' };
   });
 }
 
 /**
  * Background-job rows for the panel.
  * @param rows - the session's roster.
- * @returns rows; status or progress is the secondary line.
+ * @param t - optional locale seat for the host's known job statuses.
+ * @returns rows with separate status and progress, not inert navigation buttons.
  */
-export function jobRows(rows: readonly JobRow[] | undefined): PanelRow[] {
+export function jobRows(rows: readonly JobRow[] | undefined, t?: Translate): PanelRow[] {
+  const statuses = new Set(['running', 'stopping', 'completed', 'failed', 'killed']);
   return (rows ?? []).map(row => ({
     key: row.id,
     label: row.label ?? row.id,
-    meta: row.progress ?? row.status,
+    meta: t !== undefined && statuses.has(row.status) ? t(`badge.job.${row.status}`) : row.status,
+    detail: row.progress,
     live: row.status === 'running' || row.status === 'stopping',
+    tone: row.status === 'running' || row.status === 'stopping' ? 'live'
+      : row.status === 'completed' ? 'success' : row.status === 'failed' ? 'error' : 'neutral',
   }));
 }
 
