@@ -1,0 +1,33 @@
+{
+  "name": "@local/dsh-lan-connect",
+  "version": "0.1.0",
+  "description": "Open the existing DSH WebUI from another LAN device through a same-port automatic sign-in entry, retaining native authentication",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22", "dsh": "0.2.1-rc.2" },
+  "packageManager": "pnpm@10.28.0",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./dist/client.js",
+    "./package.json": "./package.json",
+    "./icon": "./assets/icon.svg",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": ["index.js", "dist/client.js", "cordis.patch.yml", "assets/icon.svg", "locale/*.json", "README.md", "LICENSE"],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-locale", "@deepseek-ai/dsh-client-ui-settings"]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "verify:bundle": "node --test --test-concurrency=1 test/bundle.test.js"
+  },
+  "peerDependencies": { "@deepseek-ai/cordis": "~4.0.5" },
+  "dependencies": { "qrcode-generator": "^1.4.4" },
+  "devDependencies": { "esbuild": "^0.25.0", "react": "^19.2.0", "react-dom": "^19.2.0" }
+}

@@ -9,8 +9,9 @@ DeepSeek Harness（DSH）插件集合。每个子目录是一个可独立装入 
 | [pin-subagent-model](<pin-subagent-model/README.md>) | `dsh-plugin-pin-subagent-model` | 0.3.1 | 把每次委派的子 Agent 固定到指定 LLM 路由，不继承父 Agent 的实时路由；并在子代理会话输入框的模型位旁只读显示实际请求的模型短名与 effort | Host + Web Client 双端插件 bundle（纯 JS，无需构建） |
 | [dsh-mobile](<dsh-mobile/README.md>) | `@local/dsh-mobile`（private） | 0.1.0 | 移动端布局与触控优化：侧栏抽屉、44px 触控目标、宽表格横滑、软键盘处理；桌面端不受影响 | Host + Web Client 双端插件，需构建 |
 | [dsh-smartui](<dsh-smartui/README.md>) | `@local/dsh-smartui`（private） | 0.1.2 | ChatGPT 风格外观 + 对话内安全声明式组件（卡片/表格/图表/表单/选项） | Host + Web Client 双端插件，需构建 |
+| [dsh-lan-connect](<dsh-lan-connect/README.md>) | `@local/dsh-lan-connect`（private） | 0.1.0 | 在现有 Web 服务的同一端口增加固定 `/lan` 入口，让局域网设备用原生认证登录；链接与二维码不含 token | Host + Web Client 双端插件，仅需构建 client |
 
-三者共用 `@deepseek-ai/cordis ~4.0.5`，均要求 Node.js ≥ 22。`dsh-mobile` 与 `dsh-smartui` 针对 DSH `0.2.1-rc.2`。
+四者共用 `@deepseek-ai/cordis ~4.0.5`，均要求 Node.js ≥ 22。`dsh-mobile`、`dsh-smartui` 与 `dsh-lan-connect` 针对 DSH `0.2.1-rc.2`。
 
 ## 目录结构
 
@@ -30,14 +31,21 @@ dsh-plugins/
 │   ├── src/shared/         # 设置解析、启用判定（两端共用）
 │   ├── scripts/            # build / verify-bundle / browser-probe
 │   └── tests/
-└── dsh-smartui/
-    ├── src/host/           # Host 侧：entry、工具注册、设置持久化
-    ├── src/client/         # Client 侧：主题层、组件渲染、草稿填充
-    ├── src/shared/         # 协议、校验、类型（两端共用）
-    ├── scripts/            # build / verify-bundle / browser-probe
-    ├── docs/               # 协议、兼容性、验证记录
-    ├── examples/           # 三类 UI 文档示例（虚构数据）
-    └── tests/
+├── dsh-smartui/
+│   ├── src/host/           # Host 侧：entry、工具注册、设置持久化
+│   ├── src/client/         # Client 侧：主题层、组件渲染、草稿填充
+│   ├── src/shared/         # 协议、校验、类型（两端共用）
+│   ├── scripts/            # build / verify-bundle / browser-probe
+│   ├── docs/               # 协议、兼容性、验证记录
+│   ├── examples/           # 三类 UI 文档示例（虚构数据）
+│   └── tests/
+└── dsh-lan-connect/
+    ├── index.js            # Host 侧：同端口 /lan 入口与 boot 元数据
+    ├── src/client.js       # Client 侧：设置卡片、复制、本地二维码
+    ├── scripts/build.mjs   # 只构建 dist/client.js
+    ├── locale/             # 插件管理卡片与卡片 UI 的中英文
+    ├── assets/icon.svg
+    └── test/               # Host / Client / bundle / 原生内存集成
 ```
 
 ## 安装
@@ -93,6 +101,21 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --
 
 `link:` 使用已准备好的工作区与依赖，离线安装不会从注册表补齐缺失包。安装后刷新现有 DSH 页面；更换包代码可能需要 Host 重启。完整说明见 [插件文档](<dsh-smartui/README.md>)。
 
+### dsh-lan-connect
+
+需先安装依赖并构建 client（Host 侧是纯 ESM，不需要构建）：
+
+```bash
+cd /home/shial/Project/dsh-plugins/dsh-lan-connect
+pnpm install --ignore-scripts
+pnpm run build
+dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-lan-connect --offline
+```
+
+插件复用现有 `webServer` 的监听地址和端口，新增固定 `GET /lan`；入口 URL 取自 `webApp.getAdvertisedUrl()`，因此支持已有代理/路径前缀，不硬编码端口，也不会另开服务、改监听或替换原生 Connection。浏览器打开 `/lan` 后，Host 先执行原生 Host/Origin 信任检查，再用该对外根与原生 `connection.authenticatedUrl()` 做一次 303，最终由原生代码签发 `HttpOnly; SameSite=Strict` Cookie。**入口是匿名的：任何能访问 `/lan` 的设备都会获得原生浏览器 operator 权限。** 设置卡片里的入口链接和本地二维码不含 token。
+
+停用/卸载只撤销 `/lan` 与设置卡片，已经签发的原生 Cookie 不撤销；插件也不提供设备级撤销。明文 HTTP、对外入口与服务端监听不一致、多网卡候选都会在卡片中提示，插件不会自动改绑定或代理，也不探测候选地址连通性；建议先在路由器固定这台机器的 LAN IP。`patchReload: live` 下本次安装无需重启即生效；HMR 不可用或包解析被拒绝时仍可能需要重启，以插件管理器结果为准。完整语义与限制见 [插件文档](<dsh-lan-connect/README.md>)。
+
 ## 开发约定
 
 - Node.js ≥ 22，包管理器统一用 `pnpm`，不做全局安装。
@@ -109,10 +132,17 @@ pnpm run typecheck
 pnpm test
 pnpm run build
 pnpm run verify:bundle
+
+# dsh-lan-connect（Host + Client；构建只产出 dist/client.js）
+pnpm install --ignore-scripts
+pnpm run build
+DSH_TEST_RUNTIME_ROOT=/home/shial/.local/share/fnm/node-versions/v24.16.0/installation/lib/node_modules/@deepseek-ai/dsh \
+  GOMAXPROCS=2 node --test --test-concurrency=1 test/*.test.js
+pnpm run verify:bundle
 ```
 
 `.agents/` 下存放本地专用技能（`dsh-compat-check`：DSH 升级或重装后核对插件与当前 dsh 的内部契约、跑插件单测并做一次活体委派验证），已被全局 gitignore 排除，不入库。
 
 ## License
 
-MIT。`dsh-mobile` 与 `dsh-smartui` 目录下有完整 LICENSE；`pin-subagent-model` 的许可声明见其 `package.json`。
+MIT。`dsh-mobile`、`dsh-smartui` 与 `dsh-lan-connect` 目录下有完整 LICENSE；`dsh-lan-connect` 的 README 另含打包进 client 的 `qrcode-generator` 第三方 MIT 声明。`pin-subagent-model` 的许可声明见其 `package.json`。

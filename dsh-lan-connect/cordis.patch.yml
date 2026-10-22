@@ -1,0 +1,4 @@
+# Add one independent entry. Do not override connection, webserver, or web-runtime.
+- insert:
+    - id: dsh-lan-connect
+      name: '@local/dsh-lan-connect'
