@@ -343,6 +343,16 @@ test("lists inherit, every declared preset, and an undeclared current value", ()
 	assert.equal(plugin.presetLabel({ id: "old", missing: false, broken: true }, (key) => key), "old settings.preset.broken");
 });
 
+test("unwraps the agentPresets list envelope and keeps refusals distinct from an empty roster", () => {
+	const { plugin } = loadClient();
+	const read = (result) => JSON.parse(JSON.stringify(plugin.rosterFromResult(result)));
+	assert.deepEqual(read({ ok: true, value: { presets: [{ id: "standard", isDefault: true }] } }), { status: "ready", presets: [{ id: "standard", isDefault: true }] });
+	assert.deepEqual(read({ ok: true, value: {} }), { status: "ready", presets: [] });
+	assert.deepEqual(read({ ok: false, error: { code: "gateway/unavailable", message: "offline" } }), { status: "error", presets: [] });
+	assert.deepEqual(read({ presets: [{ id: "minimal" }] }), { status: "ready", presets: [{ id: "minimal" }] });
+	assert.deepEqual(read(undefined), { status: "ready", presets: [] });
+});
+
 test("validates the provider/model pair and the preset before saving", () => {
 	const { plugin } = loadClient();
 	const options = plugin.presetOptions([{ id: "standard" }, { id: "minimal" }], "");

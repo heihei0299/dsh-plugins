@@ -353,6 +353,24 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
+		 * Unwrap one `agentPresets.list()` answer.
+		 *
+		 * Remote calls resolve to a `{ ok, value }` envelope; tests and older
+		 * stubs may hand over the raw roster. A refused call is an error state,
+		 * not an empty roster, so the page can tell the user why the list is
+		 * missing instead of silently offering only "inherit".
+		 * @param result - Remote envelope or raw roster.
+		 * @returns roster state for the select.
+		 */
+		function rosterFromResult(result) {
+			if (result !== null && typeof result === "object" && result.ok === false) {
+				return { status: "error", presets: [] };
+			}
+			const value = result !== null && typeof result === "object" && result.ok === true ? result.value : result;
+			return { status: "ready", presets: Array.isArray(value?.presets) ? value.presets : [] };
+		}
+
+		/**
 		 * Build the preset choices: inherit, every declared preset, and the
 		 * current value when it is no longer declared.
 		 * @param roster - `agentPresets.list()` rows, or undefined.
@@ -468,8 +486,7 @@ window.__ModuleLoader__.load({
 					return undefined;
 				}
 				Promise.resolve(pending).then((result) => {
-					if (cancelled) return;
-					setRoster({ status: "ready", presets: Array.isArray(result?.presets) ? result.presets : [] });
+					if (!cancelled) setRoster(rosterFromResult(result));
 				}, () => {
 					if (!cancelled) setRoster({ status: "error", presets: [] });
 				});
@@ -620,6 +637,7 @@ window.__ModuleLoader__.load({
 			lastOwnRequestHeader,
 			presetLabel,
 			presetOptions,
+			rosterFromResult,
 			routeText,
 			selectActualRoute,
 			shortModelName,

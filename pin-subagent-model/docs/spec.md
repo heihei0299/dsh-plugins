@@ -4,7 +4,7 @@
 | --- | --- |
 | 插件 | `dsh-plugin-pin-subagent-model` |
 | 版本 | 0.4.0 |
-| 状态 | 已实现；单元测试与静态门禁通过；WebUI 活体验证待执行 |
+| 状态 | 已实现；单元测试、静态门禁与 WebUI 活体验证通过 |
 | 代码提交 | `0aa59cf` |
 | 适用环境 | DSH `0.2.1-rc.2`、`@deepseek-ai/cordis ~4.0.5`、`@deepseek-ai/schemastery ~3.18.5` |
 | 日期 | 2026-10-24 |
@@ -178,7 +178,7 @@ Host 入口必须导出 Schemastery `Config`：
 ### 7.1 入口与可见性
 
 - **REQ-UI-1**：客户端必须注册官方 `plugins.row.config` 槽，key 为 `dsh-plugin-pin-subagent-model#pin-subagent-model`，`locale` 为 `pin-subagent-model`。
-- **REQ-UI-2**：入口位于 WebUI 侧栏「插件」页：已安装插件 → `dsh-plugin-pin-subagent-model` → 行 `pin-subagent-model` → 「配置」。
+- **REQ-UI-2**：入口位于 WebUI 侧栏「插件」页：已安装插件 → `dsh-plugin-pin-subagent-model` → 组合包详情 → 行 `pin-subagent-model`。配置控件是**行标题本身**（带 chevron 的按钮，`aria-label` 为「配置 <行标题>」），不是单独的「配置」文字按钮；点击后打开该行的配置页。
 - **REQ-UI-3**：注册只在 bundle 启用时存在；行禁用或设置服务未提供时，页面显示 unavailable，不写任何值。
 - **REQ-UI-4**：行页面的标题、图标与描述由插件管理器根据 `locale/*.json` 绘制；本插件不自行绘制页面 chrome。
 
@@ -199,7 +199,7 @@ Host 入口必须导出 Schemastery `Config`：
 
 ### 7.3 预设 roster
 
-- **REQ-UI-8**：roster 必须来自 `ctx.remote.agentPresets.list()`，返回 `{ presets: [{ id, name?, description?, broken?, isDefault }] }`。
+- **REQ-UI-8**：roster 必须来自 `ctx.remote.agentPresets.list()`。该 Remote 调用解析为信封 `{ ok: true, value: { presets: [...] } }` 或 `{ ok: false, error }`；页面必须解包 `value`，`ok: false` 必须视为**错误状态**而不是空 roster；同时兼容测试/旧 stub 的裸 `{ presets }`。
 - **REQ-UI-9**：选项顺序为“继承父预设”+ roster + 当前值（若不在 roster 中，标记“未声明”）；重复 id 去重；空 id 忽略。
 - **REQ-UI-10**：`broken` 预设必须显示标记并禁止选择；roster 加载中或失败时下拉禁用，失败显示提示，当前值仍保留。
 - **REQ-UI-11**：roster 只在页面挂载时读取一次，不随每次输入重新请求。
@@ -289,7 +289,7 @@ Host 入口必须导出 Schemastery `Config`：
 | AC-09 | 页面字段、校验、ops、revision、拒绝/异常、summary 视图 | 单测（Client） | 通过 |
 | AC-10 | manifest 版本、inject 依赖、schemastery peer | 单测（Bundle） | 通过 |
 | AC-11 | bundle 门禁与兼容检查 | 命令 | 通过 |
-| AC-12 | 真实 WebUI 保存后委派生效、清除预设后恢复继承 | 活体验证 | **待执行**（需重启窗口） |
+| AC-12 | 真实 WebUI 保存后委派生效、清除预设后恢复继承 | 活体验证 | 通过（见 §12.1） |
 
 ## 12. 验证记录
 
@@ -297,32 +297,49 @@ Host 入口必须导出 Schemastery `Config`：
 
 ```bash
 cd pin-subagent-model && node --test --test-concurrency=1
-# 51 tests / 51 pass（Host 20、Client 22、Bundle 9）
+# 52 tests / 52 pass（Host 20、Client 23、Bundle 9）
 
 node scripts/check-bundles.mjs
 # 4/4 plugin(s) satisfy the bundle contract
 
 node .agents/skills/dsh-compat-check/scripts/check.mjs
-# 33 项契约 PASS；四个插件共 234 个测试通过
-# （dsh-lan-connect 29、dsh-mobile 105、dsh-smartui 49、pin-subagent-model 51）
+# 33 项契约 PASS；四个插件共 235 个测试通过
+# （dsh-lan-connect 29、dsh-mobile 105、dsh-smartui 49、pin-subagent-model 52）
 # 退出码 0，基线一致
 ```
 
-未执行：
+### 12.1 活体验证（2026-10-24，重启后）
 
-- WebUI 活体验证。需要重启现有 dsh 一次并刷新页面；会短暂断开当前 GUI 会话，因此留给用户安排窗口。
-- 真实子会话的 `agent-preset/selected` 与 descriptor 路由检查（同上）。
+入口与表单：
 
-活体步骤（获授权后）：
+- 重启 `dsh-web.service`（05:36:11）后，插件页 → 已安装插件 → `子 Agent 路由与预设固定` v0.4.0 → 行 `pin-subagent-model`，行标题是 `aria-label="配置 子 Agent 路由与预设固定"` 的按钮。
+- 表单显示 `provider=cpa`、`model=cline-pass/deepseek-v4.1-flash`、`reasoningEffort=max`、预设下拉包含 `standard`、`ptc`、`minimal`、`cordis`；保存后状态为「已保存。下一次委派即使用新值。」
 
-```bash
-# 1. 重启 dsh，刷新 WebUI；插件页 → bundle → pin-subagent-model 行 → 配置
-# 2. 设置 preset 与 route，保存
-# 3. 委派一个子代理后读取子会话：
-zstd -dc ~/.dsh/sessions/<project>/<child-id>/session.v4.jsonl.zstd | grep -m1 'agent-preset/selected'
-zstd -dc ~/.dsh/sessions/<project>/<child-id>/session.v4.jsonl.zstd | grep -m1 '"subagent/descriptor"'
-# 4. 把 preset 清空并保存，确认下一个子代理恢复继承
+保存 `standard` 后委派：
+
+```text
+子会话 ac66620a-2d91-4aa2-95e2-373c5655e5a8：
+{"type":"agent-preset/selected","seq":0,"data":{"agentPreset":"standard"}}
+{"type":"subagent/descriptor","seq":1,"data":{"provider":"spawn",
+ "agentProvider":"cpa","agentModel":"cline-pass/deepseek-v4.1-flash",
+ "agentReasoningEffort":"max"}}
 ```
+
+清除预设（选择「继承父会话预设」并保存）后委派：
+
+```text
+profile patch 中 agentPreset 被 unset；子会话 ec3ec28f-ce67-4435-b4ee-c2237a78558b：
+agent-preset/selected 事件数 = 0；
+{"type":"subagent/descriptor","seq":0,"data":{"provider":"spawn",
+ "agentProvider":"cpa","agentModel":"cline-pass/deepseek-v4.1-flash",
+ "agentReasoningEffort":"max"}}
+```
+
+两个子代理均回复 `OK`。验证结束后 profile 恢复为未固定预设（与原配置一致），用户可在同一页面按需选择。
+
+### 12.2 活体发现并修复的问题
+
+首次打开配置页时预设下拉只有「继承父会话预设」。原因是 `remote.agentPresets.list()` 返回 RemoteResult 信封 `{ ok, value }`，而页面按裸 `{ presets }` 读取，得到空列表。修复：新增 `rosterFromResult` 解包信封，`ok: false` 进入错误状态，兼容裸 roster；补充单测。该修复在无需重启的情况下由新页面加载生效（服务端按请求读取新的 `client.js`），随后重新执行了上述活体验证。
 
 ## 13. 已知限制与假设
 
