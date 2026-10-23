@@ -8,9 +8,25 @@ for (const target of Object.values(manifest.exports)) {
   if (target.includes('*')) continue;
   assert.ok((await stat(new URL(target, root))).isFile(), `Missing export: ${target}`);
 }
+const styleTags = [];
+const document = {
+  head: { append(style) { styleTags.push(style); style.isConnected = true; } },
+  createElement(tag) {
+    assert.equal(tag, 'style');
+    return {
+      isConnected: false, attributes: {}, textContent: '',
+      setAttribute(name, value) { this.attributes[name] = value; },
+      remove() { this.isConnected = false; const index = styleTags.indexOf(this); if (index >= 0) styleTags.splice(index, 1); },
+    };
+  },
+  querySelector(selector) {
+    assert.equal(selector, 'style[data-plugin-css="@local/dsh-smartui/ui.css"]');
+    return styleTags.find(style => style.isConnected) ?? null;
+  },
+};
 let registration;
 const source = await readFile(new URL('dist/client.js', root), 'utf8');
-runInNewContext(source, { window: { __ModuleLoader__: { load(value) { assert.equal(registration, undefined); registration = value; } } } }, { timeout: 2_000 });
+runInNewContext(source, { window: { __ModuleLoader__: { load(value) { assert.equal(registration, undefined); registration = value; } } }, document }, { timeout: 2_000 });
 assert.equal(registration?.id, manifest.name);
 const imports = [];
 const plugin = registration.factory(name => {
@@ -49,6 +65,10 @@ const ctx = {
 };
 plugin.apply(ctx);
 assert.equal(slots.size, 4); assert.equal(locales.size, 2); assert.equal(definitions.size, 1);
+assert.equal(styleTags.length, 1, 'the plugin installs one stylesheet for its lifetime');
+assert.equal(styleTags[0].attributes['data-plugin-css'], '@local/dsh-smartui/ui.css');
+assert.match(styleTags[0].textContent, /\.smartui-root/);
 cleanups.reverse().forEach(dispose => dispose());
 assert.equal(slots.size, 0); assert.equal(locales.size, 0); assert.equal(definitions.size, 0);
+assert.equal(styleTags.length, 0, 'disposing the plugin removes its stylesheet');
 console.log('Bundle contract verified: lazy factory, host React only, exported resources, registration and cleanup. Live DSH/browser verification remains separate.');

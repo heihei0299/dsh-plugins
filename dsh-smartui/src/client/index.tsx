@@ -11,9 +11,12 @@ import { ToolView } from './ToolView.js';
 import { DocumentNode } from './DocumentNode.js';
 import { Settings } from './Settings.js';
 import { Launcher } from './Launcher.js';
+import { installStyles } from './install-styles.js';
 
 export const inject = ['slots', 'locale', 'theme', 'configForms', 'uiConversation'];
 export function apply(ctx: ClientContext): void {
+  // One stylesheet for the whole plugin lifetime, before any slot can render.
+  ctx.effect(() => installStyles(styles));
   ctx.effect(() => ctx.locale.register(LOCALE_NS, 'en', en.ui));
   ctx.effect(() => ctx.locale.register(LOCALE_NS, 'zh', zh.ui));
   const form = ctx.configForms.get(SETTINGS_ID);
@@ -22,7 +25,7 @@ export function apply(ctx: ClientContext): void {
   /** Turn-level row: the recorded document stays outside the foldable process group. */
   ctx.effect(() => ctx.uiConversation.events.register(smartuiDocumentDefinition));
   function Surface({ children }: { children: React.ReactNode }) {
-    return <EnvironmentContext.Provider value={environment}><div className="smartui-root"><style>{styles}</style>{children}</div></EnvironmentContext.Provider>;
+    return <EnvironmentContext.Provider value={environment}><div className="smartui-root">{children}</div></EnvironmentContext.Provider>;
   }
   function SmartTool(props: ToolViewProps) { return <Surface><ToolView {...props} /></Surface>; }
   function SmartDocument(props: ChatNodeProps) { return <Surface><DocumentNode {...props} /></Surface>; }
