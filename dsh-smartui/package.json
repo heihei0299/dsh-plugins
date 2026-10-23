@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-smartui",
-  "version": "0.1.4",
+  "version": "0.1.3",
   "description": "ChatGPT-inspired DSH appearance and safe declarative conversation components",
   "private": true,
   "type": "module",
@@ -21,7 +21,6 @@
       "immediately": true,
       "inject": [
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-chat",
         "@deepseek-ai/dsh-client-ui-tool",
         "@deepseek-ai/dsh-client-ui-theme",
         "@deepseek-ai/dsh-client-locale",

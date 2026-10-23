@@ -11,7 +11,6 @@ import { ToolView } from './ToolView.js';
 import { DocumentNode } from './DocumentNode.js';
 import { Settings } from './Settings.js';
 import { Launcher } from './Launcher.js';
-import { installProseVisibility } from './prose-visibility.js';
 
 export const inject = ['slots', 'locale', 'theme', 'configForms', 'uiConversation'];
 export function apply(ctx: ClientContext): void {
@@ -20,7 +19,6 @@ export function apply(ctx: ClientContext): void {
   const form = ctx.configForms.get(SETTINGS_ID);
   const environment = createEnvironment(ctx, form);
   ctx.effect(() => installAppearance(ctx, form));
-  installProseVisibility(ctx);
   /** Turn-level row: the recorded document stays outside the foldable process group. */
   ctx.effect(() => ctx.uiConversation.events.register(smartuiDocumentDefinition));
   function Surface({ children }: { children: React.ReactNode }) {
