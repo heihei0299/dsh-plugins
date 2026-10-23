@@ -285,8 +285,10 @@ on the next child.
   children only.
 - The plugin decorates an instance method of the shared `subagents` service.
   That is the only seam that both runs before child-option and composition
-  resolution and needs no preset edit; it is restored on dispose, so profile
-  reloads and enable/disable cycles do not stack wrappers.
+  resolution and needs no preset edit. The decorator carries a non-enumerable
+  marker: a second mount throws instead of stacking wrappers, and dispose
+  restores the original property only while this decorator is still on top.
+  If another plugin has replaced it, dispose warns and leaves that chain alone.
 - The settings allowlist still advertises selectable models to the Agent.
   Combine with a single-entry allowlist (or `enabled: false`) if explicit
   choices should disappear from the tool schema entirely.
@@ -308,10 +310,22 @@ test/               Host pinning, client display/configuration, and bundle-contr
 
 ## Test
 
+The default suite is pure Node; the native contract test is opt-in and skipped
+unless `DSH_TEST_RUNTIME_ROOT` points at the installed dsh:
+
 ```bash
 pnpm install --offline
 node --test --test-concurrency=1
+
+DSH_TEST_RUNTIME_ROOT=<installed-dsh-root> GOMAXPROCS=2 \
+  node --test --test-concurrency=1 test/native.test.js
 ```
+
+The native test decorates a Cordis `Service` through the live proxy and checks
+the installed `SubagentRuntime.prototype.startActivation` shape; it does not
+start a real child. A full delegation (plugin row save, child descriptor,
+composer chip, fork behaviour) remains a manual live check that needs the WebUI
+session; record it separately rather than treating the unit suite as proof.
 
 Both halves are plain JavaScript; there is no build, typecheck, or lint step.
 The client bundle is loaded verbatim through `window.__ModuleLoader__.load` and

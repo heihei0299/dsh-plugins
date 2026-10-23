@@ -168,6 +168,23 @@ function pinnedSpec(spec, pin, warn, canPinPreset) {
 const name = "pin-subagent-model";
 const inject = ["subagents"];
 
+/** Non-enumerable mark on this plugin's decorator, used to detect a double mount. */
+const PATCH_MARKER = Symbol.for("dsh-plugin-pin-subagent-model.startActivation");
+
+/**
+ * Find the property descriptor visible on an object, walking its prototypes.
+ * @param target - object or service proxy.
+ * @param key - property name.
+ * @returns the first descriptor found, or undefined.
+ */
+function descriptorOn(target, key) {
+	for (let current = target; current !== null; current = Object.getPrototypeOf(current)) {
+		const descriptor = Object.getOwnPropertyDescriptor(current, key);
+		if (descriptor !== undefined) return descriptor;
+	}
+	return undefined;
+}
+
 /**
  * Decorate the live `subagents` service so every child activation is pinned.
  * @param ctx - plugin context with `subagents` available.
@@ -190,9 +207,18 @@ function apply(ctx, config) {
 	const service = ctx.subagents;
 	const startActivation = service.startActivation;
 	if (typeof startActivation !== "function") throw new Error("pin-subagent-model: `subagents.startActivation` is unavailable");
+	if (startActivation[PATCH_MARKER] === true) throw new Error("pin-subagent-model: `subagents.startActivation` is already decorated; mount the plugin only once");
+	// Capture the exact property shape before touching it. A service may expose
+	// the method on its prototype (the normal Cordis shape) or through an accessor.
+	const ownDescriptor = Object.getOwnPropertyDescriptor(service, "startActivation");
+	const descriptor = ownDescriptor ?? descriptorOn(Object.getPrototypeOf(service), "startActivation");
+	if (descriptor !== undefined) {
+		const writable = "value" in descriptor ? descriptor.writable === true : typeof descriptor.set === "function";
+		if (!writable) throw new Error("pin-subagent-model: `subagents.startActivation` is not writable");
+	}
 	const presetSkipped = new Set();
 	ctx.effect(() => {
-		service.startActivation = function pinnedStartActivation(spec) {
+		const wrapper = function pinnedStartActivation(spec) {
 			const pin = readPin(config);
 			if (pin === void 0 || !pin.providers.has(spec?.provider)) return startActivation.call(this, spec);
 			const provider = typeof service.getProvider === "function" ? service.getProvider(spec.provider) : void 0;
@@ -203,8 +229,30 @@ function apply(ctx, config) {
 			}
 			return startActivation.call(this, pinnedSpec(spec, pin, warn, canPinPreset));
 		};
+		Object.defineProperty(wrapper, PATCH_MARKER, { value: true });
+		if (!Reflect.set(service, "startActivation", wrapper) || service.startActivation?.[PATCH_MARKER] !== true) {
+			throw new Error("pin-subagent-model: could not decorate `subagents.startActivation`");
+		}
+		// A prototype method gets an own data property; an inherited accessor
+		// with a setter may store the value elsewhere instead.
+		const createdOwn = Object.hasOwn(service, "startActivation");
 		return () => {
-			service.startActivation = startActivation;
+			// Never overwrite a wrapper someone else installed after us: restoring
+			// our original would silently break that chain.
+			if (service.startActivation?.[PATCH_MARKER] !== true) {
+				warn("pin-subagent-model: `subagents.startActivation` was replaced after decoration; leaving the newer wrapper in place");
+				return;
+			}
+			try {
+				if (ownDescriptor !== undefined) Object.defineProperty(service, "startActivation", ownDescriptor);
+				else if (createdOwn) {
+					if (!Reflect.deleteProperty(service, "startActivation")) throw new Error("the decorated own property is not configurable");
+				} else if (!Reflect.set(service, "startActivation", startActivation)) throw new Error("the inherited accessor refused the original method");
+			} catch (error) {
+				warn(`pin-subagent-model: could not restore \`subagents.startActivation\`: ${error.message}`);
+				return;
+			}
+			if (service.startActivation?.[PATCH_MARKER] === true) warn("pin-subagent-model: `subagents.startActivation` still carries the pin decoration after restore");
 		};
 	}, "pin-subagent-model: decorate subagents.startActivation");
 }

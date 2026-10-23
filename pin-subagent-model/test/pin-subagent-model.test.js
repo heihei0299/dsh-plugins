@@ -226,6 +226,72 @@ test("rejects an unusable onConflict value even without a route", () => {
 	assert.throws(() => plugin.apply(fakeCtx(recordingService()), { ...PIN, onConflict: "merge" }), /`onConflict` must be 'override' or 'reject'/);
 });
 
+test("refuses a second mount instead of stacking decorators", () => {
+	const service = recordingService({ spawn: SPAWN });
+	plugin.apply(fakeCtx(service), PIN);
+	assert.throws(() => plugin.apply(fakeCtx(service), PIN), /already decorated/);
+});
+
+test("marks its decorator non-enumerably", () => {
+	const service = recordingService({ spawn: SPAWN });
+	plugin.apply(fakeCtx(service), PIN);
+	const marker = Symbol.for("dsh-plugin-pin-subagent-model.startActivation");
+	assert.equal(service.startActivation[marker], true);
+	const descriptor = Object.getOwnPropertyDescriptor(service.startActivation, marker);
+	assert.equal(descriptor.enumerable, false);
+});
+
+test("restores a prototype method without leaving an own property", () => {
+	const original = async function original() {};
+	const service = Object.create({ startActivation: original, getProvider() { return SPAWN; } });
+	const ctx = fakeCtx(service);
+	plugin.apply(ctx, PIN);
+	assert.equal(Object.hasOwn(service, "startActivation"), true);
+	assert.notEqual(service.startActivation, original);
+	ctx.disposeAll();
+	assert.equal(Object.hasOwn(service, "startActivation"), false);
+	assert.equal(service.startActivation, original);
+});
+
+test("does not overwrite a wrapper installed after this plugin", () => {
+	const service = recordingService({ spawn: SPAWN });
+	const ctx = fakeCtx(service);
+	plugin.apply(ctx, PIN);
+	const later = async function later() {};
+	service.startActivation = later;
+	ctx.disposeAll();
+	assert.equal(service.startActivation, later);
+	assert.match(ctx.warnings.at(-1), /replaced after decoration/);
+});
+
+test("fails fast on a non-writable startActivation", () => {
+	const service = recordingService({ spawn: SPAWN });
+	Object.defineProperty(service, "startActivation", { value: service.startActivation, writable: false, configurable: true });
+	assert.throws(() => plugin.apply(fakeCtx(service), PIN), /not writable/);
+});
+
+test("fails fast on a getter-only startActivation", () => {
+	const original = async function original() {};
+	const service = Object.create({ get startActivation() { return original; }, getProvider() { return SPAWN; } });
+	assert.throws(() => plugin.apply(fakeCtx(service), PIN), /not writable/);
+});
+
+test("restores an inherited accessor through its setter", () => {
+	const original = async function original() {};
+	let current = original;
+	const service = Object.create({
+		get startActivation() { return current; },
+		set startActivation(value) { current = value; },
+		getProvider() { return SPAWN; }
+	});
+	const ctx = fakeCtx(service);
+	plugin.apply(ctx, PIN);
+	assert.equal(Object.hasOwn(service, "startActivation"), false);
+	assert.notEqual(service.startActivation, original);
+	ctx.disposeAll();
+	assert.equal(service.startActivation, original);
+});
+
 test("declares the WebUI-editable fields as volatile and keeps policy fields ordinary", () => {
 	const dict = plugin.Config.dict;
 	for (const field of ["provider", "model", "reasoningEffort", "agentPreset"]) assert.equal(dict[field].meta.volatile, true, `${field} must be volatile`);
