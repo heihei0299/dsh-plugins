@@ -3,10 +3,31 @@ import assert from 'node:assert/strict';
 import {
   OPEN_TRANSITION, SETTINGS_STYLES, SLIDE_DURATION, SLIDE_EASING, SLIDE_TRANSITION, TAP_TARGET, buildStyles,
 } from '../src/client/styles.js';
-import { HOST_LANDMARKS } from '../src/client/landmarks.js';
+import {
+  HOST_LANDMARKS, SETTINGS_HEADER, SETTINGS_LIST_HEAD, SETTINGS_NAV_LIST, SETTINGS_NAV_TAB, SETTINGS_OPTIONS, SETTINGS_PANEL,
+} from '../src/client/landmarks.js';
+import { NARROW_BREAKPOINT } from '../src/shared/types.js';
 
 const full = buildStyles({ drawerNavigation: true, comfortableTargets: true });
 const plain = buildStyles({ drawerNavigation: false, comfortableTargets: false });
+
+const narrowMedia = `@media (max-width:${NARROW_BREAKPOINT}px)`;
+
+/** Return the one-line media block that carries the narrow settings sheet. */
+function settingsSheet(sheet: string): string {
+  const line = sheet.split('\n').find(candidate => candidate.startsWith(narrowMedia));
+  assert.ok(line !== undefined, 'the settings sheet must be gated by the narrow breakpoint');
+  return line;
+}
+
+/** Return the first `selector{…}` rule from a stylesheet string. */
+function cssRule(sheet: string, selector: string): string {
+  const start = sheet.indexOf(`${selector}{`);
+  assert.notEqual(start, -1, `missing rule for ${selector}`);
+  const end = sheet.indexOf('}', start);
+  assert.notEqual(end, -1, `unterminated rule for ${selector}`);
+  return sheet.slice(start, end + 1);
+}
 
 test('every runtime rule is scoped under the root attribute', () => {
   const scoped = full.split('\n').filter(line => line.trim() !== '' && !line.startsWith('@media'));
@@ -223,6 +244,38 @@ test('the scrim intercepts taps until the drawer exit finishes', () => {
 test('safe-area padding is paired with the dynamic viewport height', () => {
   assert.match(full, /100dvh/);
   assert.match(full, /env\(safe-area-inset-bottom\)/);
+});
+
+test('the settings dialog becomes a full-screen sheet below the narrow breakpoint', () => {
+  const sheet = settingsSheet(full);
+  // The whole layout is gated by the breakpoint, and the block opens with the
+  // panel rule, so nothing can apply at a wide-viewport desktop.
+  assert.ok(sheet.startsWith(`${narrowMedia}{${SETTINGS_PANEL}{`));
+
+  const panel = cssRule(sheet, SETTINGS_PANEL);
+  assert.match(panel, /width:100%;max-width:100%/);
+  assert.match(panel, /height:100dvh;max-height:100dvh/);
+  assert.match(panel, /border-radius:0;flex-direction:column/);
+
+  const list = cssRule(sheet, SETTINGS_NAV_LIST);
+  assert.match(list, /flex-direction:row/);
+  assert.match(list, /overflow-x:auto/);
+  assert.match(list, /scrollbar-width:none/);
+  assert.match(cssRule(sheet, SETTINGS_NAV_TAB), /flex:none;height:40px/);
+
+  const header = cssRule(sheet, SETTINGS_HEADER);
+  assert.match(header, /position:absolute/);
+  assert.match(header, /inset-inline-end:8px/);
+  assert.match(cssRule(sheet, SETTINGS_OPTIONS), /padding:0 16px calc\(env\(safe-area-inset-bottom\) \+ 16px\)/);
+  assert.doesNotMatch(sheet, /!important/, 'the sheet must win by specificity, not escalation');
+});
+
+test('settings list rows wrap instead of painting the name under the actions', () => {
+  const sheet = settingsSheet(full);
+  const head = cssRule(sheet, SETTINGS_LIST_HEAD);
+  assert.match(head, /flex-wrap:wrap/);
+  assert.match(head, /row-gap:6px/);
+  assert.ok(sheet.includes(`${SETTINGS_LIST_HEAD} > span:first-child{min-width:0;overflow-wrap:anywhere}`));
 });
 
 test('every host landmark is actually used by the stylesheet', () => {

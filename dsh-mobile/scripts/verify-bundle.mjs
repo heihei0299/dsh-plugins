@@ -47,6 +47,8 @@ const LANDMARKS = [
   '[data-actions-reveal]',
   '[data-sidebar-collapsed]',
   '[data-slot="conversation.session.header.actions"]',
+  'data-shortcut-modal="settings"',
+  'data-slot="settings.section"',
   'data-dsh-mobile-badges',
   '.md-table-wide',
 ];

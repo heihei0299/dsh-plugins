@@ -1,9 +1,10 @@
 import {
   CENTER_COLUMN, COLUMN_HANDLES, COMPOSER_BUTTONS, COMPOSER_DOCK, COMPOSER_DOCK_BUTTONS, COMPOSER_INPUT, CONVERSATION_HEADER, CONVERSATION_SCROLL,
   FRAME, HEADER_ACTIONS, MESSAGE_ACTIONS, RIGHTBAR_COLUMN, SIDEBAR_COLUMN, SIDEBAR_COLUMN_OF_FRAME,
-  TABLE_WRAPPER, WIDE_TABLE, BADGES_ATTRIBUTE,
+  SETTINGS_CONTENT, SETTINGS_HEADER, SETTINGS_LIST_HEAD, SETTINGS_NAV, SETTINGS_NAV_LIST, SETTINGS_NAV_TAB,
+  SETTINGS_NAV_TITLE, SETTINGS_OPTIONS, SETTINGS_PANEL, TABLE_WRAPPER, WIDE_TABLE, BADGES_ATTRIBUTE,
 } from './landmarks.js';
-import { ROOT_ATTRIBUTE } from '../shared/types.js';
+import { NARROW_BREAKPOINT, ROOT_ATTRIBUTE } from '../shared/types.js';
 
 /** Recommended minimum touch target, in px. */
 export const TAP_TARGET = 44;
@@ -138,6 +139,33 @@ export function buildStyles(options: StyleOptions): string {
   // Include the resident contenteditable composer, not just native form fields.
   // Preserve browser zoom; avoiding focus zoom must not disable pinch zoom.
   rules.push(`@media (pointer:coarse){${scope} :is(input,textarea,select,${COMPOSER_INPUT}){font-size:16px!important}}`);
+
+  // Settings dialog, reported on the Models page: the host's fixed 188px section
+  // rail leaves a 390px viewport ~154px of content, and the provider row head is
+  // `nowrap`, so the name shrinks to zero and paints under "edit / remove".
+  // Below the same breakpoint that decides the mobile layout, turn the panel into
+  // a full-screen sheet: the rail becomes a scrollable section strip, the close
+  // header floats in the title row, and list rows may wrap. The media query is
+  // deliberate — a wide touch device keeps the host's centred 800px dialog, where
+  // the rail already has room. No host class names are involved.
+  const settingsSheet = [
+    `${SETTINGS_PANEL}{width:100%;max-width:100%;height:100dvh;max-height:100dvh;border-radius:0;flex-direction:column}`,
+    `${SETTINGS_NAV}{width:100%;flex:none;flex-direction:column;gap:0;padding:calc(env(safe-area-inset-top) + 8px) 12px 0;box-sizing:border-box;border-bottom:.5px solid var(--dsw-alias-border-l2,#e5e7eb)}`,
+    `${SETTINGS_NAV_TITLE}{display:flex;align-items:center;min-height:32px;padding:0 96px 0 4px;margin-bottom:6px;box-sizing:border-box}`,
+    `${SETTINGS_NAV_LIST}{width:100%;box-sizing:border-box;flex-direction:row;gap:4px;padding:4px 4px 8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}`,
+    `${SETTINGS_NAV_LIST}::-webkit-scrollbar{display:none}`,
+    `${SETTINGS_NAV_TAB}{flex:none;height:40px;padding:0 12px;border-radius:999px;white-space:nowrap}`,
+    `${SETTINGS_CONTENT}{flex:1;min-height:0;min-width:0}`,
+    // The document action and the close button belong in the title row; taking
+    // the header out of flow keeps them there without moving any DOM.
+    `${SETTINGS_HEADER}{position:absolute;top:calc(env(safe-area-inset-top) + 10px);inset-inline-end:8px;z-index:2;height:auto;min-height:28px;max-width:calc(100% - 24px);padding:0;align-items:center;flex-wrap:wrap;justify-content:flex-end}`,
+    `${SETTINGS_OPTIONS}{padding:0 16px calc(env(safe-area-inset-bottom) + 16px);overscroll-behavior:contain;-webkit-overflow-scrolling:touch}`,
+    // The host row head has no wrap. Wrapping moves the actions to a second line
+    // when the name needs the width, instead of squeezing the name to zero.
+    `${SETTINGS_LIST_HEAD}{flex-wrap:wrap;row-gap:6px}`,
+    `${SETTINGS_LIST_HEAD} > span:first-child{min-width:0;overflow-wrap:anywhere}`,
+  ];
+  rules.push(`@media (max-width:${NARROW_BREAKPOINT}px){${settingsSheet.join('')}}`);
 
   // The toggle sits in the conversation header's own leading seat, so it takes
   // real layout space and the session title starts after it. A floating button

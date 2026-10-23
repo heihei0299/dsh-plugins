@@ -94,6 +94,39 @@ export const TABLE_WRAPPER = 'div:has(> table)';
 export const COLLAPSED_ATTRIBUTE = 'data-sidebar-collapsed';
 
 /**
+ * Settings dialog root.
+ *
+ * The host marks the panel with `data-shortcut-modal="settings"` — the same
+ * marker its own shortcut layer uses — and portals it to <body>; the root
+ * attribute still reaches it. On a phone the host's 188px section rail leaves
+ * the Models page too little width, so this is the element the narrow-screen
+ * sheet reflows.
+ */
+export const SETTINGS_PANEL = '[data-shortcut-modal="settings"]';
+
+/** Section rail: the title row and the section list (a horizontal strip on mobile). */
+export const SETTINGS_NAV = `${SETTINGS_PANEL} > nav`;
+export const SETTINGS_NAV_TITLE = `${SETTINGS_NAV} > div:first-child`;
+export const SETTINGS_NAV_LIST = `${SETTINGS_NAV} > div:last-child`;
+export const SETTINGS_NAV_TAB = `${SETTINGS_NAV_LIST} > button`;
+
+/** Content column, and its two children: the close/action header and the scrolling body. */
+export const SETTINGS_CONTENT = `${SETTINGS_PANEL} > div`;
+export const SETTINGS_HEADER = `${SETTINGS_CONTENT} > div:first-child`;
+export const SETTINGS_OPTIONS = `${SETTINGS_CONTENT} > div:last-child`;
+
+/**
+ * First row of a settings list card.
+ *
+ * The Models page renders one `<li>` per provider with its name and the
+ * edit/remove buttons in this row. The host leaves that row `nowrap`, so on a
+ * narrow panel the name shrinks to zero and paints under the buttons. Wrapping
+ * this row is the structural fix; it does not depend on button copy or hashed
+ * class names.
+ */
+export const SETTINGS_LIST_HEAD = `${SETTINGS_PANEL} [data-slot="settings.section"] li > div:first-child`;
+
+/**
  * Every landmark the stylesheet must actually use, for the mechanical checks.
  * `VIEW_TABS` and `COLLAPSED_ATTRIBUTE` are excluded on purpose: the former is
  * measured but never styled, the latter is read by the activation source rather
@@ -105,6 +138,15 @@ export const HOST_LANDMARKS: readonly { readonly name: string; readonly selector
   { name: 'sidebar column', selector: SIDEBAR_COLUMN },
   { name: 'centre column', selector: CENTER_COLUMN },
   { name: 'column handles', selector: COLUMN_HANDLES },
+  { name: 'settings panel', selector: SETTINGS_PANEL },
+  { name: 'settings navigation', selector: SETTINGS_NAV },
+  { name: 'settings navigation title', selector: SETTINGS_NAV_TITLE },
+  { name: 'settings navigation list', selector: SETTINGS_NAV_LIST },
+  { name: 'settings navigation tab', selector: SETTINGS_NAV_TAB },
+  { name: 'settings content', selector: SETTINGS_CONTENT },
+  { name: 'settings header', selector: SETTINGS_HEADER },
+  { name: 'settings options', selector: SETTINGS_OPTIONS },
+  { name: 'settings list head', selector: SETTINGS_LIST_HEAD },
   { name: 'conversation header', selector: CONVERSATION_HEADER },
   { name: 'header status badges', selector: HEADER_ACTIONS },
   { name: 'composer card', selector: COMPOSER_CARD },
