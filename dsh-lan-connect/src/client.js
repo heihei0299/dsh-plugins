@@ -31,6 +31,9 @@ import * as React from 'react';
 import qrcode from 'qrcode-generator';
 import en from '../locale/en.json' with { type: 'json' };
 import zh from '../locale/zh.json' with { type: 'json' };
+import { BOOTSTRAP_KEY, ENTRY_PATH, isPrivateIPv4 } from './shared/contract.js';
+
+export { BOOTSTRAP_KEY, ENTRY_PATH, isPrivateIPv4 };
 
 /** Locale namespace registered by this plugin (also its locale file family). */
 export const LOCALE_NS = 'dsh-lan-connect';
@@ -40,38 +43,16 @@ export const SETTINGS_SLOT = 'settings.general.item';
 export const SETTINGS_ID = 'dsh-lan-connect';
 /** Row position: after Appearance/Composer (80/85) and before later rows. */
 export const SETTINGS_ORDER = 90;
-/** Global injected by the Host's structured index injection. */
-export const BOOTSTRAP_KEY = '__DSH_LAN_CONNECT__';
 
 /** Services the browser half needs before it registers. */
 export const inject = ['slots', 'locale'];
 
-/** Entry path the Host always appends to its advertised root. */
-const ENTRY_PATH = '/lan';
-
-/**
- * Whether one string is a dotted-quad IPv4 literal.
- * @param value - candidate address text.
- * @returns true for exactly four decimal octets in range.
- */
-function isIPv4(value) {
-  const parts = value.split('.');
-  return parts.length === 4 && parts.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-}
-
-/**
- * Whether one IPv4 literal is a private (RFC 1918) LAN address.
- * @param value - dotted-quad address.
- * @returns true for 10/8, 172.16/12, or 192.168/16.
- */
-function isPrivateIPv4(value) {
-  if (!isIPv4(value)) return false;
-  const [a, b] = value.split('.').map(Number);
-  return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
-}
-
 /**
  * Whether an advertised URL hostname is the loopback authority.
+ *
+ * Kept separate from the Host's listener-origin check on purpose: the Host
+ * classifies the bound address, while the Client classifies an advertised root
+ * that a proxy may have rewritten (and may legitimately say `localhost`).
  * @param hostname - WHATWG URL hostname (IPv6 literals keep brackets).
  * @returns true for localhost, ::1, or any 127/8 literal.
  */

@@ -4,14 +4,12 @@ import { readFile, stat } from 'node:fs/promises';
 import { runInNewContext } from 'node:vm';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { BOOTSTRAP_KEY } from '../src/shared/contract.js';
 
 const root = new URL('../', import.meta.url);
 const manifest = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
 const localeEn = JSON.parse(await readFile(new URL('locale/en.json', root), 'utf8'));
 const localeZh = JSON.parse(await readFile(new URL('locale/zh.json', root), 'utf8'));
-
-/** The wire global the Host injects; the bundle reads it at render time. */
-const BOOTSTRAP_KEY = '__DSH_LAN_CONNECT__';
 
 /**
  * Assert a file exists and is a regular file.

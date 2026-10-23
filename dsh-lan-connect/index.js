@@ -1,9 +1,9 @@
 import { networkInterfaces } from "node:os";
+import { BOOTSTRAP_KEY, ENTRY_PATH, isPrivateIPv4 } from "./src/shared/contract.js";
 
 export const name = "dsh-lan-connect";
 export const inject = ["webServer", "webApp", "connection"];
-export const ENTRY_PATH = "/lan";
-export const BOOT_GLOBAL = "__DSH_LAN_CONNECT__";
+export { BOOTSTRAP_KEY, ENTRY_PATH };
 
 const RESPONSE_HEADERS = Object.freeze({
   "cache-control": "no-store",
@@ -21,13 +21,6 @@ function appRoot(ctx) {
   return root;
 }
 
-/** Only RFC1918 IPv4 candidates; no reachability or route-selection claims. */
-function privateIPv4(address) {
-  const parts = address.split('.').map(Number);
-  return parts.length === 4 && parts.every(part => Number.isInteger(part) && part >= 0 && part <= 255)
-    && (parts[0] === 10 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168));
-}
-
 /** Public metadata for the settings card. No token or cookie crosses this boundary. */
 export function connectionInfo(ctx, interfaces = networkInterfaces()) {
   const root = appRoot(ctx);
@@ -37,7 +30,7 @@ export function connectionInfo(ctx, interfaces = networkInterfaces()) {
   const host = ctx.webServer.host;
   const loopback = origin.hostname.startsWith('127.') || origin.hostname === '[::1]' || origin.hostname === '::1';
   const lanAddresses = Object.entries(interfaces).flatMap(([name, addresses]) => (addresses ?? [])
-    .filter(address => !address.internal && address.family === 'IPv4' && privateIPv4(address.address))
+    .filter(address => !address.internal && address.family === 'IPv4' && isPrivateIPv4(address.address))
     .map(address => ({ name, address: address.address, bound: address.address === host })));
   return {
     entryUrl: new URL(ENTRY_PATH.slice(1), root).href,
@@ -109,7 +102,7 @@ export function apply(ctx) {
   ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: ENTRY_PATH, handler: createEntryHandler(ctx) }), 'dsh-lan-connect: automatic sign-in entry');
   ctx.on('webserver/index-inject', table => {
     try {
-      table.push({ kind: 'global', name: BOOT_GLOBAL, value: connectionInfo(ctx) });
+      table.push({ kind: 'global', name: BOOTSTRAP_KEY, value: connectionInfo(ctx) });
     } catch {
       // Never fail the whole index render: an absent row makes the card show
       // "unavailable" instead. No logger call: a provider error may carry a

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { apply, connectionInfo, createEntryHandler, ENTRY_PATH, BOOT_GLOBAL, inject } from '../index.js';
+import { apply, BOOTSTRAP_KEY, connectionInfo, createEntryHandler, ENTRY_PATH, inject } from '../index.js';
 
 function fixture(options = {}) {
   const routes = new Map();
@@ -63,7 +63,7 @@ test('adds one exact entry and cleans up without touching the listener or Connec
   const table = [];
   env.listeners.get('webserver/index-inject')(table);
   assert.equal(table[0].kind, 'global');
-  assert.equal(table[0].name, BOOT_GLOBAL);
+  assert.equal(table[0].name, BOOTSTRAP_KEY);
   assert.equal(table[0].value.entryUrl, 'http://192.168.1.62:50020/lan');
   assert.doesNotMatch(JSON.stringify(table), /token|cookie/i);
   assert.doesNotMatch(env.messages.join('\n'), /test-only-not-a-credential|\?token=/);

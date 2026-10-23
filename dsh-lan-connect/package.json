@@ -14,7 +14,7 @@
     "./icon": "./assets/icon.svg",
     "./locale/*.json": "./locale/*.json"
   },
-  "files": ["index.js", "dist/client.js", "cordis.patch.yml", "assets/icon.svg", "locale/*.json", "README.md", "LICENSE"],
+  "files": ["index.js", "src/shared/contract.js", "dist/client.js", "cordis.patch.yml", "assets/icon.svg", "locale/*.json", "README.md", "LICENSE"],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": {
