@@ -4,8 +4,8 @@ import type { MobileSettings } from '../shared/types.js';
 /**
  * Structural boundary to the installed DSH 0.2.1-rc.2 browser contracts.
  * No runtime import of any Harness Client package: the bundle only requires the
- * host `react` module (see scripts/verify-bundle.mjs). See README for the exact
- * boundary and docs/compatibility for how it is re-checked on a dsh upgrade.
+ * host `react` module (see scripts/verify-bundle.mjs). See the plugin README for
+ * the exact boundary and how it is re-checked on a dsh upgrade.
  */
 export type Disposer = () => void;
 

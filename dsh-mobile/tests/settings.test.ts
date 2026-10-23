@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { Config } from '../src/host/index.js';
 import { DEFAULT_SETTINGS, NARROW_BREAKPOINT, readSettings, resolveEnabled, type MobileSettings } from '../src/shared/types.js';
+
+test('the Host schema defaults and readSettings share one source', () => {
+  const config = (Config as unknown as (value: object) => Record<keyof MobileSettings, { get(): unknown }>)({});
+  for (const field of ['mode', 'drawerNavigation', 'comfortableTargets'] as const) {
+    assert.equal(config[field].get(), DEFAULT_SETTINGS[field], `${field} schema default`);
+    assert.equal(readSettings(undefined)[field], DEFAULT_SETTINGS[field], `${field} readSettings fallback`);
+  }
+});
 
 test('readSettings falls back to defaults instead of trusting the wire', () => {
   assert.deepEqual(readSettings(undefined), DEFAULT_SETTINGS);

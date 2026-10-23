@@ -1,6 +1,6 @@
 import type { Context, Volatile } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
-import type { MobileSettings } from '../shared/types.js';
+import { DEFAULT_SETTINGS, type MobileSettings } from '../shared/types.js';
 
 /**
  * Host half of @local/dsh-mobile.
@@ -17,9 +17,9 @@ export interface PluginConfig {
 }
 
 export const Config = z.object({
-  mode: z.union(['auto', 'on', 'off']).default('auto').description('Apply the mobile layout automatically on narrow/touch devices, always, or never').volatile(),
-  drawerNavigation: z.boolean().default(true).description('Replace the permanent 56px sidebar rail with a drawer opened from a floating button').volatile(),
-  comfortableTargets: z.boolean().default(true).description('Raise small icon controls to a 44px touch target').volatile(),
+  mode: z.union(['auto', 'on', 'off']).default(DEFAULT_SETTINGS.mode).description('Apply the mobile layout automatically on narrow/touch devices, always, or never').volatile(),
+  drawerNavigation: z.boolean().default(DEFAULT_SETTINGS.drawerNavigation).description('Replace the permanent 56px sidebar rail with a drawer opened from a floating button').volatile(),
+  comfortableTargets: z.boolean().default(DEFAULT_SETTINGS.comfortableTargets).description('Raise small icon controls to a 44px touch target').volatile(),
 });
 
 /** Provides no Host-side behaviour beyond the settings schema above. */
