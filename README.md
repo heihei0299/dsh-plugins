@@ -148,6 +148,8 @@ DSH_TEST_RUNTIME_ROOT=/home/shial/.local/share/fnm/node-versions/v24.16.0/instal
 pnpm run verify:bundle
 ```
 
+- 不建立共享开发工具包（2026-10-24 T9 spike 结论）：仓库没有 workspace 根，四个插件各自以 `link:` 和独立 lockfile 安装；构建包装的重复约 40 行，而引入第五个包会增加 `file:` devDependency、离线安装和发布文件清单三条链。verify/probe 已按插件差异分叉（smartui 样式标签、mobile 地标派生、lan 的 node:test），统一模板会把差异藏进配置分支，收益不足。各自保留脚本，命令约定保持一致。
+
 `.agents/` 下存放本地专用技能（`dsh-compat-check`：DSH 升级或重装后核对插件与当前 dsh 的内部契约、跑插件单测并做一次活体委派验证），已被全局 gitignore 排除，不入库。
 
 ## License
