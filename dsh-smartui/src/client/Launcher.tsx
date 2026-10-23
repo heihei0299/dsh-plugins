@@ -12,7 +12,7 @@ export function Launcher(props: SessionProps) {
    * conversation must not carry a permanent chip row above its composer. */
   if (props.session?.blank === false) return null;
   return <div className="smartui-launcher"><span className="smartui-launcher-title">✦ {t('launcher')}</span>
-    {(['table', 'chart', 'form'] as const).map(kind => <button type="button" key={kind} disabled={!editable} className="smartui-button smartui-button-small" onClick={() => setNotice(insertReviewedText(props.inputActions, t(`prompt.${kind}`), editable))}>{t(`suggest.${kind}`)}</button>)}
+    {(['dashboard', 'table', 'chart', 'form'] as const).map(kind => <button type="button" key={kind} disabled={!editable} className="smartui-button smartui-button-small" onClick={() => setNotice(insertReviewedText(props.inputActions, t(`prompt.${kind}`), editable))}>{t(`suggest.${kind}`)}</button>)}
     {notice && <p className="smartui-launcher-help" role="status">{t(`insert.${notice}`)}</p>}
   </div>;
 }

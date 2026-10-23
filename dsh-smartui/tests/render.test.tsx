@@ -26,9 +26,9 @@ const environment: Environment = {
 };
 function render(children: React.ReactNode) { return renderToStaticMarkup(<EnvironmentContext.Provider value={environment}>{children}</EnvironmentContext.Provider>); }
 test('renders every example through the real component code without executing markup', async () => {
-  for (const name of ['comparison', 'chart', 'form']) {
+  for (const name of ['comparison', 'chart', 'form', 'dashboard']) {
     const doc = validateDocument(JSON.parse(await readFile(new URL(`../examples/${name}.json`, import.meta.url), 'utf8')));
-    const html = render(<>{doc.blocks.map(block => <BlockView key={block.id} block={block} callId="call" disabled={false} onFill={() => { throw new Error('Render must never submit'); }} />)}</>);
+    const html = render(<DocumentView document={doc} callId="call" editable inputActions={{ captureInsertion: () => { throw new Error('Render must never submit'); }, insertText: () => { throw new Error('Render must never submit'); } }} />);
     assert.ok(html.length > 100); assert.ok(!/\b(?:NaN|Infinity)\b/.test(html));
     if (name === 'chart') { assert.match(html, /<svg/); assert.match(html, /<table/); }
     if (name === 'form') { assert.match(html, /<form/); assert.match(html, /aria-required/); }
@@ -141,6 +141,44 @@ test('empty tables show a dedicated empty state without numeric column styling',
   const html = render(<BlockView block={{ id: 'empty', type: 'table', columns: [{ id: 'name', label: 'Name' }], rows: [] }} callId="call" disabled={false} onFill={() => {}} />);
   assert.match(html, /class="smartui-table-empty"/); assert.match(html, /No rows/);
   assert.ok(!html.includes('class="smartui-num"'));
+});
+test('dashboard groups render each leaf once and keep every tab panel mounted', async () => {
+  const doc = validateDocument(JSON.parse(await readFile(new URL('../examples/dashboard.json', import.meta.url), 'utf8')));
+  const html = render(<DocumentView document={doc} callId="dashboard-call" editable inputActions={undefined} />);
+  assert.equal(Array.from(html.matchAll(/class="smartui-block smartui-block-stat"/g)).length, 2);
+  assert.equal(Array.from(html.matchAll(/class="smartui-block smartui-block-table"/g)).length, 1);
+  assert.match(html, /smartui-group-row/);
+  assert.match(html, /role="tablist"/);
+  assert.equal(Array.from(html.matchAll(/role="tab"/g)).length, 3);
+  assert.equal(Array.from(html.matchAll(/role="tabpanel"/g)).length, 3);
+  assert.equal(Array.from(html.matchAll(/role="tabpanel"[^>]*hidden=""/g)).length, 2);
+  assert.equal(Array.from(html.matchAll(/role="tab"[^>]*aria-selected="true"[^>]*tabindex="0"/g)).length, 1);
+  // Inputs in non-active panels remain mounted, not silently dropped on tab changes.
+  assert.match(html, /name="focus"/);
+  assert.match(html, /aria-controls="[^"]+-panel-services"/);
+  assert.match(html, /role="progressbar"[^>]*aria-valuenow="82"/);
+  assert.match(html, /type="search"/);
+  assert.match(html, /Copy exports the filtered rows/);
+});
+test('metric sparks and progress remain finite at all valid boundaries and markup stays inert', () => {
+  for (const spark of [[0, 0], [-1e12, 1e12], [Number.MIN_VALUE, 0]]) {
+    const html = render(<BlockView block={{ id: 'stat', type: 'stat', value: '<script>not executable</script>', spark }} callId="call" disabled={false} onFill={() => {}} />);
+    assert.ok(!/\b(?:NaN|Infinity)\b/.test(html)); assert.match(html, /&lt;script&gt;/); assert.match(html, /role="img"/);
+  }
+  for (const variant of ['bar', 'ring'] as const) for (const value of [0, 0.01, 100]) {
+    const html = render(<BlockView block={{ id: 'progress', type: 'progress', value, variant }} callId="call" disabled={false} onFill={() => {}} />);
+    assert.match(html, new RegExp(`aria-valuenow="${value}"`)); assert.ok(!/\b(?:NaN|Infinity)\b/.test(html));
+  }
+  const callout = render(<BlockView block={{ id: 'note', type: 'callout', body: '<img src=x onerror=alert(1)>', tone: 'warning' }} callId="call" disabled={false} onFill={() => {}} />);
+  assert.ok(!callout.includes('<img')); assert.match(callout, /Warning/);
+});
+test('grouped forms stay disabled when draft actions are not editable', () => {
+  const doc = validateDocument({ schemaVersion: 1, summary: 'A form in a tab', blocks: [
+    { id: 'group', type: 'group', layout: 'tabs', blockIds: ['form'] },
+    { id: 'form', type: 'form', actionId: 'review', fields: [{ id: 'name', label: 'Name', type: 'text' }] },
+  ] });
+  const html = render(<DocumentView document={doc} callId="call" editable={false} inputActions={undefined} />);
+  assert.match(html, /<fieldset disabled=""/);
 });
 test('translations have matching keys and interpolation placeholders', () => {
   assert.deepEqual(Object.keys(en.ui).sort(), Object.keys(zh.ui).sort());

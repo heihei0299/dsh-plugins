@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "title": "示例业务看板 · 虚构数据",
+  "summary": "所有数值均为演示用虚构数据。指标区采用行布局，明细标签可本地切换、筛选与复制；需求表单只填入草稿，不自动发送。",
+  "blocks": [
+    { "id": "overview", "type": "group", "title": "关键指标", "layout": "row", "blockIds": ["revenue", "orders", "goal"] },
+    { "id": "revenue", "type": "stat", "title": "示例营收", "value": "¥128,430", "delta": "较上期 +12.4%", "tone": "success", "spark": [40, 55, 60, 85, 120], "caption": "虚构数据，不代表实际业务。" },
+    { "id": "orders", "type": "stat", "title": "示例订单", "value": "1,024", "delta": "较上期 -3.1%", "tone": "warning", "spark": [90, 85, 80, 75, 70], "caption": "虚构数据，仅展示指标组件。" },
+    { "id": "goal", "type": "progress", "title": "示例目标进度", "value": 82, "variant": "ring", "caption": "目标完成率为演示值。" },
+    { "id": "details", "type": "group", "title": "探索与后续需求", "layout": "tabs", "blockIds": ["services", "trend", "requirements"] },
+    { "id": "services", "type": "table", "title": "服务明细 · 示例", "columns": [{ "id": "name", "label": "服务" }, { "id": "orders", "label": "订单量" }, { "id": "revenue", "label": "营收" }], "rows": [["示例服务 A", 420, 52000], ["示例服务 B", 380, 48430], ["示例服务 C", 224, 28000]] },
+    { "id": "trend", "type": "chart", "title": "营收趋势 · 示例", "chartType": "bar", "series": [{ "id": "revenue", "label": "虚构营收", "points": [{ "label": "一月", "value": 98 }, { "label": "二月", "value": 112 }, { "label": "三月", "value": 128 }] }] },
+    { "id": "requirements", "type": "form", "title": "希望深入分析什么？", "actionId": "review_details", "fields": [{ "id": "focus", "label": "分析重点", "type": "text", "required": true, "placeholder": "例如：比较服务表现" }] },
+    { "id": "notice", "type": "callout", "title": "使用说明", "tone": "neutral", "body": "这是参考 GenUI 交互理念的 SmartUI 示例，不接受 dsh-ui 围栏协议。切换标签不会丢弃当前已填写内容；刷新页面后未发送的本地内容不保证保留。" }
+  ]
+}

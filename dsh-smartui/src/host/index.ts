@@ -19,7 +19,7 @@ export const inject = ['tools', 'systemPrompt'];
 export function createSmartUITool(enabled: () => boolean = () => true) {
   return defineTool({
     name: TOOL_NAME,
-    description: 'Display a safe declarative UI in this DSH conversation: cards, sortable tables, bar/line charts, forms or choices. No HTML/code execution. A user can fill reviewed selections into their native draft; this does not send automatically.',
+    description: 'Display a safe declarative UI in this DSH conversation: cards, metrics with sparklines, progress, callouts, locally filterable/sortable tables, bar/line charts, forms or choices. Group leaf blocks in rows, columns or tabs. No HTML/code execution. User selections fill a reviewable native draft; they never send automatically.',
     parameters: { document: { ...documentSchema, required: true } },
     output: {
       schema: documentSchema,

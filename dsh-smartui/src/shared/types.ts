@@ -24,7 +24,21 @@ export interface FormBlock extends BlockBase {
 export interface ChoicesBlock extends BlockBase {
   type: 'choices'; options: SelectOption[]; multiple?: boolean; actionId: string;
 }
-export type SmartUIBlock = CardBlock | TableBlock | ChartBlock | FormBlock | ChoicesBlock;
+export type BlockTone = 'neutral' | 'success' | 'warning' | 'error';
+export interface StatBlock extends BlockBase {
+  type: 'stat'; value: string; caption?: string; delta?: string; tone?: BlockTone; spark?: number[];
+}
+export interface ProgressBlock extends BlockBase {
+  type: 'progress'; value: number; caption?: string; variant?: 'bar' | 'ring';
+}
+export interface CalloutBlock extends BlockBase {
+  type: 'callout'; body: string; tone?: BlockTone;
+}
+export type SmartUILeafBlock = CardBlock | TableBlock | ChartBlock | FormBlock | ChoicesBlock | StatBlock | ProgressBlock | CalloutBlock;
+export interface GroupBlock extends BlockBase {
+  type: 'group'; layout: 'row' | 'column' | 'tabs'; blockIds: string[];
+}
+export type SmartUIBlock = SmartUILeafBlock | GroupBlock;
 export interface SmartUIDocument {
   schemaVersion: 1; title?: string; summary: string; blocks: SmartUIBlock[];
 }
@@ -36,7 +50,7 @@ export interface SmartUIAction {
   values: Record<string, FormValue | string[]>;
 }
 export const LIMITS = Object.freeze({
-  bytes: 65_536, blocks: 20, rows: 200, columns: 12, points: 500,
+  bytes: 65_536, blocks: 20, rows: 200, columns: 12, points: 500, sparkPoints: 60,
   series: 4, fields: 20, options: 30, text: 8_000, label: 160, actionBytes: 16_384,
 });
 export const TOOL_NAME = 'render_smart_ui';

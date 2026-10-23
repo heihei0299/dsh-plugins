@@ -2,6 +2,32 @@
 
 给现有 DSH 添加 **ChatGPT 风格外观 + 对话内声明式交互组件**。不是独立聊天网站，不替换模型、会话、编辑器或权限审批。
 
+## 本轮改造：参考 GenUI 的本地交互看板
+
+参考 [omdsh-dev/dsh-genui](https://github.com/omdsh-dev/dsh-genui/tree/ad8dc166deaf4eee7dea758fc0a84a8728402b52) 的声明式小组件、布局组合和本地优先交互理念，独立实现以下增量，无新增运行时依赖、未复制其引擎、图标或样式：
+
+- `stat`：指标数字、明确语义的变化量和可选微趋势图；`progress`：0–100 的条形/环形进度；`callout`：信息、成功、注意、错误提示。
+- `group`：一层 `row` / `column` / `tabs` 组合。用 `blockIds` 引用同一份扁平 `blocks` 中的叶节点，禁止嵌套、重复归属及悬空引用；被分组的节点只在组内显示。标签页支持左右键、Home/End，切换时保留已挂载表单、选项和表格筛选状态。
+- 表格新增跨列本地搜索、匹配行数、TSV / CSV / Markdown 复制导出。导出包含表头和**筛选后当前顺序**的数据；CSV/TSV 防常见公式前缀，剪贴板不可用时仍可手动复制。
+- 新会话提供“创建看板”建议，仍然只填草稿，不自动发送。
+
+**有意保留的边界：**继续使用 `render_smart_ui` 与 `meta.smartui`、Turn 级对话行、v1 严格校验及 64 KiB / 20 区块预算（group 也计数），兼容原有五类文档。不是 GenUI 协议的兼容实现：不解析正文 `dsh-ui` 围栏，不接管聊天 DOM，不引入自动发送、常驻面板、Computed 表达式、外部图表引擎或本地持久化未发送输入。切页保留不等于刷新恢复。
+
+完整示例：[虚构数据看板](<examples/dashboard.json>)。调用方式为 `render_smart_ui({document: …})`，其中 `document` 为示例 JSON 的完整内容。新字段速查：
+
+| 类型 | 必需字段（除 `id`、`type`） | 可选字段（均可带 `title`） |
+|---|---|---|
+| `stat` | `value`: 字符串 | `delta`、`caption`、`tone`、`spark`: 2–60 个有限数值 |
+| `progress` | `value`: 0–100 的有限数字 | `variant`: `bar` / `ring`，`caption` |
+| `callout` | `body`: 纯文本 | `tone` |
+| `group` | `layout`: `row` / `column` / `tabs`，`blockIds`: 非空叶节点 ID 数组 | — |
+
+`tone` 只允许 `neutral` / `success` / `warning` / `error`；上涨不自动等于成功。新增文本继续遵守既有长度边界；数值与 spark 点仍限制在 ±1e12。分组按 group 在 `blocks` 中的位置展示，组内按 `blockIds` 排列；未归组的节点保留顶层顺序。
+
+本轮验证：`pnpm run typecheck`、68 项串行测试、`pnpm run build`、`pnpm run verify:bundle` 均通过。另用真实组件和测试环境做了隔离 Chromium 验收：筛选、带表头的可见 CSV 复制、切页保留输入、左右/Home/End 焦点、显式填草稿、剪贴板手动回退；明暗主题 × 320/390/1000px 六组无页面级横向溢出；160 字符连续变化量与强制颜色下 bar/ring 可辨识检查也通过。隔离测试使用模拟宿主服务和主题值，不是在线 DSH 验收。
+
+本轮仅更新当前工作区源码与本地构建产物，没有重新安装 bundle、重启 DSH 或修改 profile。当前 GUI 返回 HTTP 401，现有浏览器无可连接的 CDP 端口，**不能声称在线页面已加载本轮改造**。下面“当前状态”保留此前轮次记录，不代表本轮在线验收。
+
 ## 当前状态
 
 首版源码已完成并安装到当前 `web` profile。用户已确认设置和三个建议入口可见，真实会话工具已成功记录五类组件的验收文档。根据用户反馈，`0.1.1` 已将草稿中的内部 JSON 改成可读回复；类型检查、31 项测试、构建及产物契约检查通过，官方 CLI 移除和重新添加也均成功。浏览器是否已加载新版代码仍需刷新确认。**更新后的实际交互、主题切换和禁用恢复仍待验收**，不能仅凭工具返回宣称全部验证完成。详见 [验证记录](<docs/validation.md>)。
@@ -18,8 +44,8 @@
 
 - 原生 Chat 保持工作区、模型选择、流式回答、历史、附件、发送/停止及审批能力。
 - 可撤销的明暗主题 token 层；这是 ChatGPT 风格增强，不是整页像素级复制。
-- `render_smart_ui` 工具展示 `card`、`table`、`chart`、`form`、`choices`。
-- 表格本地排序和复制，柱状/折线图提供原始数据表，表单支持字段校验。
+- `render_smart_ui` 工具展示 `card`、`table`、`chart`、`form`、`choices`、`stat`、`progress`、`callout`，并可用 `group` 组合。
+- 表格本地排序、筛选和多格式复制导出；柱状/折线图提供原始数据表，表单支持字段校验。
 - 所有交互使用白名单数据，没有 HTML、JavaScript、shell、任意 URL 或远程脚本执行。
 - 操作仅填入当前会话的原生草稿；**用户审阅并发送后才进入后续对话**。有文字选区、命令草稿、编辑器锁定或 revision 变化时拒绝写入，不退回覆盖草稿。
 - UI 文档随标准工具结果 metadata 保存；未提交表单、排序及展开状态不承诺刷新恢复。
@@ -73,7 +99,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-smartui --offline
 
 ## 使用
 
-选中工作区后，空草稿上方提供“对比方案 / 分析数据 / 收集需求”入口。入口只填入请求，不自动发送。也可以正常发消息：
+选中工作区后，新会话空草稿上方提供“创建看板 / 对比方案 / 分析数据 / 收集需求”入口。入口只填入请求，不自动发送。也可以正常发消息：
 
 > 用交互表格比较这三个方案，再给我几个后续分析选项。
 

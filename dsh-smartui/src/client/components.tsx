@@ -1,6 +1,7 @@
 import * as React from 'react';
-import type { CardBlock, TableBlock, ChartBlock, FormBlock, ChoicesBlock, FormValues, SmartUIBlock } from '../shared/types.js';
-import { cellText, compareCells, formatActionReply, tableText, validateForm, type FieldError } from '../shared/actions.js';
+import type { CardBlock, TableBlock, ChartBlock, FormBlock, ChoicesBlock, FormValues, SmartUILeafBlock, StatBlock, ProgressBlock, CalloutBlock } from '../shared/types.js';
+import { cellText, formatActionReply, validateForm, type FieldError } from '../shared/actions.js';
+import { exportTable, visibleTableRows, type TableFormat, type TableSort } from '../shared/table.js';
 import { useEnvironment } from './environment.js';
 
 const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumSignificantDigits: 3 });
@@ -67,13 +68,15 @@ function CopyButton({ text }: { text: string }) {
   const { t } = useEnvironment();
   const [status, setStatus] = React.useState<'idle' | 'done' | 'manual'>('idle');
   const mounted = React.useRef(true);
+  const currentText = React.useRef(text); currentText.current = text;
+  React.useEffect(() => { setStatus('idle'); }, [text]);
   React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   async function copy() {
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
       await navigator.clipboard.writeText(text);
-      if (mounted.current) setStatus('done');
-    } catch { if (mounted.current) setStatus('manual'); }
+      if (mounted.current && currentText.current === text) setStatus('done');
+    } catch { if (mounted.current && currentText.current === text) setStatus('manual'); }
   }
   return <div className="smartui-copy">
     <button type="button" className="smartui-button smartui-button-small" onClick={() => { void copy(); }}>{t(status === 'done' ? 'copied' : 'copy')}</button>
@@ -89,15 +92,57 @@ export function Card({ block }: { block: CardBlock }) {
     <CopyButton text={[block.title, block.value, block.body, block.caption].filter(value => value !== undefined).join('\n')} />
   </div>;
 }
+export function Stat({ block }: { block: StatBlock }) {
+  const { t } = useEnvironment();
+  const points = block.spark;
+  const min = points ? Math.min(...points) : 0;
+  const max = points ? Math.max(...points) : 0;
+  return <div className="smartui-stat">
+    <div className="smartui-metric">{block.value}</div>
+    {block.delta && <p className={`smartui-delta smartui-tone-${block.tone ?? 'neutral'}`}>{block.delta}</p>}
+    {points && <svg className="smartui-spark" viewBox="0 0 240 48" role="img" aria-label={t('statTrend', { values: points.join(', ') })}>
+      <polyline fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+        points={points.map((value, index) => `${2 + index / (points.length - 1) * 236},${max === min ? 24 : 44 - (value - min) / (max - min) * 40}`).join(' ')} />
+    </svg>}
+    {block.caption && <p className="smartui-caption">{block.caption}</p>}
+  </div>;
+}
+export function Progress({ block }: { block: ProgressBlock }) {
+  const { t } = useEnvironment();
+  const label = `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(block.value)}%`;
+  return <div className={`smartui-progress smartui-progress-${block.variant ?? 'bar'}`}>
+    <div className="smartui-progress-meter" role="progressbar" aria-label={block.title ?? t('type.progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={block.value}>
+      {block.variant === 'ring' ? <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle className="smartui-progress-track" cx={32} cy={32} r={26} />
+        <circle className="smartui-progress-fill" cx={32} cy={32} r={26} pathLength={100} strokeDasharray={`${block.value} 100`} transform="rotate(-90 32 32)" />
+      </svg> : <span className="smartui-progress-track"><span className="smartui-progress-fill" style={{ width: `${block.value}%` }} /></span>}
+      <span className="smartui-progress-value">{label}</span>
+    </div>
+    {block.caption && <p className="smartui-caption">{block.caption}</p>}
+  </div>;
+}
+export function Callout({ block }: { block: CalloutBlock }) {
+  const { t } = useEnvironment();
+  const symbol = { neutral: 'i', success: '✓', warning: '!', error: '×' }[block.tone ?? 'neutral'];
+  return <div className={`smartui-callout smartui-tone-${block.tone ?? 'neutral'}`}>
+    <span className="smartui-callout-icon" aria-hidden="true">{symbol}</span><div><span className="smartui-sr-only">{t(`tone.${block.tone ?? 'neutral'}`)}: </span><p className="smartui-prose">{block.body}</p></div>
+  </div>;
+}
 export function DataTable({ block }: { block: TableBlock }) {
   const { t } = useEnvironment();
-  const [sort, setSort] = React.useState<{ column: number; direction: 1 | -1 } | null>(null);
-  const rows = React.useMemo(() => sort ? [...block.rows].sort((a, b) => sort.direction * compareCells(a[sort.column] ?? null, b[sort.column] ?? null)) : block.rows, [block.rows, sort]);
+  const [sort, setSort] = React.useState<TableSort | null>(null);
+  const [query, setQuery] = React.useState('');
+  const [format, setFormat] = React.useState<TableFormat>('tsv');
+  const rows = React.useMemo(() => visibleTableRows(block.rows, query, sort), [block.rows, query, sort]);
   const numericColumns = React.useMemo(() => block.columns.map((_, column) =>
     block.rows.some(row => typeof row[column] === 'number')
     && block.rows.every(row => { const cell = row[column]; return cell === null || typeof cell === 'number'; })), [block.columns, block.rows]);
   const toggle = (column: number) => setSort(previous => previous?.column === column ? previous.direction === 1 ? { column, direction: -1 } : null : { column, direction: 1 });
   return <>
+    <div className="smartui-table-toolbar">
+      <label className="smartui-table-filter">{t('filterTable')}<input type="search" maxLength={160} value={query} placeholder={t('filterPlaceholder')} onChange={event => setQuery(event.currentTarget.value)} /></label>
+      <span className="smartui-caption" role="status" aria-live="polite">{t('tableCount', { visible: rows.length, total: block.rows.length })}</span>
+    </div>
     <div className="smartui-table-scroll" role="region" aria-label={block.title ?? t('type.table')} tabIndex={0}>
       <table className="smartui-table">
         <caption className="smartui-sr-only">{block.title ?? t('type.table')}</caption>
@@ -107,10 +152,16 @@ export function DataTable({ block }: { block: TableBlock }) {
             <button type="button" onClick={() => toggle(i)} aria-label={direction === 1 ? t('sortDescending', { label: column.label }) : direction === -1 ? t('sortClear', { label: column.label }) : t('sort', { label: column.label })}>{column.label}<span aria-hidden="true">{direction === 1 ? ' ↑' : direction === -1 ? ' ↓' : ' ↕'}</span></button>
           </th>;
         })}</tr></thead>
-        <tbody>{rows.length ? rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j} className={numericColumns[j] ? 'smartui-num' : undefined}>{cellText(cell)}</td>)}</tr>) : <tr><td colSpan={block.columns.length} className="smartui-table-empty">{t('emptyTable')}</td></tr>}</tbody>
+        <tbody>{rows.length ? rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j} className={numericColumns[j] ? 'smartui-num' : undefined}>{cellText(cell)}</td>)}</tr>) : <tr><td colSpan={block.columns.length} className="smartui-table-empty">{t(query.trim() ? 'noMatchingRows' : 'emptyTable')}</td></tr>}</tbody>
       </table>
     </div>
-    <CopyButton text={tableText(block.columns.map(column => column.label), rows)} />
+    <div className="smartui-table-export">
+      <label>{t('exportFormat')}<select value={format} onChange={event => setFormat(event.currentTarget.value as TableFormat)}>
+        <option value="tsv">TSV</option><option value="csv">CSV</option><option value="markdown">Markdown</option>
+      </select></label>
+      <CopyButton text={exportTable(block.columns.map(column => column.label), rows, format)} />
+    </div>
+    <p className="smartui-caption">{t('exportVisible')}</p>
   </>;
 }
 export function Chart({ block }: { block: ChartBlock }) {
@@ -252,10 +303,21 @@ export function Choices({ block, callId, disabled, onFill }: { block: ChoicesBlo
     {error && <p role="alert" className="smartui-error">{t('actionInvalid')}</p>}
   </div>;
 }
-export function BlockView({ block, callId, disabled, onFill }: { block: SmartUIBlock; callId: string; disabled: boolean; onFill: (text: string) => void }) {
+export function BlockView({ block, callId, disabled, onFill }: { block: SmartUILeafBlock; callId: string; disabled: boolean; onFill: (text: string) => void }) {
   const { t } = useEnvironment(); const titleId = React.useId();
+  let content: React.ReactNode;
+  switch (block.type) {
+    case 'card': content = <Card block={block} />; break;
+    case 'stat': content = <Stat block={block} />; break;
+    case 'progress': content = <Progress block={block} />; break;
+    case 'callout': content = <Callout block={block} />; break;
+    case 'table': content = <DataTable block={block} />; break;
+    case 'chart': content = <Chart block={block} />; break;
+    case 'form': content = <Form block={block} callId={callId} disabled={disabled} onFill={onFill} />; break;
+    case 'choices': content = <Choices block={block} callId={callId} disabled={disabled} onFill={onFill} />; break;
+  }
   return <section className={`smartui-block smartui-block-${block.type}`} aria-labelledby={titleId}>
     <h3 className="smartui-block-title" id={titleId}>{block.title ?? t(`type.${block.type}`)}</h3>
-    {block.type === 'card' ? <Card block={block} /> : block.type === 'table' ? <DataTable block={block} /> : block.type === 'chart' ? <Chart block={block} /> : block.type === 'form' ? <Form block={block} callId={callId} disabled={disabled} onFill={onFill} /> : <Choices block={block} callId={callId} disabled={disabled} onFill={onFill} />}
+    {content}
   </section>;
 }

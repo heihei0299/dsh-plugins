@@ -1,6 +1,7 @@
 import * as React from 'react';
-import type { SmartUIDocument } from '../shared/types.js';
+import type { SmartUIDocument, SmartUILeafBlock } from '../shared/types.js';
 import { BlockView } from './components.js';
+import { GroupView } from './GroupView.js';
 import type { InputActions } from './contracts.js';
 import { insertReviewedText, type InsertResult } from './draft.js';
 import { useEnvironment } from './environment.js';
@@ -30,11 +31,15 @@ export function DocumentView({ document, callId, editable, inputActions, inspect
   const summaryId = React.useId();
   const [notice, setNotice] = React.useState<InsertResult | null>(null);
   const fill = (text: string) => setNotice(insertReviewedText(inputActions, text, editable));
+  const leaves = new Map(document.blocks.filter((block): block is SmartUILeafBlock => block.type !== 'group').map(block => [block.id, block]));
+  const grouped = new Set(document.blocks.flatMap(block => block.type === 'group' ? block.blockIds : []));
   return <article className="smartui-document" aria-labelledby={document.title ? titleId : undefined} aria-describedby={document.summary ? summaryId : undefined} aria-label={document.title ? undefined : t('document')}>
     <header className="smartui-document-header"><div className="smartui-eyebrow"><span aria-hidden="true">✦</span>{t('brand')} · {t('document')}</div>
       {document.title && <h2 id={titleId}>{document.title}</h2>}<p className="smartui-summary" id={document.summary ? summaryId : undefined}>{document.summary}</p>
     </header>
-    <div className="smartui-document-body">{document.blocks.map(block => <BlockView key={block.id} block={block} callId={callId} disabled={!editable} onFill={fill} />)}</div>
+    <div className="smartui-document-body">{document.blocks.filter(block => !grouped.has(block.id)).map(block => block.type === 'group'
+      ? <GroupView key={block.id} block={block} blocks={block.blockIds.map(id => leaves.get(id)!)} callId={callId} disabled={!editable} onFill={fill} />
+      : <BlockView key={block.id} block={block} callId={callId} disabled={!editable} onFill={fill} />)}</div>
     {notice && <p className={`smartui-notice ${notice === 'inserted' ? '' : 'smartui-error'}`} role="status" aria-live="polite">{t(`insert.${notice}`)}</p>}
     <footer className="smartui-document-footer"><span>{t('localState')}</span>
       {inspect && <button type="button" className="smartui-button smartui-button-small" onClick={inspect}>{t('inspect')}</button>}

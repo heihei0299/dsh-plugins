@@ -43,6 +43,12 @@ function optionalString(value: Obj, key: string, path: string, max: number = LIM
 function optionalBoolean(value: Obj, key: string, path: string): void {
   if (own(value, key) && typeof value[key] !== 'boolean') fail(`${path}.${key}`, 'expected boolean');
 }
+function enumValue(value: unknown, path: string, allowed: readonly string[]): void {
+  if (typeof value !== 'string' || !allowed.includes(value)) fail(path, `expected ${allowed.join(', ')}`);
+}
+function optionalTone(value: Obj, path: string): void {
+  if (own(value, 'tone')) enumValue(value.tone, `${path}.tone`, ['neutral', 'success', 'warning', 'error']);
+}
 function unique(values: string[], path: string): void {
   if (new Set(values).size !== values.length) fail(path, 'duplicate ids or values');
 }
@@ -93,9 +99,11 @@ export function validateDocument(value: unknown): SmartUIDocument {
   optionalString(doc, 'title', '$'); string(doc.summary, '$.summary', 1_000);
   const blocks = array(doc.blocks, '$.blocks', LIMITS.blocks);
   const blockIds: string[] = [];
+  const groups: { id: string; blockIds: string[]; path: string }[] = [];
   blocks.forEach((item, i) => {
     const path = `$.blocks[${i}]`; const block = object(item, path);
-    blockIds.push(id(block.id, `${path}.id`)); optionalString(block, 'title', path);
+    const blockId = id(block.id, `${path}.id`);
+    blockIds.push(blockId); optionalString(block, 'title', path);
     switch (block.type) {
       case 'card':
         keys(block, ['type', 'id', 'title', 'body', 'value', 'caption'], path);
@@ -169,10 +177,48 @@ export function validateDocument(value: unknown): SmartUIDocument {
         options(block.options, `${path}.options`); optionalBoolean(block, 'multiple', path);
         id(block.actionId, `${path}.actionId`);
         break;
+      case 'stat':
+        keys(block, ['type', 'id', 'title', 'value', 'caption', 'delta', 'tone', 'spark'], path);
+        string(block.value, `${path}.value`);
+        optionalString(block, 'caption', path, 500); optionalString(block, 'delta', path);
+        optionalTone(block, path);
+        if (own(block, 'spark')) array(block.spark, `${path}.spark`, LIMITS.sparkPoints, 2).forEach((point, j) => number(point, `${path}.spark[${j}]`));
+        break;
+      case 'progress': {
+        keys(block, ['type', 'id', 'title', 'value', 'caption', 'variant'], path);
+        const value = number(block.value, `${path}.value`);
+        if (value < 0 || value > 100) fail(`${path}.value`, 'expected percentage in [0, 100]');
+        optionalString(block, 'caption', path, 500);
+        if (own(block, 'variant')) enumValue(block.variant, `${path}.variant`, ['bar', 'ring']);
+        break;
+      }
+      case 'callout':
+        keys(block, ['type', 'id', 'title', 'body', 'tone'], path);
+        string(block.body, `${path}.body`, LIMITS.text); optionalTone(block, path);
+        break;
+      case 'group': {
+        keys(block, ['type', 'id', 'title', 'layout', 'blockIds'], path);
+        enumValue(block.layout, `${path}.layout`, ['row', 'column', 'tabs']);
+        const references = array(block.blockIds, `${path}.blockIds`, LIMITS.blocks).map((reference, j) => id(reference, `${path}.blockIds[${j}]`));
+        unique(references, `${path}.blockIds`);
+        groups.push({ id: blockId, blockIds: references, path });
+        break;
+      }
       default: fail(`${path}.type`, 'unsupported block type');
     }
   });
   unique(blockIds, '$.blocks');
+  const knownBlockIds = new Set(blockIds);
+  const groupIds = new Set(groups.map(group => group.id));
+  const groupedLeaves = new Set<string>();
+  for (const group of groups) group.blockIds.forEach((reference, i) => {
+    const path = `${group.path}.blockIds[${i}]`;
+    if (reference === group.id) fail(path, 'group cannot reference itself');
+    if (!knownBlockIds.has(reference)) fail(path, 'unknown block id');
+    if (groupIds.has(reference)) fail(path, 'groups may reference only leaf blocks, not groups');
+    if (groupedLeaves.has(reference)) fail(path, 'leaf block may belong to at most one group');
+    groupedLeaves.add(reference);
+  });
   // The complete JSON and every shape has been checked. Detach caller-owned objects.
   return JSON.parse(JSON.stringify(value)) as SmartUIDocument;
 }

@@ -163,6 +163,47 @@
   min-height: 88px;
 }
 
+/* GenUI-inspired primitives, implemented with host tokens and no external engine. */
+.smartui-stat { display: grid; gap: 8px; }
+.smartui-stat .smartui-caption { margin: 0; }
+.smartui-delta { width: fit-content; max-width: 100%; min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: 600; }
+.smartui-tone-neutral { --smartui-tone: var(--smartui-accent); }
+.smartui-tone-success { --smartui-tone: var(--smartui-success); }
+.smartui-tone-warning { --smartui-tone: var(--smartui-warn); }
+.smartui-tone-error { --smartui-tone: var(--smartui-error); }
+.smartui-delta { color: var(--smartui-tone); }
+.smartui-spark { display: block; width: 100%; max-width: 300px; height: 48px; color: var(--smartui-accent); }
+.smartui-callout { display: flex; align-items: flex-start; gap: 10px; padding-inline-start: 12px; border-inline-start: 3px solid var(--smartui-tone); }
+.smartui-callout > div { min-width: 0; }
+.smartui-callout-icon { flex: 0 0 22px; height: 22px; border: 1px solid currentColor; border-radius: 50%; color: var(--smartui-tone); text-align: center; font-weight: 700; line-height: 20px; }
+.smartui-progress-meter { display: grid; gap: 8px; min-width: 0; }
+.smartui-progress-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+.smartui-progress-bar .smartui-progress-track { display: block; height: 8px; border-radius: 999px; background: var(--smartui-inset); overflow: hidden; border: 1px solid var(--smartui-line); }
+.smartui-progress-bar .smartui-progress-fill { display: block; height: 100%; background: var(--smartui-accent); }
+.smartui-progress-ring .smartui-progress-meter { display: inline-grid; width: 104px; height: 104px; align-items: center; justify-items: center; }
+.smartui-progress-ring svg { width: 104px; height: 104px; grid-area: 1 / 1; }
+.smartui-progress-ring circle { fill: none; stroke-width: 5; }
+.smartui-progress-ring .smartui-progress-track { stroke: var(--smartui-line-strong); }
+.smartui-progress-ring .smartui-progress-fill { stroke: var(--smartui-accent); }
+.smartui-progress-ring .smartui-progress-value { grid-area: 1 / 1; font-size: 15px; }
+.smartui-group { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+.smartui-group-title { margin: 2px 2px 10px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.smartui-group-content { display: grid; gap: 12px; }
+.smartui-group-row .smartui-group-content { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+.smartui-tablist { display: flex; gap: 4px; max-width: 100%; padding: 4px; margin-bottom: 10px; overflow-x: auto; border: 1px solid var(--smartui-line); border-radius: 12px; background: var(--smartui-inset); }
+.smartui-tablist button { flex: 0 0 auto; max-width: 100%; padding: 8px 12px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--smartui-muted); font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.smartui-tablist button[aria-selected="true"] { border-color: var(--smartui-line-strong); background: var(--smartui-surface); color: var(--smartui-text); font-weight: 600; }
+.smartui-tablist button:hover { color: var(--smartui-text); }
+.smartui-group [role="tabpanel"] { min-width: 0; border-radius: 14px; }
+.smartui-group [hidden] { display: none !important; }
+.smartui-table-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 14px; margin-bottom: 10px; }
+.smartui-table-filter { display: grid; gap: 4px; flex: 1 1 180px; min-width: 0; color: var(--smartui-muted); font-size: 12px; }
+.smartui-table-toolbar > .smartui-caption { margin: 0 0 8px; }
+.smartui-table-export { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 10px; }
+.smartui-table-export > label { display: grid; gap: 4px; color: var(--smartui-muted); font-size: 12px; }
+.smartui-table-export select { width: auto; min-width: 120px; }
+.smartui-table-export .smartui-copy { flex: 1 1 120px; min-width: 0; margin: 0; }
+
 /* Buttons stay quiet until hover/focus. */
 .smartui-button {
   display: inline-flex;
@@ -930,13 +971,13 @@
   .smartui-document-body > .smartui-block {
     flex: 1 1 100%;
   }
-  .smartui-document-body > .smartui-block-card {
+  .smartui-document-body > :is(.smartui-block-card, .smartui-block-stat, .smartui-block-progress) {
     flex: 1 1 calc(50% - 7px);
     min-width: 240px;
   }
 }
 @container smartui (min-width: 760px) {
-  .smartui-document-body > .smartui-block-card {
+  .smartui-document-body > :is(.smartui-block-card, .smartui-block-stat, .smartui-block-progress) {
     flex-basis: calc(33.333% - 9.334px);
     min-width: 200px;
   }
@@ -1047,6 +1088,12 @@
 }
 
 @media (forced-colors: active) {
+  .smartui-progress-bar .smartui-progress-track { forced-color-adjust: none; background: Canvas; border-color: CanvasText; }
+  .smartui-progress-bar .smartui-progress-fill { forced-color-adjust: none; background: Highlight; }
+  .smartui-progress-ring svg { forced-color-adjust: none; }
+  .smartui-progress-ring .smartui-progress-track { stroke: GrayText; }
+  .smartui-progress-ring .smartui-progress-fill { stroke: Highlight; }
+  .smartui-spark { color: CanvasText; }
   .smartui-document,
   .smartui-block,
   .smartui-button,
