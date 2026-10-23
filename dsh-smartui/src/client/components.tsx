@@ -1,89 +1,12 @@
 import * as React from 'react';
-import type { CardBlock, TableBlock, ChartBlock, FormBlock, ChoicesBlock, FormValues, SmartUILeafBlock, StatBlock, ProgressBlock, CalloutBlock } from '../shared/types.js';
-import { cellText, formatActionReply, validateForm, type FieldError } from '../shared/actions.js';
-import { exportTable, visibleTableRows, type TableFormat, type TableSort } from '../shared/table.js';
+import type { CardBlock, ChartBlock, StatBlock, ProgressBlock, CalloutBlock, SmartUILeafBlock } from '../shared/types.js';
+import { chartTicks, formatAxisTicks, formatValue, truncateLabel } from './chart.js';
 import { useEnvironment } from './environment.js';
+import { CopyButton } from './copy-button.js';
+import { DataTable } from './table-view.js';
+import { Form } from './form.js';
+import { Choices } from './choices.js';
 
-const compactNumber = new Intl.NumberFormat(undefined, { notation: 'compact', maximumSignificantDigits: 3 });
-const scientificNumbers = new Map<number, Intl.NumberFormat>();
-function scientificNumber(digits: number): Intl.NumberFormat {
-  let formatter = scientificNumbers.get(digits);
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(undefined, { notation: 'scientific', maximumSignificantDigits: digits });
-    scientificNumbers.set(digits, formatter);
-  }
-  return formatter;
-}
-/** Compact labels stay short for ordinary magnitudes; scientific notation keeps tiny or huge ticks distinct. */
-function formatValue(value: number): string {
-  if (value === 0) return '0';
-  const magnitude = Math.abs(value);
-  return magnitude < 1e-4 || magnitude >= 1e12 ? scientificNumber(3).format(value) : compactNumber.format(value);
-}
-function formatAxisTicks(ticks: readonly number[], step: number): string[] {
-  const scientific = ticks.some(value => value !== 0 && (Math.abs(value) < 1e-4 || Math.abs(value) >= 1e12));
-  const labels = ticks.map(value => value === 0 ? '0' : scientific ? scientificNumber(3).format(value) : compactNumber.format(value));
-  if (new Set(labels).size === labels.length) return labels;
-  // Compact notation can merge neighbouring ticks (for example 1.00012 and 1). Give every tick
-  // enough significant digits to remain distinct, even for fractional or enormous magnitudes.
-  return ticks.map(value => {
-    if (value === 0) return '0';
-    const ratio = Number.isFinite(step) && step > 0 ? Math.abs(value) / step : 1;
-    const digits = Number.isFinite(ratio) && ratio > 0 ? Math.min(9, Math.max(3, Math.ceil(Math.log10(ratio)) + 1)) : 3;
-    return scientificNumber(digits).format(value);
-  });
-}
-/** 1-2-5 ticks that always include zero, so bars and negative values share one honest baseline. */
-function chartTicks(low: number, high: number): { min: number; max: number; ticks: number[]; step: number } {
-  if (!(high > low)) return { min: low, max: low + 1, ticks: [low, low + 0.5, low + 1], step: 0.5 };
-  const span = high - low;
-  const rough = span / 5;
-  const magnitude = 10 ** Math.floor(Math.log10(rough));
-  const residual = rough / magnitude;
-  const step = magnitude * (residual <= 1 ? 1 : residual <= 2 ? 2 : residual <= 5 ? 5 : 10);
-  // Subnormal spans (for example Number.MIN_VALUE) can round the midpoint to zero or a duplicate.
-  const fallbackTicks = [low];
-  const middle = low + span / 2;
-  if (middle > low && middle < high) fallbackTicks.push(middle);
-  fallbackTicks.push(high);
-  const fallback = { min: low, max: high, ticks: fallbackTicks, step: span / 2 };
-  if (!Number.isFinite(step) || step <= 0) return fallback;
-  const min = Math.floor(low / step) * step;
-  const max = Math.ceil(high / step) * step;
-  const count = Math.round((max - min) / step);
-  if (!Number.isFinite(count) || count < 1) return fallback;
-  const ticks: number[] = [];
-  for (let index = 0; index <= Math.min(count, 10); index += 1) {
-    const tick = Number.parseFloat((min + index * step).toPrecision(12));
-    if (tick > (ticks[ticks.length - 1] ?? Number.NEGATIVE_INFINITY)) ticks.push(tick);
-  }
-  return { min, max, ticks, step };
-}
-function truncateLabel(label: string): string {
-  const characters = Array.from(label);
-  return characters.length > 8 ? `${characters.slice(0, 7).join('')}…` : label;
-}
-
-function CopyButton({ text }: { text: string }) {
-  const { t } = useEnvironment();
-  const [status, setStatus] = React.useState<'idle' | 'done' | 'manual'>('idle');
-  const mounted = React.useRef(true);
-  const currentText = React.useRef(text); currentText.current = text;
-  React.useEffect(() => { setStatus('idle'); }, [text]);
-  React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  async function copy() {
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
-      await navigator.clipboard.writeText(text);
-      if (mounted.current && currentText.current === text) setStatus('done');
-    } catch { if (mounted.current && currentText.current === text) setStatus('manual'); }
-  }
-  return <div className="smartui-copy">
-    <button type="button" className="smartui-button smartui-button-small" onClick={() => { void copy(); }}>{t(status === 'done' ? 'copied' : 'copy')}</button>
-    <span className="smartui-sr-only" role="status">{status === 'done' ? t('copied') : status === 'manual' ? t('copyManual') : ''}</span>
-    {status === 'manual' && <label className="smartui-manual-copy">{t('copyManual')}<textarea readOnly value={text} onFocus={event => event.currentTarget.select()} /></label>}
-  </div>;
-}
 export function Card({ block }: { block: CardBlock }) {
   return <div className="smartui-card-content">
     {block.value !== undefined && <div className="smartui-metric">{block.value}</div>}
@@ -127,42 +50,6 @@ export function Callout({ block }: { block: CalloutBlock }) {
   return <div className={`smartui-callout smartui-tone-${block.tone ?? 'neutral'}`}>
     <span className="smartui-callout-icon" aria-hidden="true">{symbol}</span><div><span className="smartui-sr-only">{t(`tone.${block.tone ?? 'neutral'}`)}: </span><p className="smartui-prose">{block.body}</p></div>
   </div>;
-}
-export function DataTable({ block }: { block: TableBlock }) {
-  const { t } = useEnvironment();
-  const [sort, setSort] = React.useState<TableSort | null>(null);
-  const [query, setQuery] = React.useState('');
-  const [format, setFormat] = React.useState<TableFormat>('tsv');
-  const rows = React.useMemo(() => visibleTableRows(block.rows, query, sort), [block.rows, query, sort]);
-  const numericColumns = React.useMemo(() => block.columns.map((_, column) =>
-    block.rows.some(row => typeof row[column] === 'number')
-    && block.rows.every(row => { const cell = row[column]; return cell === null || typeof cell === 'number'; })), [block.columns, block.rows]);
-  const toggle = (column: number) => setSort(previous => previous?.column === column ? previous.direction === 1 ? { column, direction: -1 } : null : { column, direction: 1 });
-  return <>
-    <div className="smartui-table-toolbar">
-      <label className="smartui-table-filter">{t('filterTable')}<input type="search" maxLength={160} value={query} placeholder={t('filterPlaceholder')} onChange={event => setQuery(event.currentTarget.value)} /></label>
-      <span className="smartui-caption" role="status" aria-live="polite">{t('tableCount', { visible: rows.length, total: block.rows.length })}</span>
-    </div>
-    <div className="smartui-table-scroll" role="region" aria-label={block.title ?? t('type.table')} tabIndex={0}>
-      <table className="smartui-table">
-        <caption className="smartui-sr-only">{block.title ?? t('type.table')}</caption>
-        <thead><tr>{block.columns.map((column, i) => {
-          const direction = sort?.column === i ? sort.direction : 0;
-          return <th key={column.id} scope="col" className={numericColumns[i] ? 'smartui-num' : undefined} aria-sort={direction === 1 ? 'ascending' : direction === -1 ? 'descending' : 'none'}>
-            <button type="button" onClick={() => toggle(i)} aria-label={direction === 1 ? t('sortDescending', { label: column.label }) : direction === -1 ? t('sortClear', { label: column.label }) : t('sort', { label: column.label })}>{column.label}<span aria-hidden="true">{direction === 1 ? ' ↑' : direction === -1 ? ' ↓' : ' ↕'}</span></button>
-          </th>;
-        })}</tr></thead>
-        <tbody>{rows.length ? rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j} className={numericColumns[j] ? 'smartui-num' : undefined}>{cellText(cell)}</td>)}</tr>) : <tr><td colSpan={block.columns.length} className="smartui-table-empty">{t(query.trim() ? 'noMatchingRows' : 'emptyTable')}</td></tr>}</tbody>
-      </table>
-    </div>
-    <div className="smartui-table-export">
-      <label>{t('exportFormat')}<select value={format} onChange={event => setFormat(event.currentTarget.value as TableFormat)}>
-        <option value="tsv">TSV</option><option value="csv">CSV</option><option value="markdown">Markdown</option>
-      </select></label>
-      <CopyButton text={exportTable(block.columns.map(column => column.label), rows, format)} />
-    </div>
-    <p className="smartui-caption">{t('exportVisible')}</p>
-  </>;
 }
 export function Chart({ block }: { block: ChartBlock }) {
   const { t } = useEnvironment(); const titleId = React.useId();
@@ -238,70 +125,6 @@ export function Chart({ block }: { block: ChartBlock }) {
       </table></div>
     </details>
   </>;
-}
-export function Form({ block, callId, disabled, onFill }: { block: FormBlock; callId: string; disabled: boolean; onFill: (text: string) => void }) {
-  const { t } = useEnvironment(); const prefix = React.useId();
-  const [values, setValues] = React.useState<FormValues>({});
-  const [errors, setErrors] = React.useState<Record<string, FieldError>>({});
-  const [actionError, setActionError] = React.useState(false);
-  function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (disabled) return;
-    const nextErrors = validateForm(block, values); setErrors(nextErrors); setActionError(false);
-    const firstInvalid = block.fields.find(field => nextErrors[field.id]);
-    if (firstInvalid) {
-      const control = event.currentTarget.elements.namedItem(firstInvalid.id);
-      if (control instanceof HTMLElement) control.focus();
-      return;
-    }
-    try { onFill(formatActionReply(callId, block, values, t)); } catch { setActionError(true); }
-  }
-  return <form className="smartui-form" noValidate onSubmit={submit}>
-    <fieldset disabled={disabled} className="smartui-fieldset"><legend className="smartui-sr-only">{block.title ?? t('type.form')}</legend>
-      {block.fields.map(field => {
-        const id = `${prefix}-${field.id}`; const errorId = `${id}-error`; const error = errors[field.id];
-        const change = (value: string | number | boolean | null) => {
-          setValues(previous => ({ ...previous, [field.id]: value }));
-          setErrors(previous => {
-            if (!previous[field.id]) return previous;
-            const next = { ...previous }; delete next[field.id]; return next;
-          });
-          setActionError(false);
-        };
-        const common = { id, name: field.id, 'aria-required': field.required || undefined, 'aria-invalid': Boolean(error), 'aria-describedby': error ? errorId : undefined };
-        return <div key={field.id} className={`smartui-field ${field.type === 'checkbox' ? 'smartui-checkbox-field' : ''}`}>
-          <label htmlFor={id}>{field.label}{field.required && <span className="smartui-required"> {t('required')}</span>}</label>
-          {field.type === 'checkbox'
-            ? <input {...common} type="checkbox" checked={values[field.id] === true} onChange={event => change(event.currentTarget.checked)} />
-            : field.type === 'textarea'
-              ? <textarea {...common} rows={3} maxLength={8_000} value={String(values[field.id] ?? '')} placeholder={field.placeholder} onChange={event => change(event.currentTarget.value)} />
-              : field.type === 'select'
-                ? <select {...common} value={String(values[field.id] ?? '')} onChange={event => change(event.currentTarget.value)}><option value="">{t('choose')}</option>{field.options?.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
-                : <input {...common} type={field.type} step={field.type === 'number' ? 'any' : undefined} min={field.min} max={field.max} maxLength={field.type === 'text' ? 8_000 : undefined} value={values[field.id] === null ? '' : String(values[field.id] ?? '')} placeholder={field.placeholder} onChange={event => change(field.type === 'number' ? event.currentTarget.value === '' ? null : Number(event.currentTarget.value) : event.currentTarget.value)} />}
-          {error && <p id={errorId} className="smartui-error">{t(`validation.${error}`)}</p>}
-        </div>;
-      })}
-      <button type="submit" className="smartui-button smartui-button-primary">{t('fillConversation')}</button>
-    </fieldset>
-    <p className="smartui-caption">{t('reviewFirst')}</p>
-    {actionError && <p role="alert" className="smartui-error">{t('actionInvalid')}</p>}
-  </form>;
-}
-export function Choices({ block, callId, disabled, onFill }: { block: ChoicesBlock; callId: string; disabled: boolean; onFill: (text: string) => void }) {
-  const { t } = useEnvironment(); const name = React.useId();
-  const [selected, setSelected] = React.useState<string[]>([]); const [error, setError] = React.useState(false);
-  const select = (value: string, checked: boolean) => setSelected(previous => block.multiple ? checked ? [...previous.filter(item => item !== value), value] : previous.filter(item => item !== value) : [value]);
-  return <div>
-    <fieldset className="smartui-fieldset smartui-options" disabled={disabled}>
-      <legend className="smartui-sr-only">{block.title ?? t('type.choices')}</legend>
-      {block.options.map(option => <label key={option.value} className="smartui-option"><input type={block.multiple ? 'checkbox' : 'radio'} name={name} value={option.value} checked={selected.includes(option.value)} onChange={event => select(option.value, event.currentTarget.checked)} /><span>{option.label}</span></label>)}
-      <button className="smartui-button smartui-button-primary" type="button" disabled={!selected.length} onClick={() => {
-        setError(false);
-        try { onFill(formatActionReply(callId, block, { selected }, t)); } catch { setError(true); }
-      }}>{t('fillConversation')}</button>
-    </fieldset>
-    <p className="smartui-caption">{t('reviewFirst')}</p>
-    {error && <p role="alert" className="smartui-error">{t('actionInvalid')}</p>}
-  </div>;
 }
 export function BlockView({ block, callId, disabled, onFill }: { block: SmartUILeafBlock; callId: string; disabled: boolean; onFill: (text: string) => void }) {
   const { t } = useEnvironment(); const titleId = React.useId();
