@@ -300,7 +300,8 @@ on the next child.
 ## Layout
 
 ```
-index.js            Host entry (Config / apply / inject / name) — route and preset pinning
+index.js            Host entry (Config / apply / inject / name, patch guard) — route and preset pinning
+src/pin.js          pure pin policy: config normalization, capability gate, spec rewrite
 client.js           build-free Web Client entry — composer chip and row configuration page
 cordis.patch.yml    bundle layer: inserts entry `pin-subagent-model`
 locale/{en,zh}.json plugin-manager card title and description

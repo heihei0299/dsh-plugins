@@ -13,6 +13,7 @@
   },
   "files": [
     "index.js",
+    "src/pin.js",
     "client.js",
     "cordis.patch.yml",
     "assets/icon.svg",
