@@ -2,4 +2,6 @@
 # untracked, including agent instructions and per-plugin notes.
 *.md
 !README.md
+# Lockfiles are local install artifacts, not plugin source.
+pnpm-lock.yaml
 node_modules/
