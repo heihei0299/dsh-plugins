@@ -73,12 +73,14 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 ```bash
 pnpm install
 pnpm run typecheck
-pnpm test                # 回归用例，串行
 pnpm run build           # dist/host/index.js + dist/client.js
+pnpm test                # pretest 会先构建；回归用例串行
 pnpm run verify:bundle   # 惰性 factory、仅宿主 React、地标契约、注册与清理
 ```
 
-触摸回归默认跳过；已有本地 Playwright 与 Chromium 时，可用 `DSH_MOBILE_PLAYWRIGHT_MODULE`（模块绝对路径）和 `DSH_MOBILE_BROWSER_EXECUTABLE`（浏览器绝对路径）启用后串行执行 `pnpm test`。该用例在隔离页面运行真实插件 bundle，验证服务声明、子智能体菜单点击和底部按钮的触摸命中与关闭插件后的还原；不连接用户会话、不代表登录态 GUI 的端到端验收。
+默认门禁是 typecheck、build、Node 测试和 bundle 校验，全部离线、不启动浏览器；干净检出可直接 `pnpm test`（`pretest` 先构建 `dist`）。可选活体检查不属于默认门禁：触摸回归需要本地 Playwright 与 Chromium，用 `DSH_MOBILE_PLAYWRIGHT_MODULE`（模块绝对路径）和 `DSH_MOBILE_BROWSER_EXECUTABLE`（浏览器绝对路径）启用；页面探针需要已运行的 Chrome CDP。两者都应在验证记录中单独标明执行或未执行，不能把 Node 测试当作真机/GUI 验收。
+
+触摸回归在隔离页面运行真实插件 bundle，验证服务声明、子智能体菜单点击和底部按钮的触摸命中与关闭插件后的还原；不连接用户会话、不代表登录态 GUI 的端到端验收。
 
 只读页面探针（连**已在运行**的 Chrome CDP，不启动浏览器、不读凭据、量完自动还原视口）：
 

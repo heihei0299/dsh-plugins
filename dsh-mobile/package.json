@@ -33,6 +33,7 @@
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "verify:bundle": "tsx scripts/verify-bundle.ts",
+    "pretest": "pnpm run build",
     "test": "tsx --test --test-concurrency=1 tests/*.test.ts tests/*.test.tsx tests/*.test.mjs"
   },
   "peerDependencies": {

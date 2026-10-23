@@ -4,6 +4,8 @@
 
 **当前实现规格与完整 v1 协议见 [spec](<docs/spec.md>)。** 包版本为 `0.1.3`，协议为 `schemaVersion: 1`；历史交接记录不作为当前实现规范。
 
+> `docs/`、`HANDOFF.md` 与 `pnpm-lock.yaml` 是本地设计与验证记录，按仓库策略不纳入 git；本 README 与源码是分发后的契约来源。
+
 ## 本轮改造：参考 GenUI 的本地交互看板
 
 参考 [omdsh-dev/dsh-genui](https://github.com/omdsh-dev/dsh-genui/tree/ad8dc166deaf4eee7dea758fc0a84a8728402b52) 的声明式小组件、布局组合和本地优先交互理念，独立实现以下增量，无新增运行时依赖、未复制其引擎、图标或样式：
@@ -74,6 +76,8 @@ pnpm test                 # Node 测试文件串行运行
 pnpm run build            # 生成 dist/host/index.js 和 dist/client.js
 pnpm run verify:bundle    # 检查惰性 factory、宿主 React、资源与清理契约
 ```
+
+默认门禁是 typecheck、串行 Node 测试、build 和 bundle 校验，全部不依赖浏览器。可选活体检查不属于默认门禁：现有 DSH 页面里的样式单例、折叠外卡片、设置开关与禁用恢复，以及 `scripts/browser-probe.mjs`。未执行时在验证记录中写“未验证”，不要用 `renderToStaticMarkup` 的单元结果代替真实 DOM/GUI 验收。
 
 构建产物是 DSH Host 模块和 `window.__ModuleLoader__` 惰性 Client factory。React 从宿主模块表获取，不能用 Vite 静态页或第二个 React 应用代替安装验证。运行时依赖在包清单中声明为 peer；离线环境需预先准备对应版本。
 

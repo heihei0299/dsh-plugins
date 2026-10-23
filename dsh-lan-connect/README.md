@@ -73,15 +73,16 @@ cd dsh-lan-connect
 pnpm install --ignore-scripts
 pnpm run build
 pnpm test          # 串行 node --test，包括 Host、Client 与 bundle 测试
+pnpm run verify:bundle
 
 # 显式启用真实安装包的 native 集成测试（不会创建网络监听）
 DSH_TEST_RUNTIME_ROOT=/home/shial/.local/share/fnm/node-versions/v24.16.0/installation/lib/node_modules/@deepseek-ai/dsh \
   GOMAXPROCS=2 node --test --test-concurrency=1 test/native.test.js
-
-pnpm run verify:bundle
 ```
 
-`test/native.test.js` 只在显式设置 `DSH_TEST_RUNTIME_ROOT` 时运行；它加载该安装包的 Cordis 与 native Connection，在内存 fake credentials 和无监听 `webServer` stub 下验证原生 token→Cookie→index、RPC、二进制流式上传、连接准入、卸载重启，不读取用户凭据、不创建网络监听。全量测试时请设置该变量，否则该用例会跳过。
+默认门禁是 build、串行 Node 测试和 bundle 校验；`test/native.test.js` 默认跳过，只有显式设置 `DSH_TEST_RUNTIME_ROOT` 才运行。它加载该安装包的 Cordis 与 native Connection，在内存 fake credentials 和无监听 `webServer` stub 下验证原生 token→Cookie→index、RPC、二进制流式上传、连接准入、卸载重启，不读取用户凭据、不创建网络监听。
+
+可选活体检查另计：在真实局域网设备打开 `/lan`、确认入口链接/二维码不含 token、401/403 与 Cookie 语义、停用后入口消失。本轮没有可用的已认证 GUI 或 CDP 时必须记为“未验证”，不能用 native 内存集成代替端到端验收。
 
 ## 已知限制
 

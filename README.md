@@ -8,7 +8,7 @@ DeepSeek Harness（DSH）插件集合。每个子目录是一个可独立装入 
 | --- | --- | --- | --- | --- |
 | [pin-subagent-model](<pin-subagent-model/README.md>) | `dsh-plugin-pin-subagent-model` | 0.4.0 | 把每次委派的子 Agent 固定到指定 LLM 路由，并可选地直接指定其 Agent 预设，不继承父 Agent 的实时路由与组合；路由与预设可在插件页的行配置中修改，子代理会话输入框仍只读显示实际请求的模型短名与 effort | Host + Web Client 双端插件 bundle（纯 JS，无需构建） |
 | [dsh-mobile](<dsh-mobile/README.md>) | `@local/dsh-mobile`（private） | 0.1.0 | 移动端布局与触控优化：侧栏抽屉、设置面板重排、44px 触控目标、宽表格横滑、软键盘处理；桌面端不受影响 | Host + Web Client 双端插件，需构建 |
-| [dsh-smartui](<dsh-smartui/README.md>) | `@local/dsh-smartui`（private） | 0.1.2 | ChatGPT 风格外观 + 对话内安全声明式组件（卡片/表格/图表/表单/选项） | Host + Web Client 双端插件，需构建 |
+| [dsh-smartui](<dsh-smartui/README.md>) | `@local/dsh-smartui`（private） | 0.1.3 | ChatGPT 风格外观 + 对话内安全声明式组件（卡片/表格/图表/表单/选项） | Host + Web Client 双端插件，需构建 |
 | [dsh-lan-connect](<dsh-lan-connect/README.md>) | `@local/dsh-lan-connect`（private） | 0.1.0 | 在现有 Web 服务的同一端口增加固定 `/lan` 入口，让局域网设备用原生认证登录；链接与二维码不含 token | Host + Web Client 双端插件，仅需构建 client |
 
 四者共用 `@deepseek-ai/cordis ~4.0.5`，均要求 Node.js ≥ 22。`pin-subagent-model` 另以 `@deepseek-ai/schemastery ~3.18.5` 声明 Host 配置 schema；四个插件均针对 DSH `0.2.1-rc.2`。
@@ -129,28 +129,53 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-lan-connec
 - 获得授权后，命令均在对应子目录内执行：
 
 ```bash
-# pin-subagent-model
+# pin-subagent-model（无需构建）
 pnpm install --offline
 node --test --test-concurrency=1
+# 可选：已安装 dsh 的 Cordis/SubagentRuntime 契约测试
+DSH_TEST_RUNTIME_ROOT=/home/shial/.local/share/fnm/node-versions/v24.16.0/installation/lib/node_modules/@deepseek-ai/dsh \
+  GOMAXPROCS=2 node --test --test-concurrency=1 test/native.test.js
 
-# dsh-mobile / dsh-smartui
+# dsh-smartui
 pnpm install
 pnpm run typecheck
 pnpm test
 pnpm run build
 pnpm run verify:bundle
 
+# dsh-mobile（先 build，bundle 测试读取 dist；pretest 也会自动构建）
+pnpm install
+pnpm run typecheck
+pnpm run build
+pnpm test
+pnpm run verify:bundle
+
 # dsh-lan-connect（Host + Client；构建只产出 dist/client.js）
 pnpm install --ignore-scripts
 pnpm run build
-DSH_TEST_RUNTIME_ROOT=/home/shial/.local/share/fnm/node-versions/v24.16.0/installation/lib/node_modules/@deepseek-ai/dsh \
-  GOMAXPROCS=2 node --test --test-concurrency=1 test/*.test.js
+pnpm test
 pnpm run verify:bundle
+# 可选：真实安装包的 native 集成（不创建网络监听）
+DSH_TEST_RUNTIME_ROOT=/home/shial/.local/share/fnm/node-versions/v24.16.0/installation/lib/node_modules/@deepseek-ai/dsh \
+  GOMAXPROCS=2 node --test --test-concurrency=1 test/native.test.js
 ```
 
 - 不建立共享开发工具包（2026-10-24 T9 spike 结论）：仓库没有 workspace 根，四个插件各自以 `link:` 和独立 lockfile 安装；构建包装的重复约 40 行，而引入第五个包会增加 `file:` devDependency、离线安装和发布文件清单三条链。verify/probe 已按插件差异分叉（smartui 样式标签、mobile 地标派生、lan 的 node:test），统一模板会把差异藏进配置分支，收益不足。各自保留脚本，命令约定保持一致。
 
 `.agents/` 下存放本地专用技能（`dsh-compat-check`：DSH 升级或重装后核对插件与当前 dsh 的内部契约、跑插件单测并做一次活体委派验证），已被全局 gitignore 排除，不入库。
+
+## 文档、依赖与验证策略
+
+### docs 与 lockfile（方案 B：保持 de-track）
+
+- `docs/*.md`、插件内的设计/验证记录与 `pnpm-lock.yaml` 不纳入 git；文件保留在本地，`.gitignore` 继续忽略 `*.md`（README 除外）和 lockfile。仓库只分发插件源码、测试与 README。
+- 关键契约与决策压缩在各插件 README；代码与 README 不再引用不存在的 `docs/` 路径（`dsh-mobile` 的 contracts 已改指 README）。SmartUI 的 `docs/` 与 `HANDOFF.md` 是本地记录，README 已注明其非分发属性。
+- lockfile 可复现策略：DSH 版本由 `engines.dsh` 精确钉住（当前 `0.2.1-rc.2`），包管理器由 `packageManager` 钉住；在保留 lockfile 的准备构建工作区用 `pnpm install --frozen-lockfile` 安装，再从该工作区构建/发布。干净检出按 `package.json` 的 semver 范围解析，不承诺字节级依赖复现；安装后必须重跑对应插件的完整门禁。发布工件只从已验证工作区构建，lockfile 随发布记录归档而不入 git。
+
+### 默认验证与可选活体检查
+
+- 默认门禁全部离线、不启动浏览器：`typecheck` / `test` / `build` / `verify:bundle`（按上节各插件命令）；`dsh-mobile` 的 `pretest` 会先构建 `dist`。
+- 可选活体检查单独记录，不能以默认测试替代：SmartUI 的真实页面样式单例/卡片/设置开关；`dsh-mobile` 的 390×844 触摸回归与页面探针；`dsh-lan-connect` 的真实 `/lan` 入口与 native 集成；`pin-subagent-model` 的插件页行配置、子代理 chip 与 fork 行为。需要已认证 GUI 或 Chrome CDP 而本轮不可用的项目，在验证记录中写“未验证”。
 
 ## License
 
