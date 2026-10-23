@@ -45,13 +45,22 @@ test("declares the build-free browser half the client module graph reads", () =>
 	const inject = manifest.dsh?.client?.inject;
 	assert.ok(Array.isArray(inject), "dsh.client.inject must list the client rows this bundle uses");
 	for (const dependency of [
+		"@deepseek-ai/dsh-api-remotes",
 		"@deepseek-ai/dsh-api-session-controller",
 		"@deepseek-ai/dsh-client-locale",
 		"@deepseek-ai/dsh-client-ui-conversation",
-		"@deepseek-ai/dsh-client-ui-session"
+		"@deepseek-ai/dsh-client-ui-plugin-manager",
+		"@deepseek-ai/dsh-client-ui-session",
+		"@deepseek-ai/dsh-client-ui-settings"
 	]) {
 		assert.ok(inject.includes(dependency), `dsh.client.inject must include ${dependency}`);
 	}
+});
+
+test("declares the schema library behind the WebUI configuration page", () => {
+	assert.equal(typeof manifest.peerDependencies?.["@deepseek-ai/schemastery"], "string");
+	assert.match(manifest.peerDependencies["@deepseek-ai/schemastery"], /^\D*\d+\.\d+\.\d+/);
+	assert.equal(manifest.version, "0.4.0");
 });
 
 for (const language of ["en", "zh"]) {

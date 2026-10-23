@@ -60,6 +60,16 @@ function loadClient() {
 		useCallback(callback) {
 			return callback;
 		},
+		useEffect() {},
+		useMemo(factory) {
+			return factory();
+		},
+		useRef(initial) {
+			return { current: initial };
+		},
+		useState(initial) {
+			return [typeof initial === "function" ? initial() : initial, () => {}];
+		},
 		useSyncExternalStore(subscribe, getSnapshot) {
 			React.lastStop = subscribe(() => {});
 			return getSnapshot();
@@ -74,14 +84,52 @@ function loadClient() {
 	return loaded;
 }
 
+/** One Host ConfigForm stand-in. */
+function fakeForm({ status = "ready", value = {}, writable = true, revision = 3 } = {}) {
+	const listeners = new Set();
+	const form = {
+		writes: [],
+		snapshot: { status, value, writable, revision },
+		getSnapshot() {
+			return form.snapshot;
+		},
+		subscribe(listener) {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+		async mutate(ops, expectedRevision) {
+			form.writes.push({ ops, expectedRevision });
+			return true;
+		}
+	};
+	return form;
+}
+
 /** Minimal client context capturing registration and cleanup calls. */
-function fakeCtx(sessions = { binding() {} }) {
+function fakeCtx(sessions = { binding() {} }, form = fakeForm()) {
 	const ctx = {
 		effects: [],
 		locales: [],
 		injected: [],
 		registrations: [],
 		sessions,
+		form,
+		formIds: [],
+		configForms: {
+			get(id) {
+				ctx.formIds.push(id);
+				return form;
+			}
+		},
+		remote: {
+			agentPresets: {
+				async list() {
+					return { presets: [{ id: "standard", name: "Standard", isDefault: true }, { id: "minimal" }] };
+				}
+			}
+		},
 		effect(factory) {
 			const dispose = factory();
 			ctx.effects.push(dispose);
@@ -118,6 +166,13 @@ function fakeCtx(sessions = { binding() {} }) {
 		});
 	}
 	return ctx;
+}
+
+/** Read one registration by slot name. */
+function registrationOf(ctx, name) {
+	const registration = ctx.registrations.find((entry) => entry.options.name === name);
+	assert.ok(registration, `the plugin must register the ${name} slot`);
+	return registration;
 }
 
 /** One durable request/header window entry. */
@@ -195,8 +250,7 @@ function renderBadge({ subagent, identity, window, projections = {}, sessionId =
 	});
 	const ctx = fakeCtx(sessions);
 	plugin.apply(ctx);
-	const registration = ctx.registrations[0];
-	assert.ok(registration, "apply must register the composer entry");
+	const registration = registrationOf(ctx, "conversation.input.right");
 	assert.equal(typeof registration.component, "function");
 	const injected = registration.options.inject();
 	assert.equal(injected.sessions, sessions, "the entry must use the injected sessions face");
@@ -222,10 +276,10 @@ test("registers one lazy factory for the package and injects the client services
 	assert.deepEqual(requires, ["react"]);
 	assert.equal(typeof plugin.apply, "function");
 	// The plugin object comes from another vm realm; copy before strict deepEqual.
-	assert.deepEqual(Array.from(plugin.inject), ["slots", "locale", "sessions"]);
+	assert.deepEqual(Array.from(plugin.inject), ["slots", "locale", "sessions", "configForms", "remote", "remote.agentPresets"]);
 });
 
-test("registers only the additive composer input-right list entry", () => {
+test("registers the additive composer entry and the row configuration page", async () => {
 	const { plugin } = loadClient();
 	const ctx = fakeCtx();
 	plugin.apply(ctx);
@@ -234,15 +288,23 @@ test("registers only the additive composer input-right list entry", () => {
 	assert.equal(ctx.locales[0].namespace, "pin-subagent-model");
 	assert.equal(ctx.locales[0].dictionaries.en["model.label"], "Subagent model");
 	assert.equal(ctx.locales[0].dictionaries.zh["model.label"], "子代理模型");
-	assert.deepEqual(ctx.injected, ["conversation.input.right"]);
-	assert.equal(ctx.registrations.length, 1, "the plugin must contribute exactly one slot entry");
-	const { options } = ctx.registrations[0];
-	assert.equal(options.name, "conversation.input.right");
-	assert.equal(options.id, "pin-subagent-model");
-	assert.equal(options.order, 100);
-	assert.equal(options.locale, "pin-subagent-model");
-	assert.equal(typeof options.inject, "function");
-	assert.deepEqual(Object.keys(options.inject()), ["sessions"]);
+	assert.equal(ctx.locales[0].dictionaries.en["settings.preset.inherit"], "Inherit the parent preset");
+	assert.equal(ctx.locales[0].dictionaries.zh["settings.preset.inherit"], "继承父会话预设");
+	assert.deepEqual(ctx.injected, ["conversation.input.right", "plugins.row.config"]);
+	assert.deepEqual(ctx.formIds, ["pin-subagent-model"]);
+	const chip = registrationOf(ctx, "conversation.input.right");
+	assert.equal(chip.options.id, "pin-subagent-model");
+	assert.equal(chip.options.order, 100);
+	assert.equal(chip.options.locale, "pin-subagent-model");
+	assert.deepEqual(Object.keys(chip.options.inject()), ["sessions"]);
+	const row = registrationOf(ctx, "plugins.row.config");
+	assert.equal(row.options.key, "dsh-plugin-pin-subagent-model#pin-subagent-model");
+	assert.equal(row.options.locale, "pin-subagent-model");
+	const injected = row.options.inject();
+	assert.equal(injected.configForm, ctx.form);
+	assert.equal(typeof injected.listPresets, "function");
+	const roster = await injected.listPresets();
+	assert.deepEqual(roster.presets.map((preset) => preset.id), ["standard", "minimal"]);
 	assert.equal(ctx.injected.includes("conversation.input.model"), false,
 		"the native single model seat must never be registered or replaced");
 	assert.equal(ctx.injected.some((name) => name.startsWith("conversation.session.header")), false,
@@ -252,6 +314,144 @@ test("registers only the additive composer input-right list entry", () => {
 	ctx.effects[0]();
 	assert.equal(ctx.locales[0].removed, true, "disposing the plugin must remove the locale row");
 });
+
+test("reduces the form value to the four editable strings", () => {
+	const { plugin } = loadClient();
+	assert.deepEqual({ ...plugin.draftFromConfig({ provider: "cpa", model: "m", reasoningEffort: "max", agentPreset: "minimal", providers: ["spawn"] }) },
+		{ provider: "cpa", model: "m", reasoningEffort: "max", agentPreset: "minimal" });
+	assert.deepEqual({ ...plugin.draftFromConfig(undefined) }, { provider: "", model: "", reasoningEffort: "", agentPreset: "" });
+	assert.deepEqual({ ...plugin.draftFromConfig({ provider: 3, model: null }) }, { provider: "", model: "", reasoningEffort: "", agentPreset: "" });
+});
+
+test("lists inherit, every declared preset, and an undeclared current value", () => {
+	const { plugin } = loadClient();
+	const options = plugin.presetOptions([
+		{ id: "standard", name: "Standard", isDefault: true },
+		{ id: "minimal" },
+		{ id: "standard", name: "Duplicate" },
+		{ id: "" },
+		null
+	], "retired");
+	assert.deepEqual(Array.from(options, (option) => option.id), ["", "standard", "minimal", "retired"]);
+	assert.equal(options[1].label, "Standard");
+	assert.equal(options[3].missing, true);
+	assert.equal(options[2].label, void 0);
+	const broken = plugin.presetOptions([{ id: "old", broken: "activation failed" }], "");
+	assert.equal(broken[1].broken, true);
+	assert.equal(plugin.presetLabel({ id: "", missing: false, broken: false }, (key) => key), "settings.preset.inherit");
+	assert.equal(plugin.presetLabel({ id: "retired", missing: true, broken: false }, (key) => key), "retired settings.preset.missing");
+	assert.equal(plugin.presetLabel({ id: "old", missing: false, broken: true }, (key) => key), "old settings.preset.broken");
+});
+
+test("validates the provider/model pair and the preset before saving", () => {
+	const { plugin } = loadClient();
+	const options = plugin.presetOptions([{ id: "standard" }, { id: "minimal" }], "");
+	const draft = (values) => ({ provider: "", model: "", reasoningEffort: "", agentPreset: "", ...values });
+	assert.equal(plugin.validateDraft(draft({ provider: "cpa" }), options), "settings.invalidRoute");
+	assert.equal(plugin.validateDraft(draft({ model: "m" }), options), "settings.invalidRoute");
+	assert.equal(plugin.validateDraft(draft({ provider: "cpa", model: "m", agentPreset: "gone" }), options), "settings.invalidPreset");
+	assert.equal(plugin.validateDraft(draft({ provider: "cpa", model: "m", agentPreset: "minimal" }), options), null);
+	assert.equal(plugin.validateDraft(draft({}), options), null);
+});
+
+test("builds set and unset operations only for changed fields", () => {
+	const { plugin } = loadClient();
+	const accepted = { provider: "cpa", model: "m", reasoningEffort: "max", agentPreset: "minimal" };
+	assert.deepEqual(Array.from(plugin.buildOps({ ...accepted }, accepted)), []);
+	const changed = { provider: "cpa", model: "m2", reasoningEffort: "", agentPreset: "standard" };
+	assert.deepEqual(JSON.parse(JSON.stringify(plugin.buildOps(changed, accepted))), [
+		{ op: "set", path: ["model"], value: "m2" },
+		{ op: "unset", path: ["reasoningEffort"] },
+		{ op: "set", path: ["agentPreset"], value: "standard" }
+	]);
+});
+
+test("renders a one-line summary and the editable page", () => {
+	const { plugin } = loadClient();
+	const row = registrationOf(fakeCtxAfterApply(plugin), "plugins.row.config");
+	const summary = row.component({ view: "summary", t: (key) => key });
+	assert.equal(summary, "settings.summary");
+	const entry = row.component({
+		view: "page",
+		t: (key) => key,
+		configForm: fakeForm({ value: { provider: "cpa", model: "cline-pass/deepseek-v4.1-flash", reasoningEffort: "max", agentPreset: "minimal" } }),
+		listPresets: async () => ({ presets: [{ id: "standard" }, { id: "minimal" }] })
+	});
+	const page = typeof entry?.type === "function" ? entry.type(entry.props) : entry;
+	const fields = descendants(page).filter((node) => node !== null && typeof node === "object" && node.props !== undefined && node.props !== null && node.props["data-field"] !== undefined);
+	assert.deepEqual(fields.map((field) => field.props["data-field"]), ["provider", "model", "reasoningEffort", "agentPreset"]);
+	assert.equal(fields[0].props.value, "cpa");
+	assert.equal(fields[3].props.value, "minimal");
+	assert.equal(fields[3].type, "select");
+	const buttons = descendants(page).filter((node) => node !== null && typeof node === "object" && node.type === "button");
+	assert.deepEqual(buttons.map((button) => button.children[0]), ["settings.save", "settings.reset"]);
+	assert.ok(textOf(page).includes("settings.advanced"), "the page explains where the ordinary fields live");
+	const unavailableEntry = row.component({ view: "page", t: (key) => key, configForm: fakeForm({ status: "unavailable" }), listPresets: async () => ({ presets: [] }) });
+	const unavailable = typeof unavailableEntry?.type === "function" ? unavailableEntry.type(unavailableEntry.props) : unavailableEntry;
+	assert.equal(textOf(unavailable), "settings.unavailable");
+});
+
+test("saves edited fields with the revision read before editing, and keeps the draft on refusal", async () => {
+	const { plugin, React } = loadClient();
+	const row = registrationOf(fakeCtxAfterApply(plugin), "plugins.row.config");
+	const form = fakeForm({ value: { provider: "cpa", model: "m", reasoningEffort: "", agentPreset: "standard" }, revision: 7 });
+	const states = [];
+	let cursor = 0;
+	const original = React.useState;
+	React.useState = (initial) => {
+		const index = cursor++;
+		if (!(index in states)) states[index] = typeof initial === "function" ? initial() : initial;
+		return [states[index], (next) => { states[index] = typeof next === "function" ? next(states[index]) : next; }];
+	};
+	const render = () => {
+		cursor = 0;
+		const entry = row.component({
+			view: "page",
+			t: (key) => key,
+			configForm: form,
+			listPresets: async () => ({ presets: [{ id: "standard" }, { id: "minimal" }] })
+		});
+		return typeof entry?.type === "function" ? entry.type(entry.props) : entry;
+	};
+	try {
+		const model = descendants(render()).find((node) => node?.props?.["data-field"] === "model");
+		model.props.onChange({ currentTarget: { value: "m2" } });
+		const save = descendants(render()).find((node) => node.type === "button" && node.children[0] === "settings.save");
+		save.props.onClick();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		assert.deepEqual(JSON.parse(JSON.stringify(form.writes)), [{ ops: [{ op: "set", path: ["model"], value: "m2" }], expectedRevision: 7 }]);
+		assert.deepEqual(JSON.parse(JSON.stringify(states[2])), { kind: "saved" });
+		form.mutate = async () => false;
+		states[0].model = "m3";
+		states[1] = true;
+		const refuse = descendants(render()).find((node) => node.type === "button" && node.children[0] === "settings.save");
+		refuse.props.onClick();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		assert.deepEqual(JSON.parse(JSON.stringify(states[2])), { kind: "refused" });
+	} finally {
+		React.useState = original;
+	}
+});
+
+/** Apply the plugin to a fresh fake context and return it. */
+function fakeCtxAfterApply(plugin) {
+	const ctx = fakeCtx();
+	plugin.apply(ctx);
+	return ctx;
+}
+
+/** Collect every rendered node, depth first. */
+function descendants(node) {
+	if (node === null || node === undefined || typeof node !== "object") return [];
+	return [node, ...(Array.isArray(node.children) ? node.children : []).flatMap(descendants)];
+}
+
+/** Concatenate the text children of a rendered tree. */
+function textOf(node) {
+	if (typeof node === "string") return node;
+	if (node === null || node === undefined || typeof node !== "object") return "";
+	return (Array.isArray(node.children) ? node.children : []).map(textOf).join("");
+}
 
 test("renders nothing on an ordinary root session and does not borrow its event source", () => {
 	const { badge, requested, source, sessions } = renderBadge({

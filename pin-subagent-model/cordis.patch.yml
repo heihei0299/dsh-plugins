@@ -9,12 +9,20 @@
 #       provider: cpa
 #       model: cline-pass/deepseek-v4.1-flash
 #       reasoningEffort: max
+#       agentPreset: standard
 #       providers: [spawn, fork]
 #       onConflict: override
 #
-# Until `provider` and `model` are set the plugin stays enabled, logs one
+# `provider`, `model`, `reasoningEffort`, and `agentPreset` are volatile: the
+# plugin's WebUI configuration page (Plugins -> this bundle -> the
+# `pin-subagent-model` row -> Configure) writes the same fields through the
+# profile patch without remounting the entry. `providers` and `onConflict` stay
+# ordinary configuration and remain YAML-only.
+#
+# Until a route or `agentPreset` is set the plugin stays enabled, logs one
 # warning, and pins nothing — enabling it before configuring it cannot break
-# the profile.
+# the profile. It still decorates `startActivation`, so configuring it later
+# (YAML or WebUI) applies to the next delegation.
 - insert:
     - id: pin-subagent-model
       name: dsh-plugin-pin-subagent-model
