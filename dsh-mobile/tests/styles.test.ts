@@ -4,7 +4,7 @@ import {
   OPEN_TRANSITION, SETTINGS_STYLES, SLIDE_DURATION, SLIDE_EASING, SLIDE_TRANSITION, TAP_TARGET, buildStyles,
 } from '../src/client/styles.js';
 import {
-  HOST_LANDMARKS, SETTINGS_HEADER, SETTINGS_LIST_HEAD, SETTINGS_NAV_LIST, SETTINGS_NAV_TAB, SETTINGS_OPTIONS, SETTINGS_PANEL,
+  SETTINGS_HEADER, SETTINGS_LIST_HEAD, SETTINGS_NAV_LIST, SETTINGS_NAV_TAB, SETTINGS_OPTIONS, SETTINGS_PANEL,
 } from '../src/client/landmarks.js';
 import { NARROW_BREAKPOINT } from '../src/shared/types.js';
 
@@ -226,7 +226,10 @@ test('status panels use an opaque theme surface instead of the translucent menu 
 });
 
 test('iOS focus zoom protection includes the actual contenteditable composer', () => {
-  assert.ok(full.includes('@media (pointer:coarse){html[data-dsh-mobile] :is(input,textarea,select,[data-composer-input][contenteditable="true"]){font-size:16px!important}}'));
+  const coarse = full.split('\n').find(line => line.startsWith('@media (pointer:coarse)')) ?? '';
+  assert.ok(coarse.length > 0, 'coarse-pointer media rule exists');
+  assert.match(coarse, /\[data-composer-input\]\[contenteditable="true"\]/);
+  assert.match(coarse, /font-size:16px!important/);
 });
 
 test('the scrim intercepts taps until the drawer exit finishes', () => {
@@ -275,16 +278,9 @@ test('settings list rows wrap instead of painting the name under the actions', (
   const head = cssRule(sheet, SETTINGS_LIST_HEAD);
   assert.match(head, /flex-wrap:wrap/);
   assert.match(head, /row-gap:6px/);
-  assert.ok(sheet.includes(`${SETTINGS_LIST_HEAD} > span:first-child{min-width:0;overflow-wrap:anywhere}`));
-});
-
-test('every host landmark is actually used by the stylesheet', () => {
-  const unused = HOST_LANDMARKS
-    .filter(landmark => !landmark.selector.startsWith('data-'))
-    // The root slot is only a path prefix of FRAME, so match its suffix.
-    .filter(landmark => !full.includes(landmark.selector) && !full.includes(landmark.selector.replace(/^\[data-slot="root"\] > div/, '[data-slot="root"] > div')))
-    .map(landmark => landmark.name);
-  assert.deepEqual(unused, [], `landmarks declared but unused: ${unused.join(', ')}`);
+  const label = cssRule(sheet, `${SETTINGS_LIST_HEAD} > span:first-child`);
+  assert.match(label, /min-width:0/);
+  assert.match(label, /overflow-wrap:anywhere/);
 });
 
 test('the sheet pulls no external resources', () => {

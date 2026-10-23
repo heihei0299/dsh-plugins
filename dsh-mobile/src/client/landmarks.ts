@@ -7,7 +7,7 @@
  * `data-composer-card`. Hashed CSS-module classes (`wSkVaW_*`, `uV2eYG_*`) are
  * deliberately NOT used — they change with every build.
  *
- * `scripts/verify-bundle.mjs` and `.agents/skills/dsh-compat-check` assert that
+ * `scripts/verify-bundle.ts` and `.agents/skills/dsh-compat-check` assert that
  * each selector still appears in the built bundle, so a host upgrade that moves
  * a landmark fails a mechanical check instead of silently doing nothing.
  */
