@@ -2,6 +2,8 @@
 
 给现有 DSH 添加 **ChatGPT 风格外观 + 对话内声明式交互组件**。不是独立聊天网站，不替换模型、会话、编辑器或权限审批。
 
+**当前实现规格与完整 v1 协议见 [spec](<docs/spec.md>)。** 包版本为 `0.1.3`，协议为 `schemaVersion: 1`；历史交接记录不作为当前实现规范。
+
 ## 本轮改造：参考 GenUI 的本地交互看板
 
 参考 [omdsh-dev/dsh-genui](https://github.com/omdsh-dev/dsh-genui/tree/ad8dc166deaf4eee7dea758fc0a84a8728402b52) 的声明式小组件、布局组合和本地优先交互理念，独立实现以下增量，无新增运行时依赖、未复制其引擎、图标或样式：
@@ -26,9 +28,9 @@
 
 本轮验证：`pnpm run typecheck`、68 项串行测试、`pnpm run build`、`pnpm run verify:bundle` 均通过。另用真实组件和测试环境做了隔离 Chromium 验收：筛选、带表头的可见 CSV 复制、切页保留输入、左右/Home/End 焦点、显式填草稿、剪贴板手动回退；明暗主题 × 320/390/1000px 六组无页面级横向溢出；160 字符连续变化量与强制颜色下 bar/ring 可辨识检查也通过。隔离测试使用模拟宿主服务和主题值，不是在线 DSH 验收。
 
-本轮仅更新当前工作区源码与本地构建产物，没有重新安装 bundle、重启 DSH 或修改 profile。当前 GUI 返回 HTTP 401，现有浏览器无可连接的 CDP 端口，**不能声称在线页面已加载本轮改造**。下面“当前状态”保留此前轮次记录，不代表本轮在线验收。
+2026-10-24 后续操作已完成：通过官方 CLI 将当前工作区链接安装到 `web` profile，验证 Host 模块可加载，并重启既有 DSH 服务；确认进程替换且状态 running。原 GUI 地址仍返回 HTTP 401（认证门禁），未取得已登录页面的新组件验收证据。本会话另成功记录一份 11 区块测试文档，但**工具记录成功不等于用户已看见或验证卡片**。当前状态以 [spec 的验证基线](<docs/spec.md#10-验证基线与未验证项>)为准。
 
-## 当前状态
+## 历史实现与验证记录
 
 首版源码已完成并安装到当前 `web` profile。用户已确认设置和三个建议入口可见，真实会话工具已成功记录五类组件的验收文档。根据用户反馈，`0.1.1` 已将草稿中的内部 JSON 改成可读回复；类型检查、31 项测试、构建及产物契约检查通过，官方 CLI 移除和重新添加也均成功。浏览器是否已加载新版代码仍需刷新确认。**更新后的实际交互、主题切换和禁用恢复仍待验收**，不能仅凭工具返回宣称全部验证完成。详见 [验证记录](<docs/validation.md>)。
 
@@ -38,7 +40,7 @@
 
 首版针对 DSH `0.2.1-rc.2`。插件安装到一个 profile 后，影响该 profile 下所有会话；不会启动第二个 Web 服务或修改已安装 DSH 核心。
 
-**交接状态、已验证项、未验证项与接手步骤见 [HANDOFF.md](<HANDOFF.md>)。**
+**当前实现和验证边界见 [spec](<docs/spec.md>)；早期交接与验收过程保留在 [HANDOFF.md](<HANDOFF.md>)。**
 
 ## 能做什么
 
@@ -61,11 +63,12 @@
 
 ## 开发与安装
 
-使用 pnpm，不做全局安装。依赖安装、构建、类型检查、测试及安装进 profile 必须针对当前任务与环境另行授权。
+使用 pnpm，不做全局安装。常规构建、类型检查与测试遵循仓库 [AGENTS.md](<../AGENTS.md>) 的当前任务验证规则；依赖安装、写入 profile 与服务重启须有相应任务授权。
 
 ```bash
-# 仅在明确授权后执行
+# 在插件目录执行；安装依赖须有相应任务授权
 pnpm install
+# 常规验证遵循仓库规则
 pnpm run typecheck
 pnpm test                 # Node 测试文件串行运行
 pnpm run build            # 生成 dist/host/index.js 和 dist/client.js
@@ -77,7 +80,7 @@ pnpm run verify:bundle    # 检查惰性 factory、宿主 React、资源与清�
 获安装授权后，可在现有 DSH 插件管理器选择本地 bundle，或使用同样经过版本检查与 profile 写锁的官方 CLI：
 
 ```bash
-dsh plugin --profile web add link:/home/shial/Project/dsh-smartui --offline
+dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --offline
 ```
 
 `link:` 使用已准备好的工作区与依赖；离线安装不从注册表补齐缺失包。不手改 profile 的依赖清单或 patch，也不启动另一个服务器。
@@ -95,7 +98,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-smartui --offline
 
 设置由 Host 的 `dsh-smartui` entry 持久化，经现有 ConfigForms 传输，不另建 Remote 或浏览器存储。加载期间不抢先应用主题；Host 拒绝保存时保留最后接受的配置。
 
-关闭组件后，工具定义仍注册，但 Host 拒绝新的文档，提示词要求使用普通文本；历史卡片只保留文本展示。禁用整个 bundle 则撤销 Client 注册、主题层及 Host 工具。没有渲染器时，标准工具摘要仍可读。
+关闭组件后，工具定义仍注册，但 Host 拒绝新的文档，提示词要求使用普通文本；历史 Turn 级卡片隐藏，工具行保留文本降级，已存 metadata 不删除。禁用整个 bundle 则撤销 Client 注册、主题层及 Host 工具。没有渲染器时，标准工具摘要仍可读。
 
 ## 使用
 
@@ -109,7 +112,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-smartui --offline
 
 模型决定何时调用 `render_smart_ui`，普通回答继续使用 Markdown；不是把任意 Markdown 自动识别为组件。每份已记录的文档由 Conversation Definition 从工具结果的 `meta.smartui` 重放为该轮的一条 Chat 行：它位于过程折叠之外，回答结束后仍然可见；工具行只显示标题、区块数和「检查工具调用」。组件关闭或载荷无效时，工具行回退为原始文本。
 
-工具参数为 `{ "document": { "schemaVersion": 1, "summary": "…", "blocks": [] } }`；实际 `blocks` 必须有 1–20 项。完整示例见 [方案对比](<examples/comparison.json>)、[图表](<examples/chart.json>) 和 [表单](<examples/form.json>)，均显式标记为虚构示例数据。详细结构见 [协议](<docs/protocol.md>)。
+工具参数为 `{ "document": { "schemaVersion": 1, "summary": "…", "blocks": [] } }`；实际 `blocks` 必须有 1–20 项。完整示例见 [看板](<examples/dashboard.json>)、[方案对比](<examples/comparison.json>)、[图表](<examples/chart.json>) 和 [表单](<examples/form.json>)，均显式标记为虚构示例数据。详细结构见 [当前 v1 协议与实现规格](<docs/spec.md>)。
 
 表单或选项的“填入对话”使用可见标题、字段名称和选项标签，生成与当前语言一致的可读回复，例如“关于「五类组件是否显示正常？」，我选择：卡片、表格、图表、表单、选项都正常。”。内部 callId、actionId 与 JSON 协议不会直接填入草稿。**这不代表已经提交或执行**。不要输入密码、API key、token 或其他凭据；正常发送会将填写内容写入会话日志。
 
@@ -125,7 +128,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-smartui --offline
 
 ## English summary
 
-DSH SmartUI adds a reversible ChatGPT-inspired appearance and safe declarative cards, tables, bar/line charts, forms and choices to native DSH conversations. It does not replace the conversation engine, editor, model connection or approvals. `render_smart_ui` stores its versioned document in tool-result metadata and keeps a text fallback. Actions only insert reviewable text into the scoped native draft; users send it themselves. No generated HTML, scripts or arbitrary commands execute. Draft selections are not overwritten. Installation and all local builds/tests require explicit authorization. Browser acceptance is still required.
+DSH SmartUI adds a reversible ChatGPT-inspired appearance and safe declarative cards, locally filterable/exportable tables, bar/line charts, forms, choices, metrics, progress and callouts to native DSH conversations. One-level groups arrange leaves in rows, columns or tabs; mounted tab panels retain local input. It does not replace the conversation engine, editor, model connection or approvals. `render_smart_ui` stores its versioned document in tool-result metadata and keeps a text fallback. Actions only insert reviewable text into the scoped native draft; users send it themselves. No generated HTML, scripts or arbitrary commands execute. Draft selections are not overwritten. Installation/restart need task authorization; local verification follows repository guidance. The current workspace has been installed and the service restarted, but authenticated browser acceptance of the new dashboard remains unverified. See the [current implementation spec](<docs/spec.md>).
 
 ## License
 
