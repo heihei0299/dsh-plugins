@@ -37,6 +37,8 @@ window.__ModuleLoader__.load({
 		const WINDOW_MS = 3000;
 		/** How long to wait before deciding the click applied nothing. */
 		const RETRY_MS = 1200;
+		/** How long to hold the restored offset while the client settles its layout. */
+		const SETTLE_MS = 900;
 		/** A repeated retry on the same button is refused inside this window. */
 		const RETRY_GUARD_MS = 5000;
 
@@ -54,6 +56,7 @@ window.__ModuleLoader__.load({
 			const cancel = options.cancel;
 			const now = options.now;
 			const windowMs = options.windowMs ?? WINDOW_MS;
+			const settleMs = options.settleMs ?? SETTLE_MS;
 			let armed;
 
 			const disarm = () => {
@@ -71,16 +74,29 @@ window.__ModuleLoader__.load({
 					until: now() + windowMs,
 					retryAt: gesture.retry === undefined ? Infinity : now() + RETRY_MS,
 					retry: gesture.retry,
+					onReveal: gesture.onReveal,
 					frame: 0,
 				};
 				armed = state;
 				const tick = () => {
 					if (armed !== state) return;
-					if (scroller.scrollHeight > state.height) {
-						// The page landed above the viewport. Restore the offset the click
+					if (state.settleUntil === undefined && scroller.scrollHeight > state.height) {
+						state.onReveal?.();
+						// The page landed above the viewport. Hold the offset the click
 						// started from, which is inside the newly prepended block.
-						scroller.scrollTop = state.top;
-						armed = undefined;
+						state.height = scroller.scrollHeight;
+						state.settleUntil = now() + settleMs;
+					}
+					if (state.settleUntil !== undefined) {
+						// The client keeps re-anchoring for a few frames after a prepend;
+						// re-assert the offset until its own layout settles.
+						if (scroller.scrollHeight > state.height) state.height = scroller.scrollHeight;
+						if (scroller.scrollTop !== state.top) scroller.scrollTop = state.top;
+						if (now() > state.settleUntil) {
+							armed = undefined;
+							return;
+						}
+						state.frame = raf(tick);
 						return;
 					}
 					if (now() >= state.retryAt) {
@@ -104,6 +120,9 @@ window.__ModuleLoader__.load({
 		/** Plugin entry: one reveal per pager click, one bounded retry, stand down on input. */
 		function apply(ctx) {
 			if (typeof document === "undefined") return;
+			// Observable mount marker, in the same spirit as `data-dsh-mobile`: a
+			// page that claims the fix is active can be checked from the DOM.
+			document.documentElement.dataset.dshHistoryBudget = "on";
 			const reveal = createReveal({
 				raf: (callback) => requestAnimationFrame(callback),
 				cancel: (frame) => cancelAnimationFrame(frame),
@@ -112,6 +131,10 @@ window.__ModuleLoader__.load({
 			// A retry is refused while the previous one is still fresh, so a button
 			// that legitimately has nothing older cannot be clicked in a loop.
 			const retriedAt = new WeakMap();
+			// Counter surface for support: the page can report whether the pager was
+			// observed, retried and actually revealed without reading any state.
+			const stats = { clicks: 0, retries: 0, reveals: 0 };
+			Object.defineProperty(window, "__dshHistoryBudget", { value: stats, configurable: true });
 
 			const onClick = (event) => {
 				const target = event.target;
@@ -121,12 +144,15 @@ window.__ModuleLoader__.load({
 				if (button === null || !LOAD_EARLIER.test(String(button.textContent ?? ""))) return;
 				const scroller = button.closest(SCROLLPORT);
 				if (scroller === null) return;
+				stats.clicks += 1;
 				reveal.arm(scroller, {
+					onReveal: () => { stats.reveals += 1; },
 					retry: () => {
 						if (button.isConnected === false || button.disabled === true) return;
 						const last = retriedAt.get(button) ?? -Infinity;
 						if (performance.now() - last < RETRY_GUARD_MS) return;
 						retriedAt.set(button, performance.now());
+						stats.retries += 1;
 						button.click();
 					},
 				});
@@ -143,6 +169,7 @@ window.__ModuleLoader__.load({
 					document.removeEventListener("wheel", standDown, { capture: true, passive: true });
 					document.removeEventListener("touchstart", standDown, { capture: true, passive: true });
 					document.removeEventListener("keydown", standDown, true);
+					delete document.documentElement.dataset.dshHistoryBudget;
 					reveal.disarm();
 				};
 			});

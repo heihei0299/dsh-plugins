@@ -72,6 +72,7 @@ Host 裁剪后，`加载更早` 成为常用路径，而原生客户端有一个
 
 ## 限制
 
+- **不拆分 turn。** 客户端按 turn 组装对话：窗口切在 turn 中间时，后续 prepend 的页会被应用却不渲染（实测连续 prepend 138 + 259 条后，转录高度仍是 1870 px）。所以字节预算的切点会回退到所在 turn 的 `turn/start`——首帧可能因此超出预算，最坏情况是整个末尾 turn 都进入首帧。这是"能用"优先于"最小"的取舍。
 - **单条记录超过预算时仍会整帧发出。** 不截断、不拆分记录——那会交给客户端会话日志里没有的内容。`minRecords` 优先于预算，所以 2 MB 的单条工具输出仍是 2 MB 一帧；这与 `dsh-remote-bridge` 的取舍一致。
 - **只约束经过 `sessionController` 的读取。** 它不改变会话日志、数据库或其它读取路径；客户端从本地缓存直接渲染的部分不受影响。
 - **进程内替换。** 宿主升级后若方法名或分发路径变化，插件会放弃包装并给出警告，不会让调用失败；请求自带 `maxBytes`（未来宿主原生预算）时它直接让位，避免双重分页。
@@ -99,3 +100,4 @@ node --test --test-concurrency=1     # 28 项：裁剪算术、页面形状、�
 - 打开 `log: true`，每次裁剪输出 `history-budget: opening frame trimmed N record(s) to M bytes`。
 - 看到 `already wrapped; mount this plugin once` 说明同一服务被装了两次：检查 profile 里是否重复插入了 `history-budget` entry。
 - 看到 `cannot be replaced in place` 说明当前宿主的方法属性不可写；插件不会继续，也不会影响原生分页。
+- 客户端半在页面上留下 `data-dsh-history-budget="on"` 与 `window.__dshHistoryBudget`（`{clicks, retries, reveals}`）。`clicks` 增长但 `reveals` 不增长，说明点击后被应用的页没有让转录变高——先看该 turn 是否被切在半中间。

@@ -29,18 +29,39 @@ export function encodedBytes(value) {
 }
 
 /**
+ * Find the `turn/start` at or before one cut index.
+ * @param records - aligned wire records.
+ * @param index - the cut index the byte budget produced.
+ * @returns the index of that turn's start, or undefined when the suffix has none.
+ */
+function turnStartAtOrBefore(records, index) {
+	for (let cursor = Math.min(index, records.length - 1); cursor >= 0; cursor -= 1) {
+		if (records[cursor]?.event?.type === "turn/start") return cursor;
+	}
+	return undefined;
+}
+
+/**
  * Keep the newest suffix of `container.records` that fits `maxBytes`.
  *
  * A trimmed frame always reports `hasMore: true`: the dropped records are older
  * entries of the same window and stay reachable through the native history
  * pager, which is why the opening frame's cursor is left untouched.
  *
+ * The cut is moved back to the opening `turn/start` of the turn it would split,
+ * because the Web client assembles the transcript by turn: a window that starts
+ * mid-turn renders, but pages prepended before its first entry are applied to
+ * the store and never rendered (measured: two prepends of 138 and 259 entries
+ * left the transcript at 1870 px). A frame may therefore exceed `maxBytes` by
+ * the head of the turn it would have split — whole turns are never split.
+ *
  * @param container - frame or page value carrying a `records` array.
  * @param maxBytes - encoded byte budget for the whole container.
  * @param minRecords - newest records kept even when one of them alone exceeds the budget.
+ * @param options - `{ alignTurns?: boolean }`; turn alignment is on by default.
  * @returns the value to hand the client, how many records were dropped, and its encoded size.
  */
-export function trimRecords(container, maxBytes, minRecords = 1) {
+export function trimRecords(container, maxBytes, minRecords = 1, options = {}) {
 	const records = container?.records;
 	if (!Array.isArray(records) || records.length === 0) {
 		return { value: container, trimmed: 0, bytes: 0 };
@@ -63,10 +84,16 @@ export function trimRecords(container, maxBytes, minRecords = 1) {
 		kept += 1;
 	}
 
+	let start = records.length - kept;
+	if (options.alignTurns !== false) {
+		// Never open a window inside a turn: walk back to the enclosing turn/start.
+		const aligned = turnStartAtOrBefore(records, start);
+		if (aligned !== undefined) start = aligned;
+	}
 	const value = {
 		...container,
-		records: records.slice(records.length - kept),
+		records: records.slice(start),
 		hasMore: true,
 	};
-	return { value, trimmed: records.length - kept, bytes: encodedBytes(value) };
+	return { value, trimmed: start, bytes: encodedBytes(value) };
 }
