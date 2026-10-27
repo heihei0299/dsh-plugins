@@ -40,7 +40,13 @@ export interface JobRow {
 
 /** The parts of a session list snapshot the badges read. */
 export interface SessionFacts {
-  readonly byId?: Readonly<Record<string, { readonly running?: boolean; readonly origin?: string } | undefined>>;
+  readonly byId?: Readonly<Record<string, {
+    readonly running?: boolean;
+    readonly origin?: string;
+    readonly projectionValues?: {
+      readonly subagentTiming?: { readonly lastTurnCompleted?: boolean };
+    };
+  } | undefined>>;
   readonly projectionsBySession?: Readonly<Record<string, {
     readonly values: {
       readonly subagentCatalog?: readonly {

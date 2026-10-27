@@ -30,6 +30,7 @@
     "badge.jobs.panel": "Background tasks",
     "badge.subagents.running": "Running",
     "badge.subagents.idle": "Idle",
+    "badge.subagents.completed": "Completed",
     "badge.subagents.hint": "Select a subagent to open its conversation",
     "badge.jobs.hint": "Background task status and latest progress",
     "badge.panel.summary": "{count} total · {live} running",

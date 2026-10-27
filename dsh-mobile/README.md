@@ -58,7 +58,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
   - 浮层是 `popover="manual"` 元素，由浏览器放在**顶层（top layer）**：头部 `overflow:hidden` 与 `container-type:inline-size` 都裁不到它；默认距图标 8px、距屏幕边缘至少 12px，右缘跟随图标，宽 ≤360px、高 ≤440px，空间不足时只在「上方确实更宽裕」才上翻，其余情况列表独立滚动。
   - **不是底部面板、不是模态**：没有全屏遮罩、没有 `::backdrop`、没有整页变暗，`aria-modal="false"`；浮层外的页面照常可点。行内名称完整换行，状态与进度各占一行；后台任务为只读状态条目，不伪装成可点击按钮。
   - 关闭方式：右上 32px 关闭按钮（44px 命中区）、再点同一个图标收起、点另一个图标直接切换、点浮层外、Esc、焦点移出、切换会话或插件关闭；关闭后焦点回到触发图标。打开时焦点进入关闭按钮，Tab 可进入列表做键盘滚动。
-  - 数据分别来自 `sessions.list` 的 `subagentCatalog` 投影与 `ctx.jobs` 的任务名册；后台任务名册需要 `watchRows` 订阅。
+  - 数据分别来自 `sessions.list` 的 `subagentCatalog` 投影与 `ctx.jobs` 的任务名册；后台任务名册需要 `watchRows` 订阅。子智能体运行状态优先；停止后只有宿主 `subagentTiming.lastTurnCompleted` 明确为真才显示“已完成”，其余显示“未运行”，不会把中断或未知状态当成成功。
   - 子智能体跳转使用显式注入的 `uiWorkspace.openSession`；Cordis 对未声明的服务会抛错，不能用可选链跳过依赖声明。
   - **宿主徽标只在同类替代徽标渲染时才隐藏**：插件把覆盖的类别写在插槽的 `data-dsh-mobile-badges` 上，样式据此隐藏对应宿主控件；投影读不到时该类别不隐藏，回退到宿主原控件而不是什么都不显示。
   - 子智能体徽标按宿主的 `aria-haspopup="tree"` 标识隐藏（已核对 0.2.1-rc.2 的 `CatalogDropdown`），与语言/文案无关，且只匹配该插槽下的直接条目；未来若同一插槽出现其他树形弹出控件，仍可能误匹配。

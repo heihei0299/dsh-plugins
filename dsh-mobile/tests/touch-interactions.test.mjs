@@ -68,6 +68,24 @@ test('the status popup opens under its icon, inside every viewport, and every ic
       const formListeners = new Set();
       const source = value => ({ getSnapshot: () => value, subscribe: () => () => {} });
       const locales = new Map();
+      let sessionState = { byId: {
+        child: { running: true },
+        review: { running: false, projectionValues: { subagentTiming: { settledMs: 1234, lastTurnCompleted: true } } },
+        audit: { running: false },
+      }, projectionsBySession: { parent: { values: { subagentCatalog: [
+        { id: 'child', label: '检查移动端弹层布局与子代理对话跳转' },
+        { id: 'review', label: '复核长任务名称、列表滚动与暗色主题' },
+        { id: 'audit', label: '验证键盘焦点和触摸关闭交互' },
+      ] } } } };
+      const sessionListeners = new Set();
+      const sessionSource = {
+        getSnapshot: () => sessionState,
+        subscribe: listener => { sessionListeners.add(listener); return () => sessionListeners.delete(listener); },
+      };
+      window.setSubagentState = (id, value) => {
+        sessionState = { ...sessionState, byId: { ...sessionState.byId, [id]: value } };
+        for (const listener of sessionListeners) listener();
+      };
       window.openedSessions = [];
       const services = {
         slots: {
@@ -85,11 +103,7 @@ test('the status popup opens under its icon, inside every viewport, and every ic
         },
         configForms: { get: () => ({ getSnapshot: () => snapshot, subscribe: listener => { formListeners.add(listener); return () => formListeners.delete(listener); } }) },
         layout: { panelInfo: source({ activePanelId: null }), toggleSidebar() {} },
-        sessions: { list: source({ byId: { child: { running: true } }, projectionsBySession: { parent: { values: { subagentCatalog: [
-          { id: 'child', label: '检查移动端弹层布局与子代理对话跳转' },
-          { id: 'review', label: '复核长任务名称、列表滚动与暗色主题' },
-          { id: 'audit', label: '验证键盘焦点和触摸关闭交互' },
-        ] } } } }) },
+        sessions: { list: sessionSource },
         jobs: { state: source({ rows: { parent: Array.from({ length: 24 }, (_, index) => ({
           id: `build-${index}`,
           label: index === 0 ? 'node /tmp/dsh-mobile-check-very-long-background-task-command-and-viewport-regression.mjs'
@@ -189,6 +203,8 @@ test('the status popup opens under its icon, inside every viewport, and every ic
           } else {
             assert.equal(await panel.locator('.dsh-mobile-badge-row:is(button)').count(), 3, 'every subagent row stays navigable');
             assert.equal(await panel.locator('.dsh-mobile-badge-row-arrow').count(), 3);
+            assert.deepEqual(await panel.locator('.dsh-mobile-badge-row-meta').allInnerTexts(), ['运行中', '已完成', '未运行']);
+            assert.equal(await panel.locator('.dsh-mobile-badge-panel-summary').innerText(), '共 3 项 · 1 项运行中');
           }
           await shot(kind, dark, viewport);
           await close.tap();
@@ -201,6 +217,22 @@ test('the status popup opens under its icon, inside every viewport, and every ic
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => document.body.removeAttribute('data-ds-dark-theme'));
+
+    // A resumed child must show running even while an older completion is still
+    // projected, then update back to completed without closing the popup.
+    await openPanel('subagents');
+    await page.evaluate(() => window.setSubagentState('review', {
+      running: true, projectionValues: { subagentTiming: { settledMs: 1234, lastTurnCompleted: true } },
+    }));
+    await page.waitForFunction(() => document.querySelectorAll('.dsh-mobile-badge-row-meta')[1]?.textContent === '运行中');
+    assert.equal(await panel.locator('.dsh-mobile-badge-panel-summary').innerText(), '共 3 项 · 2 项运行中');
+    await page.evaluate(() => window.setSubagentState('review', {
+      running: false, projectionValues: { subagentTiming: { settledMs: 2345, lastTurnCompleted: true } },
+    }));
+    await page.waitForFunction(() => document.querySelectorAll('.dsh-mobile-badge-row-meta')[1]?.textContent === '已完成');
+    assert.equal(await panel.locator('.dsh-mobile-badge-panel-summary').innerText(), '共 3 项 · 1 项运行中');
+    await close.tap();
+    await panel.waitFor({ state: 'detached' });
 
     // Same icon toggles: open -> close -> open, for BOTH icons, not just the X.
     for (const kind of ['subagents', 'jobs']) {

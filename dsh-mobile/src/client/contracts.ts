@@ -64,9 +64,14 @@ export interface SessionsService {
       readonly retainedBy: { readonly mainView?: number };
       readonly running?: boolean;
       readonly origin?: string;
+      readonly projectionValues?: { readonly subagentTiming?: { readonly lastTurnCompleted?: boolean } };
     }>>;
     readonly projectionsBySession?: Readonly<Record<string, {
-      readonly values: { readonly subagentCatalog?: readonly { readonly id: string; readonly label?: string }[] };
+      readonly values: { readonly subagentCatalog?: readonly {
+        readonly id: string;
+        readonly label?: string;
+        readonly mode?: 'one-shot' | 'continuable' | 'unknown' | 'external';
+      }[] };
     } | undefined>>;
   }>;
 }

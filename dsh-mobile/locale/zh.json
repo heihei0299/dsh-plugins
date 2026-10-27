@@ -30,6 +30,7 @@
     "badge.jobs.panel": "后台任务",
     "badge.subagents.running": "运行中",
     "badge.subagents.idle": "未运行",
+    "badge.subagents.completed": "已完成",
     "badge.subagents.hint": "点击子智能体，进入对应对话",
     "badge.jobs.hint": "查看后台任务的状态与最新进度",
     "badge.panel.summary": "共 {count} 项 · {live} 项运行中",

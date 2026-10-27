@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import en from '../locale/en.json' with { type: 'json' };
+import zh from '../locale/zh.json' with { type: 'json' };
 import { ActivationContext, EnvironmentContext, type Environment } from '../src/client/environment.js';
 import { StatusBadges, jobRows, subagentRows } from '../src/client/StatusBadges.js';
 import { inject } from '../src/client/index.js';
@@ -132,6 +133,55 @@ test('subagent rows expose labels, running state and the navigation target', () 
   assert.equal(rows[0]?.sessionId, 'child-1');
   assert.equal(rows[1]?.label, 'child-2', 'a child without a label falls back to its id');
   assert.deepEqual(subagentRows({}, undefined, 'running'), []);
+});
+
+test('a normally completed subagent is shown as completed, not idle', () => {
+  // Match the host's SessionSummary: completion belongs to the child's
+  // subagentTiming projection, not to the parent catalog entry.
+  const snapshot = {
+    byId: { 'child-1': { running: false, projectionValues: { subagentTiming: { settledMs: 1234, lastTurnCompleted: true } } } },
+    projectionsBySession: { 'session-a': { values: { subagentCatalog: [{ id: 'child-1', label: '已结束的子代理', mode: 'continuable' as const }] } } },
+  };
+  const rows = subagentRows(snapshot, 'session-a', '运行中', '未运行', '已完成');
+  const html = renderToStaticMarkup(<StatusPanel
+    id="subagents" anchorRef={{ current: null }} title="子智能体" summary="共 1 项 · 0 项运行中" hint="点击子智能体"
+    empty="暂无记录" closeLabel="关闭面板" icon={null} rows={rows} onPick={() => {}} onDismiss={() => {}}
+  />);
+  assert.match(html, /已结束的子代理/);
+  assert.match(html, /已完成/);
+  assert.doesNotMatch(html, /未运行/);
+});
+
+test('subagent completion is authoritative, local, and subordinate to running', () => {
+  const snapshot = {
+    byId: {
+      running: { running: true, projectionValues: { subagentTiming: { lastTurnCompleted: true } } },
+      completed: { running: false, projectionValues: { subagentTiming: { lastTurnCompleted: true } } },
+      interrupted: { running: false, projectionValues: { subagentTiming: { lastTurnCompleted: false } } },
+      unknown: { running: false },
+      external: { running: false, projectionValues: { subagentTiming: { lastTurnCompleted: true } } },
+    },
+    projectionsBySession: { parent: { values: { subagentCatalog: [
+      { id: 'running', mode: 'continuable' as const },
+      { id: 'completed', mode: 'continuable' as const },
+      { id: 'interrupted', mode: 'continuable' as const },
+      { id: 'unknown', mode: 'unknown' as const },
+      { id: 'external', mode: 'external' as const },
+    ] } } },
+  };
+  for (const locale of [en, zh]) {
+    const rows = subagentRows(snapshot, 'parent', locale.ui['badge.subagents.running'], locale.ui['badge.subagents.idle'], locale.ui['badge.subagents.completed']);
+    assert.deepEqual(rows.map(({ meta, live, tone }) => ({ meta, live, tone })), [
+      { meta: locale.ui['badge.subagents.running'], live: true, tone: 'live' },
+      { meta: locale.ui['badge.subagents.completed'], live: false, tone: 'success' },
+      { meta: locale.ui['badge.subagents.idle'], live: false, tone: 'neutral' },
+      { meta: locale.ui['badge.subagents.idle'], live: false, tone: 'neutral' },
+      { meta: locale.ui['badge.subagents.idle'], live: false, tone: 'neutral' },
+    ]);
+    assert.ok(rows.every(row => row.sessionId === row.key), 'status never changes the navigation target');
+  }
+  assert.equal(en.ui['badge.subagents.completed'], 'Completed');
+  assert.equal(zh.ui['badge.subagents.completed'], '已完成');
 });
 
 test('job rows keep status and progress separate', () => {

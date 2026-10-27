@@ -82,7 +82,7 @@ export function StatusBadges({ sessionId }: { sessionId?: string }) {
   if (!showSubagents && !showJobs) return null;
 
   const rows = open === 'subagents'
-    ? subagentRows(sessions, sessionId, t('badge.subagents.running'), t('badge.subagents.idle'))
+    ? subagentRows(sessions, sessionId, t('badge.subagents.running'), t('badge.subagents.idle'), t('badge.subagents.completed'))
     : open === 'jobs'
       ? jobRows(sessionId === undefined ? undefined : jobs.rows[sessionId], t)
       : [];
@@ -163,6 +163,8 @@ function Badge({ kind, buttonRef, icon, count, label, panelId, open, onToggle }:
  * @param snapshot - session list snapshot.
  * @param sessionId - the owning session.
  * @param runningLabel - label for a running child.
+ * @param idleLabel - label when completion has not been established.
+ * @param completedLabel - label for a normally completed child.
  * @returns rows; a child with a session id is navigable.
  */
 export function subagentRows(
@@ -170,12 +172,21 @@ export function subagentRows(
   sessionId: string | undefined,
   runningLabel: string,
   idleLabel = 'idle',
+  completedLabel = 'completed',
 ): PanelRow[] {
   if (sessionId === undefined) return [];
   const entries = snapshot.projectionsBySession?.[sessionId]?.values.subagentCatalog ?? [];
   return entries.map(entry => {
-    const live = snapshot.byId?.[entry.id]?.running === true;
-    return { key: entry.id, label: entry.label ?? entry.id, live, sessionId: entry.id, meta: live ? runningLabel : idleLabel, tone: live ? 'live' : 'neutral' };
+    const summary = snapshot.byId?.[entry.id];
+    const live = summary?.running === true;
+    // Match the host: only a normally closed local turn proves completion.
+    // Running wins over a prior completed turn when a child is resumed.
+    const completed = !live && entry.mode !== 'external' && summary?.projectionValues?.subagentTiming?.lastTurnCompleted === true;
+    return {
+      key: entry.id, label: entry.label ?? entry.id, live, sessionId: entry.id,
+      meta: live ? runningLabel : completed ? completedLabel : idleLabel,
+      tone: live ? 'live' : completed ? 'success' : 'neutral',
+    };
   });
 }
 
