@@ -40,6 +40,9 @@
     "badge.job.completed": "已完成",
     "badge.job.failed": "失败",
     "badge.job.killed": "已终止",
-    "badge.empty": "暂无记录"
+    "badge.empty": "暂无记录",
+    "settings.swipe": "横滑开关侧栏",
+    "settings.rowActions": "触屏显示行操作",
+    "settings.quietFocus": "进入会话不弹键盘"
   }
 }

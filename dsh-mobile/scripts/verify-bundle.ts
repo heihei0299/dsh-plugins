@@ -78,9 +78,23 @@ const sandboxDocument = {
     return tag;
   },
   querySelector: () => null,
+  // The gesture and focus installers attach document listeners; the sandbox is a
+  // stand-in for a browser document, so it accepts and forgets them. There is no
+  // `HTMLElement` here, which is exactly the "no DOM" case the focus guard
+  // declares itself inert for.
+  addEventListener() {},
+  removeEventListener() {},
 };
 const form = {
-  getSnapshot: () => ({ status: 'ready', value: { mode: 'on', drawerNavigation: true, comfortableTargets: true }, writable: true, revision: 1 }),
+  getSnapshot: () => ({
+    status: 'ready',
+    value: {
+      mode: 'on', drawerNavigation: true, comfortableTargets: true,
+      swipeNavigation: true, rowActionsOnTouch: true, quietComposerFocus: true,
+    },
+    writable: true,
+    revision: 1,
+  }),
   subscribe: listener => { forms.add(listener); return () => { forms.delete(listener); }; },
   set: async () => true,
 };

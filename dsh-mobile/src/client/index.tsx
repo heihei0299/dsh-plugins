@@ -1,7 +1,7 @@
 import * as React from 'react';
 import en from '../../locale/en.json' with { type: 'json' };
 import zh from '../../locale/zh.json' with { type: 'json' };
-import { LOCALE_NS, SETTINGS_ID } from '../shared/types.js';
+import { LOCALE_NS, SETTINGS_ID, type MobileSettings } from '../shared/types.js';
 import { HEADER_LEADING_SLOT, OVERLAY_SLOT } from './landmarks.js';
 import { SETTINGS_STYLES } from './styles.js';
 import type { ClientContext, Disposer } from './contracts.js';
@@ -12,6 +12,8 @@ import {
 import { installStyles } from './install-styles.js';
 import { installViewport } from './install-viewport.js';
 import { installKeyboardInset } from './install-keyboard.js';
+import { installSwipeNavigation } from './install-gestures.js';
+import { installComposerFocusGuard } from './install-focus-guard.js';
 import { DrawerFallbackToggle, DrawerScrim, DrawerToggle } from './Drawer.js';
 import { Settings } from './Settings.js';
 import { StatusBadges } from './StatusBadges.js';
@@ -40,11 +42,21 @@ const HEADER_ACTIONS_SLOT_OPTIONS = { name: HEADER_ACTIONS_SLOT, id: 'dsh-mobile
  * @param settings - resolved settings for this activation.
  * @returns a disposer restoring the document exactly.
  */
-function activate(settings: { drawerNavigation: boolean; comfortableTargets: boolean }): Disposer {
+function activate(ctx: ClientContext, settings: MobileSettings): Disposer {
   const restoreStyles = installStyles({ ...settings });
   const restoreViewport = installViewport();
   const restoreKeyboard = installKeyboardInset();
-  return () => { restoreKeyboard(); restoreViewport(); restoreStyles(); };
+  // Both interaction layers are separate settings: each changes what a touch
+  // does, so each has to be reversible on its own.
+  const restoreGestures = settings.swipeNavigation ? installSwipeNavigation(ctx) : () => {};
+  const restoreFocusGuard = settings.quietComposerFocus ? installComposerFocusGuard() : () => {};
+  return () => {
+    restoreFocusGuard();
+    restoreGestures();
+    restoreKeyboard();
+    restoreViewport();
+    restoreStyles();
+  };
 }
 
 /** Browser half: mobile layout, drawer surface and the settings row. */
@@ -59,7 +71,7 @@ export function apply(ctx: ClientContext): void {
   // One reconciler owns every document-level write, so activation and
   // deactivation stay symmetric even when they interleave with a disposal.
   // Drawer open/closed changes are React-only and never reach this effect.
-  observeDocumentActivation(source, activate, factory => ctx.effect(factory));
+  observeDocumentActivation(source, settings => activate(ctx, settings), factory => ctx.effect(factory));
 
   // The settings row must stay styled while the layout is off — it is how the
   // user turns it back on — so its sheet lives for the plugin's lifetime.

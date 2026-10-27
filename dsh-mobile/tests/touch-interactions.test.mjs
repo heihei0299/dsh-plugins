@@ -64,7 +64,7 @@ test('the status popup opens under its icon, inside every viewport, and every ic
       const React = require('react');
       const components = new Map();
       const cleanups = [];
-      const snapshot = { status: 'ready', value: { mode: 'on', drawerNavigation: true, comfortableTargets: true }, writable: true, revision: 1 };
+      const snapshot = { status: 'ready', value: { mode: 'on', drawerNavigation: true, comfortableTargets: true, swipeNavigation: true, rowActionsOnTouch: true, quietComposerFocus: true }, writable: true, revision: 1 };
       const formListeners = new Set();
       const source = value => ({ getSnapshot: () => value, subscribe: () => () => {} });
       const locales = new Map();

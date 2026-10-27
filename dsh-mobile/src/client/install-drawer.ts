@@ -7,7 +7,19 @@ const TOGGLE = '.dsh-mobile-toggle';
 const FOCUSABLE = 'a[href],button,input,select,textarea,summary,[contenteditable="true"],[tabindex]';
 // Host menus/dialogs can be portalled outside the sidebar. Their own keyboard
 // and focus policies take precedence over the navigation drawer's policy.
-const OVERLAYS = '[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],dialog[open],[popover]';
+export const OVERLAYS = '[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],dialog[open],[popover]';
+
+/**
+ * Whether any host overlay is currently on screen.
+ *
+ * Membership of {@link OVERLAYS} is not enough: `[popover]` also matches a
+ * closed popover (this plugin's own status panel is one), so the answer is
+ * "painted right now", the same test the drawer's focus policy uses.
+ * @returns true when at least one matched element has a layout box.
+ */
+export function overlayOnScreen(): boolean {
+  return Array.from(document.querySelectorAll(OVERLAYS)).some(element => element.getClientRects().length > 0);
+}
 
 function attributes(element: HTMLElement, values: Record<string, string>): Disposer {
   const previous = Object.keys(values).map(name => [name, element.getAttribute(name)] as const);

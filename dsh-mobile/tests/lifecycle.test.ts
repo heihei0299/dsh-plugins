@@ -107,7 +107,7 @@ function useFrames(frames: ReturnType<typeof fakeFrames>): () => void {
 test('styles install and dispose symmetrically', () => {
   const dom = fakeDocument();
   globalThis.document = dom.document as unknown as Document;
-  const dispose = installStyles({ drawerNavigation: true, comfortableTargets: true });
+  const dispose = installStyles({ drawerNavigation: true, comfortableTargets: true, rowActionsOnTouch: true });
   assert.equal(dom.styles.size, 1);
   assert.equal(dom.attributes.get('data-dsh-mobile'), 'drawer');
   const tag = [...dom.styles][0] as { text: string };
@@ -120,7 +120,7 @@ test('styles install and dispose symmetrically', () => {
 test('rail mode records a different root state than drawer mode', () => {
   const dom = fakeDocument();
   globalThis.document = dom.document as unknown as Document;
-  const dispose = installStyles({ drawerNavigation: false, comfortableTargets: false });
+  const dispose = installStyles({ drawerNavigation: false, comfortableTargets: false, rowActionsOnTouch: false });
   assert.equal(dom.attributes.get('data-dsh-mobile'), 'rail');
   dispose();
   assert.equal(dom.attributes.size, 0);

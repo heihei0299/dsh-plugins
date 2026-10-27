@@ -90,11 +90,11 @@ test('global panels keep a navigation entry without duplicating the conversation
   }
 });
 
-test('settings exposes all three fields and the current values', () => {
-  snapshot = { status: 'ready', value: { mode: 'off', drawerNavigation: false, comfortableTargets: true }, writable: true, revision: 3 };
+test('settings exposes every field and the current values', () => {
+  snapshot = { status: 'ready', value: { ...DEFAULT_SETTINGS, mode: 'off', drawerNavigation: false }, writable: true, revision: 3 };
   const html = render(<Settings />, false, undefined, true);
   assert.match(html, /Mobile experience/);
-  assert.equal(html.match(/<select/g)?.length, 3);
+  assert.equal(html.match(/<select/g)?.length, Object.keys(DEFAULT_SETTINGS).length);
   assert.match(html, /<option value="off" selected="">Off<\/option>/);
   assert.doesNotMatch(html, /<option value="on" selected="">Off<\/option>/);
 });
@@ -102,11 +102,11 @@ test('settings exposes all three fields and the current values', () => {
 test('read-only and unavailable settings disable every control and say why', () => {
   snapshot = { status: 'ready', value: { ...DEFAULT_SETTINGS }, writable: false, revision: 1 };
   const readOnly = render(<Settings />, false, undefined, true);
-  assert.equal(readOnly.match(/disabled=""/g)?.length, 3);
+  assert.equal(readOnly.match(/disabled=""/g)?.length, Object.keys(DEFAULT_SETTINGS).length);
   assert.match(readOnly, /read-only/);
   snapshot = { status: 'unavailable', value: undefined, writable: false, revision: undefined };
   const unavailable = render(<Settings />, false, undefined, true);
-  assert.equal(unavailable.match(/disabled=""/g)?.length, 3);
+  assert.equal(unavailable.match(/disabled=""/g)?.length, Object.keys(DEFAULT_SETTINGS).length);
   assert.match(unavailable, /serves no mobile settings/);
   snapshot = { status: 'loading', value: undefined, writable: false, revision: undefined };
   assert.match(render(<Settings />, false, undefined, true), /Reading this profile/);

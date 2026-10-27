@@ -52,6 +52,24 @@ export function Settings() {
         <option value="off">{t('settings.off')}</option>
       </select>
     </label>
+    <label className="dsh-mobile-setting-row"><span>{t('settings.swipe')}</span>
+      <select disabled={disabled} value={value?.swipeNavigation === false ? 'off' : 'on'} onChange={event => { void set('swipeNavigation', event.currentTarget.value === 'on'); }}>
+        <option value="on">{t('settings.on')}</option>
+        <option value="off">{t('settings.off')}</option>
+      </select>
+    </label>
+    <label className="dsh-mobile-setting-row"><span>{t('settings.rowActions')}</span>
+      <select disabled={disabled} value={value?.rowActionsOnTouch === false ? 'off' : 'on'} onChange={event => { void set('rowActionsOnTouch', event.currentTarget.value === 'on'); }}>
+        <option value="on">{t('settings.on')}</option>
+        <option value="off">{t('settings.off')}</option>
+      </select>
+    </label>
+    <label className="dsh-mobile-setting-row"><span>{t('settings.quietFocus')}</span>
+      <select disabled={disabled} value={value?.quietComposerFocus === false ? 'off' : 'on'} onChange={event => { void set('quietComposerFocus', event.currentTarget.value === 'on'); }}>
+        <option value="on">{t('settings.on')}</option>
+        <option value="off">{t('settings.off')}</option>
+      </select>
+    </label>
     {(pending || notice !== null || state.status !== 'ready' || !state.writable) &&
       <p role="status" className={notice === null ? 'dsh-mobile-caption' : 'dsh-mobile-error'}>
         {t(pending ? 'settings.saving' : notice ?? (state.status === 'loading' ? 'settings.loading' : 'settings.unavailable'))}

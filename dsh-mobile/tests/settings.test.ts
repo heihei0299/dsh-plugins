@@ -5,10 +5,14 @@ import { DEFAULT_SETTINGS, NARROW_BREAKPOINT, readSettings, resolveEnabled, type
 
 test('the Host schema defaults and readSettings share one source', () => {
   const config = (Config as unknown as (value: object) => Record<keyof MobileSettings, { get(): unknown }>)({});
-  for (const field of ['mode', 'drawerNavigation', 'comfortableTargets'] as const) {
+  const fields = ['mode', 'drawerNavigation', 'comfortableTargets', 'swipeNavigation', 'rowActionsOnTouch', 'quietComposerFocus'] as const;
+  for (const field of fields) {
     assert.equal(config[field].get(), DEFAULT_SETTINGS[field], `${field} schema default`);
     assert.equal(readSettings(undefined)[field], DEFAULT_SETTINGS[field], `${field} readSettings fallback`);
   }
+  // Every declared field is covered above, so a new setting cannot ship with an
+  // untested default.
+  assert.deepEqual([...fields].sort(), Object.keys(DEFAULT_SETTINGS).sort());
 });
 
 test('readSettings falls back to defaults instead of trusting the wire', () => {
@@ -20,8 +24,15 @@ test('readSettings falls back to defaults instead of trusting the wire', () => {
   assert.equal(readSettings({ mode: 42 }).mode, 'auto');
   assert.equal(readSettings({ drawerNavigation: 'yes' }).drawerNavigation, true);
   assert.equal(readSettings({ comfortableTargets: 0 }).comfortableTargets, true);
+  assert.equal(readSettings({ swipeNavigation: 'no' }).swipeNavigation, true);
+  assert.equal(readSettings({ rowActionsOnTouch: null }).rowActionsOnTouch, true);
+  assert.equal(readSettings({ quietComposerFocus: 1 }).quietComposerFocus, true);
   assert.deepEqual(readSettings({ mode: 'off', drawerNavigation: false, comfortableTargets: false }), {
     mode: 'off', drawerNavigation: false, comfortableTargets: false,
+    swipeNavigation: true, rowActionsOnTouch: true, quietComposerFocus: true,
+  });
+  assert.deepEqual(readSettings({ swipeNavigation: false, rowActionsOnTouch: false, quietComposerFocus: false }), {
+    ...DEFAULT_SETTINGS, swipeNavigation: false, rowActionsOnTouch: false, quietComposerFocus: false,
   });
 });
 

@@ -1,6 +1,7 @@
 import {
   CENTER_COLUMN, COLUMN_HANDLES, COMPOSER_BUTTONS, COMPOSER_DOCK, COMPOSER_DOCK_BUTTONS, COMPOSER_INPUT, CONVERSATION_HEADER, CONVERSATION_SCROLL,
   FRAME, HEADER_ACTIONS, MESSAGE_ACTIONS, RIGHTBAR_COLUMN, SIDEBAR_COLUMN, SIDEBAR_COLUMN_OF_FRAME,
+  SIDEBAR_ROW_ACTION_BUTTON, SIDEBAR_ROW_ACTIONS,
   SETTINGS_CONTENT, SETTINGS_HEADER, SETTINGS_LIST_HEAD, SETTINGS_NAV, SETTINGS_NAV_LIST, SETTINGS_NAV_TAB,
   SETTINGS_NAV_TITLE, SETTINGS_OPTIONS, SETTINGS_PANEL, TABLE_WRAPPER, WIDE_TABLE, BADGES_ATTRIBUTE,
 } from './landmarks.js';
@@ -37,6 +38,8 @@ export interface StyleOptions {
   drawerNavigation: boolean;
   /** Raise small icon controls to TAP_TARGET. */
   comfortableTargets: boolean;
+  /** Reveal the host's hover-only row actions and grow their hit area. */
+  rowActionsOnTouch: boolean;
 }
 
 /**
@@ -152,6 +155,27 @@ export function buildStyles(options: StyleOptions): string {
     // the header from 76px to 95px on a 390px screen — a permanent 19px loss of
     // transcript against ~4 tap targets that sit in a row the user taps rarely.
     rules.push(`${scope} ${COMPOSER_BUTTONS},${scope} ${COMPOSER_DOCK_BUTTONS},${scope} ${MESSAGE_ACTIONS}{min-width:${target};min-height:${target}}`);
+  }
+
+  if (options.rowActionsOnTouch) {
+    // The host reveals a row's action band on `:hover` (verified in ui-workspace
+    // 0.2.1-rc.2: `.rowActions{display:none}` plus a `:hover` rule and the row's
+    // own `menuOpen` class). A touch screen never hovers, so rename / fork /
+    // archive — and a workspace's new-session button — are unreachable on a
+    // phone. Show the band while the mobile layout is active. No escalation is
+    // needed: this selector is more specific than the host's single class.
+    //
+    // The long-press gesture the source implementation uses is deliberately NOT
+    // ported: this host opens a session hover card after 800ms of contact
+    // (ui-workspace passes openDelayMs:800 to HoverCard, whose pointerenter
+    // handler does not filter touch), so a long press already means "preview".
+    // Revealing the control keeps one gesture meaning one thing.
+    rules.push(`${scope} ${SIDEBAR_ROW_ACTIONS}{display:inline-flex}`);
+    // Grow the hit area without changing the row height: the host's ellipsis is
+    // a 20px icon in a 32/34px row, and resizing the box would push the rows
+    // taller. The pseudo-element only extends where the row has no other control.
+    rules.push(`${scope} ${SIDEBAR_ROW_ACTION_BUTTON}{position:relative}`);
+    rules.push(`${scope} ${SIDEBAR_ROW_ACTION_BUTTON}::after{content:"";position:absolute;inset:-8px -12px}`);
   }
 
   // Include the resident contenteditable composer, not just native form fields.

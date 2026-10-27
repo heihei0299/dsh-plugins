@@ -9,6 +9,12 @@ export interface MobileSettings {
   drawerNavigation: boolean;
   /** Raise small icon controls to a 44px touch target. */
   comfortableTargets: boolean;
+  /** Open the drawer with a right swipe and close it with a left swipe. */
+  swipeNavigation: boolean;
+  /** Reveal the host's hover-only session/workspace row actions as touch targets. */
+  rowActionsOnTouch: boolean;
+  /** Refuse a programmatic composer focus that would pop the on-screen keyboard. */
+  quietComposerFocus: boolean;
 }
 
 /** Host plugin entry id, also the ConfigForm id the browser reads. */
@@ -24,6 +30,9 @@ export const DEFAULT_SETTINGS: Readonly<MobileSettings> = Object.freeze({
   mode: 'auto',
   drawerNavigation: true,
   comfortableTargets: true,
+  swipeNavigation: true,
+  rowActionsOnTouch: true,
+  quietComposerFocus: true,
 });
 
 /**
@@ -36,10 +45,15 @@ export const DEFAULT_SETTINGS: Readonly<MobileSettings> = Object.freeze({
 export function readSettings(value: unknown): MobileSettings {
   const section = value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
   const mode = section.mode;
+  const flag = (field: 'drawerNavigation' | 'comfortableTargets' | 'swipeNavigation' | 'rowActionsOnTouch' | 'quietComposerFocus'): boolean =>
+    typeof section[field] === 'boolean' ? section[field] as boolean : DEFAULT_SETTINGS[field];
   return {
     mode: mode === 'on' || mode === 'off' || mode === 'auto' ? mode : DEFAULT_SETTINGS.mode,
-    drawerNavigation: typeof section.drawerNavigation === 'boolean' ? section.drawerNavigation : DEFAULT_SETTINGS.drawerNavigation,
-    comfortableTargets: typeof section.comfortableTargets === 'boolean' ? section.comfortableTargets : DEFAULT_SETTINGS.comfortableTargets,
+    drawerNavigation: flag('drawerNavigation'),
+    comfortableTargets: flag('comfortableTargets'),
+    swipeNavigation: flag('swipeNavigation'),
+    rowActionsOnTouch: flag('rowActionsOnTouch'),
+    quietComposerFocus: flag('quietComposerFocus'),
   };
 }
 

@@ -48,6 +48,32 @@ export const SIDEBAR_COLUMN_OF_FRAME = '> div:has(> [data-slot="sidebar"])';
 /** Column-resize handles; unusable on touch and unnecessary once the rail is a drawer. */
 export const COLUMN_HANDLES = '[data-slot="root"] > div > [data-side]';
 
+/**
+ * The row's action band: the ellipsis menu plus whatever the row-action slot
+ * renders. It is the row's LAST child, and the host ships it as
+ * `display:none` until the row is hovered or its menu is open — a state a
+ * touch screen never produces, which is why this plugin reveals it.
+ *
+ * `data-row-key` (session:<id> / workspace:<key>) is written by the host's
+ * workspace tree on the row element itself and is what its own drag-and-drop
+ * and reveal logic addresses rows by, so it survives the class-name churn that
+ * hashed CSS modules produce.
+ *
+ * `:has(> button)` is what keeps the rule honest: a row the host renders
+ * without any trailing control (a blank placeholder row, whose last child is
+ * its title) does not match, so nothing outside the action band is restyled.
+ */
+export const SIDEBAR_ROW_ACTIONS = '[data-slot="sidebar"] [data-row-key] > span:last-child:has(> button)';
+
+/**
+ * The touch target inside that band.
+ *
+ * The menu anchor is the band's first button; when the host omits the menu
+ * (a row the user may not rename or delete) the same position holds the
+ * workspace's new-session button, which is a control just as worth tapping.
+ */
+export const SIDEBAR_ROW_ACTION_BUTTON = `${SIDEBAR_ROW_ACTIONS} > button`;
+
 /** Conversation header (`<header>`) inside its root-scoped slot. */
 export const CONVERSATION_HEADER = '[data-slot="conversation.header"] > header';
 
@@ -164,6 +190,8 @@ export const HOST_LANDMARKS: readonly { readonly name: string; readonly selector
   { name: 'composer editing surface', selector: COMPOSER_INPUT },
   { name: 'message actions', selector: MESSAGE_ACTIONS },
   { name: 'conversation scrollport', selector: CONVERSATION_SCROLL },
+  { name: 'sidebar row actions', selector: SIDEBAR_ROW_ACTIONS },
+  { name: 'sidebar row action button', selector: SIDEBAR_ROW_ACTION_BUTTON },
   { name: 'wide markdown table', selector: WIDE_TABLE },
 ]);
 

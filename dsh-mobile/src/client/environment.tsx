@@ -38,7 +38,10 @@ function sameSettings(a: MobileSettings | undefined, b: MobileSettings | undefin
   if (a === undefined || b === undefined) return false;
   return a.mode === b.mode
     && a.drawerNavigation === b.drawerNavigation
-    && a.comfortableTargets === b.comfortableTargets;
+    && a.comfortableTargets === b.comfortableTargets
+    && a.swipeNavigation === b.swipeNavigation
+    && a.rowActionsOnTouch === b.rowActionsOnTouch
+    && a.quietComposerFocus === b.quietComposerFocus;
 }
 
 /**
@@ -138,8 +141,11 @@ export function createActivationSource(form: ConfigForm, attach: (factory: () =>
  * Whether two snapshots need the same document-level installation.
  *
  * Drawer open/closed is deliberately absent: it only changes what React paints,
- * not the stylesheet, viewport meta or keyboard listener. `mode` is absent too,
- * because it has already done its job by deciding `active`.
+ * not the stylesheet, viewport meta, keyboard listener, gesture listeners or the
+ * focus patch. `mode` is absent too, because it has already done its job by
+ * deciding `active`. Every other field names something the installed effects are
+ * built from — including the two interaction switches, which own listeners and a
+ * prototype patch of their own and therefore must be rebuilt when they move.
  * @param a - the snapshot the document was built from.
  * @param b - the snapshot React just observed.
  * @returns true when the installed effects can stay untouched.
@@ -148,7 +154,10 @@ function sameDocumentEffects(a: ActivationState, b: ActivationState): boolean {
   if (a.active !== b.active) return false;
   if (!a.active) return true;
   return a.settings?.drawerNavigation === b.settings?.drawerNavigation
-    && a.settings?.comfortableTargets === b.settings?.comfortableTargets;
+    && a.settings?.comfortableTargets === b.settings?.comfortableTargets
+    && a.settings?.rowActionsOnTouch === b.settings?.rowActionsOnTouch
+    && a.settings?.swipeNavigation === b.settings?.swipeNavigation
+    && a.settings?.quietComposerFocus === b.settings?.quietComposerFocus;
 }
 
 /**

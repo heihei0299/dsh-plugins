@@ -5,11 +5,12 @@ import {
 } from '../src/client/styles.js';
 import {
   SETTINGS_HEADER, SETTINGS_LIST_HEAD, SETTINGS_NAV_LIST, SETTINGS_NAV_TAB, SETTINGS_OPTIONS, SETTINGS_PANEL,
+  SIDEBAR_ROW_ACTION_BUTTON, SIDEBAR_ROW_ACTIONS,
 } from '../src/client/landmarks.js';
 import { NARROW_BREAKPOINT } from '../src/shared/types.js';
 
-const full = buildStyles({ drawerNavigation: true, comfortableTargets: true });
-const plain = buildStyles({ drawerNavigation: false, comfortableTargets: false });
+const full = buildStyles({ drawerNavigation: true, comfortableTargets: true, rowActionsOnTouch: true });
+const plain = buildStyles({ drawerNavigation: false, comfortableTargets: false, rowActionsOnTouch: false });
 
 const narrowMedia = `@media (max-width:${NARROW_BREAKPOINT}px)`;
 
@@ -307,4 +308,24 @@ test('settings styles are keyed by this plugin only', () => {
   for (const selector of selectors) {
     assert.ok(selector.startsWith('.dsh-mobile-'), `settings selector escapes the plugin prefix: ${selector}`);
   }
+});
+
+test('row actions are revealed by specificity, and only when asked for', () => {
+  // The host ships the band as `display:none` plus a `:hover` rule, so the
+  // plugin's selector has to outrank a single class — not fight the inline
+  // style layer with !important.
+  const band = cssRule(full, `html[data-dsh-mobile] ${SIDEBAR_ROW_ACTIONS}`);
+  assert.match(band, /display:inline-flex/);
+  assert.doesNotMatch(band, /!important/);
+
+  // A taller button would grow the 32/34px host rows, so the hit area grows
+  // through a pseudo-element instead.
+  const button = cssRule(full, `html[data-dsh-mobile] ${SIDEBAR_ROW_ACTION_BUTTON}`);
+  assert.match(button, /position:relative/);
+  const hitArea = cssRule(full, `html[data-dsh-mobile] ${SIDEBAR_ROW_ACTION_BUTTON}::after`);
+  assert.match(hitArea, /position:absolute;inset:-8px -12px/);
+  assert.doesNotMatch(full, /min-height:44px[^}]*side-row/, 'row actions must not resize the row');
+
+  // Turning the setting off leaves the host's hover behaviour exactly as shipped.
+  assert.doesNotMatch(plain, /data-row-key/);
 });

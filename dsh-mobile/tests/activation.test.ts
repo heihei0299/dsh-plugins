@@ -252,7 +252,7 @@ test('drawer changes wake React without reinstalling document effects', (t) => {
   assert.deepEqual(log, ['install:true:true', 'dispose']);
 });
 
-test('only style-affecting settings rebuild the document effects', (t) => {
+test('only settings the installed effects are built from rebuild them', (t) => {
   const h = createHarness();
   t.after(h.cleanup);
   const log: string[] = [];
@@ -273,6 +273,20 @@ test('only style-affecting settings rebuild the document effects', (t) => {
   assert.deepEqual(log, [
     'install:true:true', 'dispose', 'install:false:true', 'dispose', 'install:false:false',
   ]);
+
+  // The interaction switches own document listeners and a prototype patch too,
+  // so moving either one has to rebuild the installed set.
+  h.form.publish({ ...DEFAULT_SETTINGS, drawerNavigation: false, comfortableTargets: false, swipeNavigation: false });
+  assert.equal(renders, 4);
+  assert.deepEqual(log.slice(-2), ['dispose', 'install:false:false']);
+  h.form.publish({ ...DEFAULT_SETTINGS, drawerNavigation: false, comfortableTargets: false, swipeNavigation: false, quietComposerFocus: false });
+  assert.equal(renders, 5);
+  assert.deepEqual(log.slice(-2), ['dispose', 'install:false:false']);
+
+  // Row-action CSS is part of the stylesheet, so it rebuilds as well.
+  h.form.publish({ ...DEFAULT_SETTINGS, drawerNavigation: false, rowActionsOnTouch: false });
+  assert.equal(renders, 6);
+  assert.deepEqual(log.slice(-2), ['dispose', 'install:false:true']);
 
   disposeEffects();
   assert.equal(log.at(-1), 'dispose');
