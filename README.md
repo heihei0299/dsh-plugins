@@ -10,7 +10,7 @@ DeepSeek Harness（DSH）插件集合。每个子目录是一个可独立装入 
 | [dsh-mobile](<dsh-mobile/README.md>) | `@local/dsh-mobile`（private） | 0.2.0 | 移动端布局与触控优化：侧栏抽屉、横滑开关抽屉、会话行操作触屏可达、设置面板重排、44px 触控目标、宽表格横滑、软键盘与进入会话不弹键盘；桌面端不受影响 | Host + Web Client 双端插件，需构建 |
 | [dsh-smartui](<dsh-smartui/README.md>) | `@local/dsh-smartui`（private） | 0.1.3 | ChatGPT 风格外观 + 对话内安全声明式组件（卡片/表格/图表/表单/选项） | Host + Web Client 双端插件，需构建 |
 | [dsh-lan-connect](<dsh-lan-connect/README.md>) | `@local/dsh-lan-connect`（private） | 0.1.0 | 在现有 Web 服务的同一端口增加固定 `/lan` 入口，让局域网设备用原生认证登录；链接与二维码不含 token | Host + Web Client 双端插件，仅需构建 client |
-| [dsh-history-budget](<dsh-history-budget/README.md>) | `@local/dsh-history-budget`（private） | 0.2.0 | 按编码字节预算裁剪会话首帧与历史页，长 goal 回合或大工具输出不再整帧几 MB；被裁记录由原生「加载更早」取回，并修复加载后看不见、首次点击空转 | Host + Web Client 双端插件 bundle（纯 JS，无依赖，无需构建） |
+| [dsh-history-budget](<dsh-history-budget/README.md>) | `@local/dsh-history-budget`（private） | 0.2.0 | 按编码字节预算裁剪会话首帧与历史页，长 goal 回合或大工具输出不再整帧几 MB；被裁记录由原生「加载更早」取回 | 纯 Host 插件 bundle（纯 JS，无依赖，无需构建） |
 
 前四者共用 `@deepseek-ai/cordis ~4.0.5`，`dsh-history-budget` 无运行时依赖；五者均要求 Node.js ≥ 22。`pin-subagent-model` 另以 `@deepseek-ai/schemastery ~3.18.5` 声明 Host 配置 schema；五个插件均针对 DSH `0.2.1-rc.2`。
 
@@ -49,7 +49,6 @@ dsh-plugins/
 │   └── test/               # Host / Client / bundle / 原生内存集成
 └── dsh-history-budget/
     ├── index.js            # Host 侧：替换 follow/page，按字节预算裁剪
-    ├── client.js           # Client 侧：还原「加载更早」的滚动位置 + 一次重试
     ├── src/budget.js       # 纯函数：保留最新的、能放进预算的记录后缀
     ├── cordis.patch.yml    # bundle 层：插入 entry `history-budget`
     ├── locale/             # 插件管理卡片的中英文标题与说明
@@ -150,7 +149,7 @@ bundle 层只注册 entry `history-budget`，预算由 profile 配置提供（�
     log: false          # 每次裁剪输出一行诊断
 ```
 
-Host 半只在挂载期间替换存活 `sessionController` 的 `follow` 与 `page`：首帧保留最新的、能放进预算的记录后缀并置 `hasMore: true`，`cursor` / `projections` / `assistantStream` 不动，WebUI 的「加载更早」仍从原生 `session/page` 取回被裁记录。Client 半修复一个原生交互缺陷：新页被 prepend 到视口上方后，滚动锚定会让屏幕停在原处（看起来"没加载"），它把 `scrollTop` 还原到点击位置直接显示新内容；若首次点击整页被静默丢弃，还会做一次有界重试。单条记录超过预算时仍整条发出，不截断内容。0.2.0 起包含 Web Client 半：从 0.1.x 升级后需**重启一次 dsh 并刷新页面**，运行中的宿主才会发现新的 client bundle。详见 [插件文档](<dsh-history-budget/README.md>)。
+Host 半只在挂载期间替换存活 `sessionController` 的 `follow` 与 `page`：首帧保留最新的、能放进预算的记录后缀并置 `hasMore: true`，`cursor` / `projections` / `assistantStream` 不动，WebUI 的「加载更早」仍从原生 `session/page` 取回被裁记录。单条记录超过预算时仍整条发出，不截断内容。当前版本不包含 Web Client 半：插件不合成点击、不写 `scrollTop`，原生「加载更早」的手动分页、分页游标与宿主滚动锚定保持原样；此前按按钮文字重试和按高度还原滚动位置的增强已移除。若从含客户端半边的旧版本升级，建议**重启一次 dsh 并刷新页面**，让 Loader 重新读取包清单，避免继续解析已移除的 client 入口。详见 [插件文档](<dsh-history-budget/README.md>)。
 
 ## 开发约定
 

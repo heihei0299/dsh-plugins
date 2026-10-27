@@ -18,10 +18,11 @@ test("bundle patch inserts the entry the package exports", () => {
 	assert.match(patch, /- insert:\n {4}- id: history-budget\n {6}name: '@local\/dsh-history-budget'\n$/);
 });
 
-test("ships the browser half that reveals the pager's page", () => {
-	assert.equal(manifest.dsh?.client?.platform, "web");
-	assert.equal(manifest.exports?.["./client"], "./client.js");
-	assert.ok(existsSync(path.join(root, "client.js")), "the declared client entry must exist");
+test("ships no browser half: the pager enhancements were removed, not repaired", () => {
+	assert.equal(manifest.dsh?.client, undefined, "a host-only bundle declares no client half");
+	assert.equal(manifest.exports?.["./client"], undefined, "the loader must resolve no client entry");
+	assert.ok(!(manifest.files ?? []).includes("client.js"), "the packed file list must not name a client bundle");
+	assert.ok(!existsSync(path.join(root, "client.js")), "no client bundle may be left behind");
 });
 
 test("exports the host entry the loader resolves", () => {
