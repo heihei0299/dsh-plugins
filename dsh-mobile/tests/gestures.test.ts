@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { COLLAPSED_ATTRIBUTE, FRAME } from '../src/client/landmarks.js';
+import { COLLAPSED_ATTRIBUTE, FRAME, SIDEBAR_COLUMN } from '../src/client/landmarks.js';
 import { OVERLAYS } from '../src/client/install-drawer.js';
 import {
   SWIPE_MIN_PX, SWIPE_SLOPE, insideHorizontalScroller, installSwipeNavigation, swipeAction,
@@ -28,6 +28,14 @@ class FakeElement {
   getAttribute(name: string): string | null { return this.attributes.get(name) ?? null; }
   hasAttribute(name: string): boolean { return this.attributes.has(name); }
   closest(_selector: string): FakeElement | null { return this.owner; }
+  contains(node: FakeElement | null): boolean {
+    let current: FakeElement | null = node;
+    while (current !== null) {
+      if (current === this) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
 
   /** A painted box is what `overlayOnScreen` counts, so `class="open"` paints. */
   getClientRects(): object[] {
@@ -58,15 +66,20 @@ interface FakeTouchEvent {
   target: FakeElement;
 }
 
-function createWorld(options: { collapsed: boolean; body?: FakeElement; overlays?: FakeElement[] }) {
+function createWorld(options: { collapsed: boolean; body?: FakeElement; overlays?: FakeElement[]; sidebar?: FakeElement }) {
   const body = options.body ?? new FakeElement('body');
   const frame = new FakeElement('div');
+  const sidebar = options.sidebar ?? new FakeElement('div');
   if (options.collapsed) frame.setAttribute(COLLAPSED_ATTRIBUTE, '');
   const listeners = new Map<string, Set<(event: unknown) => void>>();
   const document = {
     body,
     get activeElement() { return null; },
-    querySelector(selector: string) { return selector === FRAME ? frame : null; },
+    querySelector(selector: string) {
+      if (selector === FRAME) return frame;
+      if (selector === SIDEBAR_COLUMN) return sidebar;
+      return null;
+    },
     querySelectorAll(selector: string) { return selector === OVERLAYS ? options.overlays ?? [] : []; },
     addEventListener(type: string, listener: (event: unknown) => void) {
       const set = listeners.get(type) ?? new Set<(event: unknown) => void>();
@@ -81,7 +94,7 @@ function createWorld(options: { collapsed: boolean; body?: FakeElement; overlays
   };
   let toggles = 0;
   const ctx = { layout: { toggleSidebar() { toggles += 1; } } } as unknown as ClientContext;
-  return { body, frame, document, ctx, get toggles() { return toggles; } };
+  return { body, frame, sidebar, document, ctx, get toggles() { return toggles; } };
 }
 
 /** One finger down and up, in the shape a browser delivers them. */
@@ -169,6 +182,29 @@ test('vertical drags, multi-finger touches and owned controls never navigate', (
   world.document.fire('touchend', pair.up);
 
   assert.equal(world.toggles, 0);
+  dispose();
+});
+
+test('the open drawer is itself a host popover and must not block its own close gesture', (t) => {
+  // Measured in the live host: the narrow layout renders the sidebar column with
+  // a `popover` attribute, so a naive overlay guard would refuse every gesture
+  // while the drawer is open — including the left swipe that closes it.
+  const sidebar = new FakeElement('div');
+  sidebar.setAttribute('popover', 'manual');
+  sidebar.setAttribute('class', 'open');
+  const row = new FakeElement('div');
+  row.parentElement = sidebar;
+  const world = createWorld({ collapsed: false, sidebar, overlays: [sidebar] });
+  t.after(installGlobals({
+    document: world.document,
+    Element: FakeElement,
+    getComputedStyle: () => ({ overflowX: 'visible' }),
+  }));
+  const dispose = installSwipeNavigation(world.ctx);
+  const { down, up } = gesture({ x: 280, y: 400 }, { x: 40, y: 400 }, row);
+  world.document.fire('touchstart', down);
+  world.document.fire('touchend', up);
+  assert.equal(world.toggles, 1, 'a left swipe on the open drawer still closes it');
   dispose();
 });
 

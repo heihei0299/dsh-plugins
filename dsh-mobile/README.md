@@ -57,7 +57,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 | 效果 | 实现 | 关键取舍 |
 |---|---|---|
 | 横滑开关抽屉 | 触摸结束时判定：水平位移 ≥60px 且 ≥1.5 倍垂直位移 | 在 release 时才探测「是否在横滑容器内」，避免每次点按/滚动都触发布局计算；多指、取消、已打开弹层一律不响应 |
-| 会话行 / 工作区行操作可达 | 插件激活期间让宿主的行操作条常驻，并用伪元素把省略号命中区扩到 40×36 | 宿主的行操作只在 `:hover` 出现，手机上因此完全不可达；用选择器特异性获胜，不引入 `!important`，也不改变行高 |
+| 会话行 / 工作区行操作可达 | 插件激活期间让宿主的行操作条常驻，并用伪元素把按钮命中区向外扩 12×8（实测 16px 图标 → 40×32） | 宿主的行操作只在 `:hover` 出现，手机上因此完全不可达；用选择器特异性获胜，不引入 `!important`，也不改变行高 |
 | 会话打开不弹键盘 | 拦截 `HTMLElement.prototype.focus`：输入区编辑面在没有 3 秒内真实点按的情况下拒绝聚焦 | 只在移动层激活期间生效，退出时按函数身份还原；其他插件后装的补丁不会被移除 |
 
 **没有移植的部分及原因**（都在本机宿主上逐条核对过已原生解决，或会与宿主行为冲突）：
@@ -88,6 +88,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 - 390×844 实测头部：原始 90px，本插件 83.5px（32px 抽屉按钮 + 6px 标签行留白）。
 - **抽屉宽度取 `min(86vw, 320px)`**，不使用宿主拖拽出的宽度偏好。
 - **横滑判定在触摸结束时进行**，阈值是 60px 水平位移且至少 1.5 倍于垂直位移；多指接触、`touchcancel`、起点在输入框/插件自身控件上、终点处于横滑容器内，或当前有宿主弹层时都不触发。横滑容器在 release 时才用计算样式 + `scrollWidth` 判定（提前判定会让每次点按都触发布局计算）；判定依据是容器当前确实可横滑，不可横滑的容器不会吞掉手势。
+  - 宿主在窄屏把**侧栏列本身**渲染成 `popover` 元素（`pI_x6G_sidebarCol` 带 `popover` 属性）。因此「有弹层就不响应」的判定必须排除抽屉自身，否则抽屉一打开、左滑收起就会被自己挡住——这一点是在活体校验里发现的，不是推测。
 - **行操作常驻按结构定位**：`[data-slot="sidebar"] [data-row-key] > span:last-child`。宿主的行把操作条作为**最后一个子 span**，其第一个按钮就是省略号菜单；宿主若在行尾追加新的 span，这条规则会指向错误元素，需要按届时结构更新地标。隐藏宿主徽标与这里无关，两者互不影响。
 - **行操作常驻会占掉标题宽度**：手机抽屉宽 320px 时标题会在原基础上再短约 20px（与宿主机上悬停时的布局一致），换来的是重命名 / fork / 归档在触屏上可达。
 - **聚焦拦截是全局 prototype 补丁**：只在移动层激活期间安装，退出时按函数身份还原；3 秒窗口从「点按输入卡片」开始计时，因此点按发送按钮后的重新聚焦、以及点按卡片空白处聚焦编辑器都照常工作。副作用是：其他插件在手机上对编辑器发起的自动聚焦（例如把草稿填回输入框）同样会被拦下，用户需要先点一下输入框。
@@ -128,6 +129,20 @@ node scripts/browser-probe.mjs http://127.0.0.1:9222 --viewport 390x844 --touch 
 产物是 DSH Host ESM + `window.__ModuleLoader__` 惰性 Client factory；React 从宿主模块表取。Client 不运行时 import 任何 DSH Client 内部包。
 
 所有构建、测试与安装都需要针对当前任务单独授权。
+
+## 活体验证记录（2026-10-28）
+
+在隔离实例（`DSH_HOME=/tmp/dsh-mobile-probe`，`dsh plugin add link:…/dsh-mobile`，端口 50144，不连接任何用户会话）上，用 Chrome CDP 以 **390×844 / mobile / touch** 运行真实插件产物：
+
+| 检查 | 方法 | 结果 |
+|---|---|---|
+| 激活 | `Emulation.setDeviceMetricsOverride` + `setTouchEmulationEnabled`，读根属性与样式表 | `data-dsh-mobile=drawer`、两块样式表在、`grid-template-columns: 0px 390px 0px`、`frame` 高 844 |
+| 横滑开关抽屉 | `Input.dispatchTouchEvent` 真实触摸：右滑 300px / 左滑 240px / 纵向拖动 / 35px 轻推 | 右滑展开、左滑（从抽屉内起手）收起、纵向与轻推均不动作 |
+| 会话打开不弹键盘 | 先 `editor.focus()` 再真实点按输入卡片后 `editor.focus()` | 未点按时拒绝（`activeElement` 不是编辑面），点按后允许 |
+| 行操作可达 | 打开抽屉测量工作区行 | 操作条 `display:flex`、按钮 `position:relative`、`::after` 命中区外扩 12×8；空白会话行不含按钮，规则正确地不匹配 |
+| 硬关闭 | `mode=off` 后重载 | 根属性、移动样式表、抽屉按钮、键盘 inset 变量全部撤销，`meta[viewport]` 复原为 `width=device-width, initial-scale=1`，程序化聚焦恢复、横滑不再响应 |
+
+未覆盖：真实 iOS/Android 手势管线（`Input.dispatchTouchEvent` 不等价于真实触摸滚动竞争）、会话行（非空白）的操作菜单、以及登录态 GUI 的端到端验收——隔离实例无凭据、真实 GUI 匿名 401。`scripts/browser-probe.mjs --verify --expect conversation` 在该隔离实例上仅因 `header-actions` 缺失失败：该实例处在「新会话」页，宿主不渲染会话头部的动作槽，与本插件无关。
 
 ## License
 

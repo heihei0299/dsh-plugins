@@ -66,10 +66,11 @@ export const PROBE_LANDMARKS = Object.freeze([
   { key: 'sidebar-column', name: 'sidebar column', selector: '[data-slot="root"] > div > div:has(> [data-slot="sidebar"])', when: 'sidebar' },
   { key: 'center-column', name: 'centre column', selector: '[data-slot="root"] > div > div:has(> [data-slot="main"])', when: 'main' },
   { key: 'rightbar-column', name: 'rightbar column', selector: '[data-slot="root"] > div > div:has(> [data-slot="rightbar"])', when: 'rightbar' },
-  // Row actions only exist once the sidebar renders a session or workspace row,
-  // so they share the sidebar gate; the button is reported, never required on
-  // its own, because a row without actions renders a new-session button instead.
-  { key: 'sidebar-row-actions', name: 'sidebar row actions', selector: '[data-slot="sidebar"] [data-row-key] > span:last-child:has(> button)', when: 'sidebar' },
+  // Row actions are reported, never required: the host unmounts the sidebar
+  // tree while the drawer is collapsed, and a blank row (a session without a
+  // first message) legitimately renders no action band at all. Requiring them
+  // whenever the sidebar anchor exists would fail on both normal states.
+  { key: 'sidebar-row-actions', name: 'sidebar row actions', selector: '[data-slot="sidebar"] [data-row-key] > span:last-child:has(> button)', when: null },
   { key: 'sidebar-row-action-button', name: 'sidebar row action button', selector: '[data-slot="sidebar"] [data-row-key] > span:last-child:has(> button) > button', when: null },
   // Handles are pointer-only and legitimately absent on a phone.
   { key: 'column-handles', name: 'column handles', selector: '[data-slot="root"] > div > [data-side]', when: null },

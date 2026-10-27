@@ -1,4 +1,4 @@
-import { COLLAPSED_ATTRIBUTE, FRAME } from './landmarks.js';
+import { COLLAPSED_ATTRIBUTE, FRAME, SIDEBAR_COLUMN } from './landmarks.js';
 import { overlayOnScreen } from './install-drawer.js';
 import type { ClientContext, Disposer } from './contracts.js';
 
@@ -126,7 +126,11 @@ export function installSwipeNavigation(ctx: ClientContext): Disposer {
       collapsed: drawerCollapsed(),
     });
     if (action === 'ignore') return;
-    if (overlayOnScreen()) return;
+    // The navigation drawer is itself a host popover while it is open (the
+    // narrow layout renders the sidebar column with a `popover` attribute), so
+    // the drawer has to be excluded from the overlay guard — otherwise the only
+    // gesture that could close it would be the one the guard blocks.
+    if (overlayOnScreen(document.querySelector(SIDEBAR_COLUMN))) return;
     if (insideHorizontalScroller(gesture.target)) return;
     ctx.layout.toggleSidebar();
   }

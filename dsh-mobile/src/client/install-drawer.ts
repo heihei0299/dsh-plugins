@@ -15,10 +15,12 @@ export const OVERLAYS = '[role="dialog"],[role="alertdialog"],[role="menu"],[rol
  * Membership of {@link OVERLAYS} is not enough: `[popover]` also matches a
  * closed popover (this plugin's own status panel is one), so the answer is
  * "painted right now", the same test the drawer's focus policy uses.
- * @returns true when at least one matched element has a layout box.
+ * @param exclude - a subtree to ignore, typically the navigation drawer.
+ * @returns true when at least one matched element outside `exclude` has a layout box.
  */
-export function overlayOnScreen(): boolean {
-  return Array.from(document.querySelectorAll(OVERLAYS)).some(element => element.getClientRects().length > 0);
+export function overlayOnScreen(exclude: Element | null = null): boolean {
+  return Array.from(document.querySelectorAll(OVERLAYS)).some(element =>
+    element.getClientRects().length > 0 && (exclude === null || (!exclude.contains(element) && element !== exclude)));
 }
 
 function attributes(element: HTMLElement, values: Record<string, string>): Disposer {
