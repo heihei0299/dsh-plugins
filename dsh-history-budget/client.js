@@ -37,8 +37,6 @@ window.__ModuleLoader__.load({
 		const WINDOW_MS = 3000;
 		/** How long to wait before deciding the click applied nothing. */
 		const RETRY_MS = 1200;
-		/** How long to hold the restored offset while the client settles its layout. */
-		const SETTLE_MS = 900;
 		/** A repeated retry on the same button is refused inside this window. */
 		const RETRY_GUARD_MS = 5000;
 
@@ -56,7 +54,6 @@ window.__ModuleLoader__.load({
 			const cancel = options.cancel;
 			const now = options.now;
 			const windowMs = options.windowMs ?? WINDOW_MS;
-			const settleMs = options.settleMs ?? SETTLE_MS;
 			let armed;
 
 			const disarm = () => {
@@ -72,6 +69,7 @@ window.__ModuleLoader__.load({
 					top: scroller.scrollTop,
 					height: scroller.scrollHeight,
 					until: now() + windowMs,
+					stableSince: 0,
 					retryAt: gesture.retry === undefined ? Infinity : now() + RETRY_MS,
 					retry: gesture.retry,
 					onReveal: gesture.onReveal,
@@ -80,23 +78,14 @@ window.__ModuleLoader__.load({
 				armed = state;
 				const tick = () => {
 					if (armed !== state) return;
-					if (state.settleUntil === undefined && scroller.scrollHeight > state.height) {
+					if (scroller.scrollHeight > state.height) {
 						state.onReveal?.();
-						// The page landed above the viewport. Hold the offset the click
-						// started from, which is inside the newly prepended block.
-						state.height = scroller.scrollHeight;
-						state.settleUntil = now() + settleMs;
-					}
-					if (state.settleUntil !== undefined) {
-						// The client keeps re-anchoring for a few frames after a prepend;
-						// re-assert the offset until its own layout settles.
-						if (scroller.scrollHeight > state.height) state.height = scroller.scrollHeight;
-						if (scroller.scrollTop !== state.top) scroller.scrollTop = state.top;
-						if (now() > state.settleUntil) {
-							armed = undefined;
-							return;
-						}
-						state.frame = raf(tick);
+						// One correction only: the client owns this viewport and re-applies
+						// its own reading anchor on its schedule, so holding the offset here
+						// would be a fight it wins. A single restore is enough when the
+						// client is not pinning; when it is, the anchor stands.
+						scroller.scrollTop = state.top;
+						armed = undefined;
 						return;
 					}
 					if (now() >= state.retryAt) {

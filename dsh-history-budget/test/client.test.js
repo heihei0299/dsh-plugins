@@ -191,23 +191,3 @@ test("the wired retry clicks the live button once and skips a detached one", () 
 	clock.runFrame();
 	assert.equal(clicks, 1, "a detached button is never clicked");
 });
-
-test("holds the offset while the client re-anchors, then lets go", () => {
-	const clock = fakeClock();
-	const reveal = loadClient().createReveal({ raf: clock.raf, cancel: clock.cancel, now: clock.now, windowMs: 3000, settleMs: 900 });
-	const scroller = { scrollTop: 0, scrollHeight: 100 };
-	reveal.arm(scroller);
-	scroller.scrollHeight = 160;
-	scroller.scrollTop = 60;
-	clock.runFrame();
-	assert.equal(scroller.scrollTop, 0, "the first growth restores the click offset");
-	scroller.scrollTop = 60;
-	clock.advance(100);
-	clock.runFrame();
-	assert.equal(scroller.scrollTop, 0, "a re-anchor inside the settle window is undone");
-	clock.advance(1000);
-	clock.runFrame();
-	scroller.scrollTop = 30;
-	clock.runFrame();
-	assert.equal(scroller.scrollTop, 30, "after settling the plugin never fights the user again");
-});
