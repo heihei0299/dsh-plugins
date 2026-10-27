@@ -183,14 +183,16 @@ interface SmartUIDocument {
 ```bash
 # 在插件目录执行；安装依赖须有相应任务授权
 pnpm install
-# 常规验证遵循仓库规则
+# 常规验证遵循仓库规则；先构建，再跑测试与 bundle 校验
 pnpm run typecheck
 pnpm run build            # 生成 dist/host/index.js 和 dist/client.js
-pnpm test                 # Node 测试文件串行运行
+pnpm test                 # Node 测试文件串行运行，含读取真实 dist/client.js 的导出回归
 pnpm run verify:bundle    # 检查惰性 factory、宿主 React、资源与清理契约
 ```
 
-默认门禁是 typecheck、串行 Node 测试、build 和 bundle 校验，全部不依赖浏览器。可选活体检查不属于默认门禁：现有 DSH 页面里的样式单例、折叠外卡片、设置开关与禁用恢复，以及 `scripts/browser-probe.mjs`。未执行时在验证记录中写“未验证”，不要用 `renderToStaticMarkup` 的单元结果代替真实 DOM/GUI 验收。
+默认门禁是 typecheck、build、串行 Node 测试和 bundle 校验，顺序固定为先构建再验证，全部不依赖浏览器。可选活体检查不属于默认门禁：现有 DSH 页面里的样式单例、折叠外卡片、设置开关与禁用恢复，以及 `scripts/browser-probe.mjs`。未执行时在验证记录中写“未验证”，不要用 `renderToStaticMarkup` 的单元结果代替真实 DOM/GUI 验收。
+
+`tests/bundle-table-export.test.mjs` 经与宿主相同的 `window.__ModuleLoader__` 入口加载真实的 `dist/client.js`，在组件边界上选择 TSV/CSV 并点击复制，断言写入剪贴板的文本。它读的是交付产物而不是 `src/`：`dist/` 缺失或过期时该测试失败，所以单跑源码测试或 `verify:bundle` 都不等于产物新鲜。仓库统一入口先构建再测试，在仓库根目录执行 `node scripts/verify-plugins.mjs dsh-smartui`；它会覆盖本目录的 `dist/`。
 
 构建产物是 DSH Host 模块和 `window.__ModuleLoader__` 惰性 Client factory。React 从宿主模块表获取，不能用 Vite 静态页或第二个 React 应用代替安装验证。运行时依赖在包清单中声明为 peer；离线环境需预先准备对应版本。
 
@@ -205,6 +207,14 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --
 `link:` 使用已准备好的工作区与依赖；离线安装不从注册表补齐缺失包。不手改 profile 的依赖清单或 patch，也不启动另一个服务器。
 
 检查安装返回的实际应用状态及诊断；需要重启时按提示操作，然后刷新现有 DSH 页面。新增插件可能由 DSH 同步，但本项目没有保证自动重建或 HMR。更换包代码可能需要 Host 重启。插件安装到一个 profile 后影响该 profile 下的所有会话；本项目不会启动第二个 Web 服务，也不修改已安装的 DSH 核心。
+
+### 交付路径
+
+`dist/` 是生成产物、不入库，因此“源码已修复”和“交付对象已修复”是两件事。安装/打包入口分两类，不能互相代替：
+
+- **本地引用（`link:`，同类 `file:` 亦然）**：profile 指向本工作副本，加载的就是当前 `dist/`。本机 pnpm 10.28.0 的隔离试验中，对本地目录依赖执行 `pnpm install --offline` 既不运行 `prepare` 也不运行 `prepack`（`link:` 装成指向源目录的符号链接），而 pnpm 10 默认也会阻止依赖的构建脚本；没有任何环节替你先构建。安装或更新前在仓库根目录执行统一入口 `node scripts/verify-plugins.mjs dsh-smartui`（先构建、再测试、再 bundle 校验），并确认验证对象就是本目录的 `dist/`，不要从另一个旧目录交付。
+- **tarball 打包（`pnpm pack` 等）**：`prepack` 按“先构建再验证”执行 `pnpm run build` → 读取真实 `dist/client.js` 的 TSV/CSV 行为测试（`node --test tests/bundle-table-export.test.mjs`）→ `pnpm run verify:bundle`；任一步失败就中止打包，因此进入 tarball 的 `dist/` 必然由同一次打包构建并通过行为与契约检查（`files` 包含 `dist/`）。pnpm 会把 `prepack` 从包内清单中移除，所以它只覆盖打包路径，不是本地引用安装的保证；打包与产物核对应在隔离临时目录内完成。
+- 两条路径的通过结果都只说明本地或打包产物与当前源码一致（回归见 `tests/bundle-table-export.test.mjs`），不等于正在运行的 GUI 已刷新到该产物。
 
 ### 设置
 
@@ -241,12 +251,13 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --
 
 测试包括协议与大小限制、metadata 重放、状态/错误降级、动作校验、选区保护、主题清理、语言资源平衡、表格导出（含 TSV/CSV 公式防护一致性与数值保留）和真实组件的静态 HTML 输出/XSS 检查。静态 HTML 测试只是单元测试，不是运行中 DSH 的视觉验收。
 
-验证分为四层，结论不能跨层推断：
+验证分为五层，结论不能跨层推断：
 
 | 层级 | 已有结果 | 不能据此断言 |
 |---|---|---|
 | 静态/单元测试 | 协议、动作、草稿门禁、metadata 恢复、Host 工具、主题 disposer、表格导出、语言资源与组件静态输出 | 当前浏览器已加载并显示插件 |
 | 构建/bundle 契约 | `pnpm run build` 与 `pnpm run verify:bundle`；产物为 Host ESM 和带正确包 ID 的惰性 Client factory，外部模块仅为宿主 React，资源路径存在，注册与清理成对 | 已登录 DSH 中的真实交互 |
+| 交付产物行为 | 2026-10-28：读取真实 `dist/client.js` 的 TSV/CSV 复制回归；旧产物在 TSV 负数断言失败，重建后的目录产物与 `pnpm pack` 产出的 tarball 均通过（数值/公式前缀文本/空值两种格式覆盖） | 正在运行的 GUI 已加载该产物；也代替不了下面的隔离 Chromium 与安装层 |
 | 隔离 Chromium | 使用真实组件配模拟宿主服务与主题值：筛选、带表头的可见 CSV 复制、切页保留输入、键盘焦点、显式填草稿、手动复制回退；明暗 × 320/390/1000px 六组无页面级横向溢出；长 delta 与强制颜色下 bar/ring 可辨识 | 在线 DSH 页面或全部原生交互兼容性 |
 | 安装与服务 | 2026-10-24 曾用官方 CLI 把当前工作区链接安装到 `web` profile 并重启既有服务；确认新进程 running、Host 模块可导入 | 已登录浏览器已刷新；同日的原 GUI 地址仍返回 HTTP 401（认证门禁） |
 
