@@ -2,7 +2,7 @@
 
 把 Web 客户端打开会话时收到的**首帧**和历史页按编码字节裁剪，而不是只按 500 条消息计数。
 
-纯 JS、无依赖、无需构建，分两半：**Host** 只在挂载期间替换存活 `sessionController` 服务的两个方法（卸载时按原属性恢复），**Web Client** 只修复「加载更早」加载成功却看不见的滚动行为。它不读会话日志，不改网关，也不碰会话存储。
+纯 JS、无依赖、无需构建，分两半：**Host** 只在挂载期间替换存活 `sessionController` 服务的两个方法（卸载时按原属性恢复）；**Web Client** 目前不启用任何增强（原因与范围见[浏览器半边](#浏览器半边)），「加载更早」完全走宿主原生分页与原生滚动锚定。它不读会话日志，不改网关，也不碰会话存储。
 
 ## 它解决什么
 
@@ -61,14 +61,14 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-history-bu
 
 ## 浏览器半边
 
-Host 裁剪后，`加载更早` 成为常用路径，而原生客户端有一个交互缺陷：新页被 prepend 到视口**上方**后，Chrome 的滚动锚定会把 `scrollTop` 同步加上新增高度，屏幕仍停在原来那条消息上——加载成功，但用户看不到任何变化（实测：`scrollTop 0 → 160`，高度 8612 → 8772 px，屏幕不动）。
+Host 裁剪后，`加载更早` 成为常用路径。原生客户端有一个交互特性：新页被 prepend 到视口**上方**后，Chrome 的滚动锚定会把 `scrollTop` 同步加上新增高度，屏幕仍停在原来那条消息上（实测：`scrollTop 0 → 160`，高度 8612 → 8772 px）。
 
-`client.js`（build-free loader bundle）做两件事：
+**当前状态：客户端增强已停用，两项都不生效。**
 
-1. **还原滚动位置**：捕获「加载更早 / Load earlier」的点击，记录 `scrollTop`；3 秒内检测到内容增长，就把 `scrollTop` 放回点击时的位置，视口直接落在新加载的条目上。
-2. **一次性重试**：会话刚打开时，第一次点击可能因为 follow 流还在建立而整页被静默丢弃（实测前两次点击内容完全不变）。若 1.2 秒内没有任何增长、按钮仍挂载且可用、用户也没有滚动，就再触发一次按钮自身的 click；同一按钮 5 秒内最多重试一次。
+1. **不合成点击：** 原先的“一次性重试”按 `textContent` 匹配按钮文字，会把无关控件当成原生分页器——实测标题为 `Load earlier` 的 SmartUI 可排序表头被当作分页器，用户点一次后 1.2 秒又被合成点击一次，排序翻转两次。`loadOlder` 是公开客户端方法，聊天分页按钮、轨迹视图、会话检查器与任何程序化调用都会走它，因此“方法被调用”不能证明被点的控件是原生分页器；原生按钮本身也没有可稳定识别的标记。
+2. **不写视口：** 原先的“还原滚动位置”在点击后 3 秒内以“转录变高”作为加载成功的证据，无关的实时输出或延迟图片就会消耗掉这一次机会，真正的 prepend 到达时反而不修正。按内容高度推断业务完成已被判定为不可靠。
 
-`wheel` / `touchstart` / `keydown` 会立刻取消等待，绝不和用户抢滚动；没有增长就什么都不做。它不修改会话存储、请求或按钮行为。
+因此 `client.js`（build-free loader bundle）现在只做一件事：挂载时把 `document.documentElement.dataset.dshHistoryBudget` 置为 `off`，卸载时删除。它不注册任何文档级手势监听、不合成点击、不写 `scrollTop`；「加载更早」的手动分页、分页游标和宿主的滚动锚定保持原样。`createReveal` 作为未被调用的测试接缝暂时保留，随后单独删除。
 
 ## 限制
 
@@ -90,7 +90,7 @@ Host 裁剪后，`加载更早` 成为常用路径，而原生客户端有一个
 
 ```bash
 cd dsh-history-budget
-node --test --test-concurrency=1     # 28 项：裁剪算术、页面形状、幂等、恢复、bundle 契约、滚动还原与重试
+node --test --test-concurrency=1     # 37 项：裁剪算术、页面形状、幂等、恢复、bundle 契约，以及客户端降级回归（同文案第三方按钮零合成点击、零视口写入、无文档级手势监听、禁用标记）
 ```
 
 活体验证（不属于常规门禁）：临时 `DSH_HOME` + 复制会话 + 独立端口，用 `--patch` 只把本插件装进 web profile；浏览器侧用 CDP 记录 `WebSocket` 消息字节与 `/api/session/page` 的 `decodedBodySize`。本次结果的数字见上文「实测」。
@@ -100,4 +100,4 @@ node --test --test-concurrency=1     # 28 项：裁剪算术、页面形状、�
 - 打开 `log: true`，每次裁剪输出 `history-budget: opening frame trimmed N record(s) to M bytes`。
 - 看到 `already wrapped; mount this plugin once` 说明同一服务被装了两次：检查 profile 里是否重复插入了 `history-budget` entry。
 - 看到 `cannot be replaced in place` 说明当前宿主的方法属性不可写；插件不会继续，也不会影响原生分页。
-- 客户端半在页面上留下 `data-dsh-history-budget="on"` 与 `window.__dshHistoryBudget`（`{clicks, retries, reveals}`）。`clicks` 增长但 `reveals` 不增长，说明点击后被应用的页没有让转录变高——先看该 turn 是否被切在半中间。
+- 客户端半挂载后在页面上留下 `data-dsh-history-budget="off"`（卸载即删除）。`"off"` 表示 bundle 已加载但增强停用；页面上不再有 `window.__dshHistoryBudget` 计数器。若「加载更早」加载成功却看不到新条目，这是宿主原生滚动锚定的行为，本插件不再修正。

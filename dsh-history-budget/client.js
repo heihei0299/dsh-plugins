@@ -1,26 +1,24 @@
 /**
- * Browser half: make 「加载更早」 show what it loaded, and survive a no-op click.
+ * Browser half: the client enhancements are disabled.
  *
- * 1. Reveal. The host bounds the opening window by bytes, so older history is
- *    loaded on demand through `session/page`. The client prepends that page
- *    above the viewport, and Chrome's scroll anchoring keeps the *visual*
- *    position — the viewport still shows the same first message, the freshly
- *    loaded entries sit above it, and the button stays where it was. Measured
- *    here: a click at `scrollTop: 0` grew the transcript from 8612 to 8772 px
- *    and moved `scrollTop` to 160, so nothing on screen appeared to change.
- *    This module undoes that one anchoring step: when the transcript grows
- *    within a short window after the click, it puts `scrollTop` back where the
- *    click happened, so the newly loaded entries are what the user sees.
+ * The audit found no public seam that proves a clicked control is the native
+ * 「加载更早」 pager, and no source that attributes a viewport change to that
+ * gesture. Both behaviors this half used to ship are therefore off:
  *
- * 2. Retry. The first click after a Session opens can complete without any
- *    page being applied (the follow stream's opening generation is still
- *    settling, and a page read against it is dropped silently). If no growth
- *    arrives ~1.2 s after the click, the button is still connected and
- *    enabled, and the user has not scrolled, this fires the button's own click
- *    once more. One bounded retry per gesture, never more.
+ * 1. No synthetic click. The retry matched a button by its rendered text, which
+ *    also matched unrelated controls — a SmartUI sortable header labelled
+ *    `Load earlier` was clicked a second time 1.2 s after the user sorted once.
+ * 2. No scroll write. The reveal undid the host's scroll anchoring on any
+ *    transcript growth inside a 3 s window after such a click, so unrelated live
+ *    output or a delayed image consumed the one chance the real prepend needed.
  *
- * It never touches the Session store, the request, or the button's own
- * behavior; user input (wheel/touch/key) disarms everything immediately.
+ * Native manual paging and the host's own anchoring stay untouched: the
+ * `session/page` request, the pager's own handler, the paging cursor and the
+ * transcript's scroll behavior are exactly as shipped. A page that arrives
+ * keeps the host's anchored reading position.
+ *
+ * `createReveal` is retained unwired, so the follow-up cleanup can remove the
+ * state machine in one change; `apply` never arms it.
  *
  * Build-free loader bundle: DSH reads this file verbatim as
  * `window.__ModuleLoader__.load({ id, factory })`.
@@ -29,22 +27,19 @@
 window.__ModuleLoader__.load({
 	id: "@local/dsh-history-budget",
 	factory() {
-		/** The resident conversation scrollport the Web UI renders. */
-		const SCROLLPORT = "[data-conversation-scroll]";
-		/** The native pager's label, in the shipped locales. */
-		const LOAD_EARLIER = /加载更早|load earlier/i;
-		/** How long after the click a prepend is still attributed to it. */
+		/** How long after a gesture a prepend is still attributed to it. */
 		const WINDOW_MS = 3000;
-		/** How long to wait before deciding the click applied nothing. */
+		/** How long to wait before deciding a click applied nothing. */
 		const RETRY_MS = 1200;
-		/** A repeated retry on the same button is refused inside this window. */
-		const RETRY_GUARD_MS = 5000;
 
 		/**
-		 * Track one click, undo its scroll anchoring, and retry one empty click.
+		 * Track one gesture's scroll anchoring and retry one empty click.
+		 *
+		 * Disabled: `apply` neither creates nor arms this state machine. It stays
+		 * only until the cleanup removes it together with its tests.
 		 *
 		 * `raf`, `cancel` and `now` are injected so the state machine is testable
-		 * without a browser; the loader wires the real ones in `apply`.
+		 * without a browser.
 		 *
 		 * @param options - `{ raf, cancel, now, windowMs? }`.
 		 * @returns `{ arm(scroller, { retry? }), disarm() }`.
@@ -90,8 +85,7 @@ window.__ModuleLoader__.load({
 					}
 					if (now() >= state.retryAt) {
 						state.retryAt = Infinity;
-						// The click may have raced the opening generation; ask once more.
-						// The follow-up click re-arms through the same listener.
+						// One bounded retry per gesture; the callback owns what "retry" means.
 						state.retry?.();
 					}
 					if (now() > state.until) {
@@ -106,61 +100,20 @@ window.__ModuleLoader__.load({
 			return { arm, disarm };
 		}
 
-		/** Plugin entry: one reveal per pager click, one bounded retry, stand down on input. */
+		/**
+		 * Plugin entry: mark the mount and do nothing else.
+		 *
+		 * No document listener, no synthetic click, no scroll write. The marker
+		 * reports `off`, so a page can tell a loaded bundle apart from an active
+		 * fix; unmounting removes it.
+		 *
+		 * @param ctx - the client plugin context.
+		 */
 		function apply(ctx) {
 			if (typeof document === "undefined") return;
-			// Observable mount marker, in the same spirit as `data-dsh-mobile`: a
-			// page that claims the fix is active can be checked from the DOM.
-			document.documentElement.dataset.dshHistoryBudget = "on";
-			const reveal = createReveal({
-				raf: (callback) => requestAnimationFrame(callback),
-				cancel: (frame) => cancelAnimationFrame(frame),
-				now: () => performance.now(),
-			});
-			// A retry is refused while the previous one is still fresh, so a button
-			// that legitimately has nothing older cannot be clicked in a loop.
-			const retriedAt = new WeakMap();
-			// Counter surface for support: the page can report whether the pager was
-			// observed, retried and actually revealed without reading any state.
-			const stats = { clicks: 0, retries: 0, reveals: 0 };
-			Object.defineProperty(window, "__dshHistoryBudget", { value: stats, configurable: true });
-
-			const onClick = (event) => {
-				const target = event.target;
-				const button = target !== null && typeof target === "object" && typeof target.closest === "function"
-					? target.closest("button")
-					: null;
-				if (button === null || !LOAD_EARLIER.test(String(button.textContent ?? ""))) return;
-				const scroller = button.closest(SCROLLPORT);
-				if (scroller === null) return;
-				stats.clicks += 1;
-				reveal.arm(scroller, {
-					onReveal: () => { stats.reveals += 1; },
-					retry: () => {
-						if (button.isConnected === false || button.disabled === true) return;
-						const last = retriedAt.get(button) ?? -Infinity;
-						if (performance.now() - last < RETRY_GUARD_MS) return;
-						retriedAt.set(button, performance.now());
-						stats.retries += 1;
-						button.click();
-					},
-				});
-			};
-			const standDown = () => reveal.disarm();
-
-			ctx.effect(() => {
-				document.addEventListener("click", onClick, true);
-				document.addEventListener("wheel", standDown, { capture: true, passive: true });
-				document.addEventListener("touchstart", standDown, { capture: true, passive: true });
-				document.addEventListener("keydown", standDown, true);
-				return () => {
-					document.removeEventListener("click", onClick, true);
-					document.removeEventListener("wheel", standDown, { capture: true, passive: true });
-					document.removeEventListener("touchstart", standDown, { capture: true, passive: true });
-					document.removeEventListener("keydown", standDown, true);
-					delete document.documentElement.dataset.dshHistoryBudget;
-					reveal.disarm();
-				};
+			document.documentElement.dataset.dshHistoryBudget = "off";
+			ctx.effect(() => () => {
+				delete document.documentElement.dataset.dshHistoryBudget;
 			});
 		}
 

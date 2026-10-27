@@ -9,14 +9,17 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
  * Run the build-free client loader bundle in a sandbox and return its factory.
+ * A caller-supplied `window` keeps the loader registration and whatever the
+ * bundle publishes on it, so one test can inspect both.
  * @param globals - extra browser globals the bundle may read.
  * @returns the exported `{ apply, createReveal }`.
  */
 function loadClient(globals = {}) {
 	const loaded = [];
+	const window = { ...(globals.window ?? {}), __ModuleLoader__: { load: (definition) => loaded.push(definition) } };
 	vm.runInNewContext(readFileSync(path.join(root, "client.js"), "utf8"), {
-		window: { __ModuleLoader__: { load: (definition) => loaded.push(definition) } },
 		...globals,
+		window,
 	});
 	assert.equal(loaded.length, 1, "the file must register exactly one loader bundle");
 	assert.equal(loaded[0].id, "@local/dsh-history-budget");
@@ -38,6 +41,79 @@ function fakeClock() {
 			time += ms;
 		},
 		runFrame: () => frames.shift()?.(),
+	};
+}
+
+/**
+ * Document fake that records its listeners and delivers an event the way the
+ * browser delivers a click to `document` capture handlers.
+ * @returns the document, its listener table, and a dispatcher.
+ */
+function fakeDocument() {
+	const listeners = new Map();
+	const document = {
+		documentElement: { dataset: {} },
+		addEventListener: (type, handler) => {
+			if (!listeners.has(type)) listeners.set(type, []);
+			listeners.get(type).push(handler);
+		},
+		removeEventListener: (type, handler) => {
+			const registered = listeners.get(type) ?? [];
+			const index = registered.indexOf(handler);
+			if (index >= 0) registered.splice(index, 1);
+		},
+	};
+	const dispatch = (type, event = {}) => {
+		for (const handler of [...(listeners.get(type) ?? [])]) handler(event);
+	};
+	return { document, listeners, dispatch };
+}
+
+/**
+ * Build one button inside the conversation scrollport.
+ * @param text - its rendered label.
+ * @param scroller - the resident scrollport it lives in.
+ * @returns the fake element plus the count of synthetic clicks it received.
+ */
+function buttonOf(text, scroller) {
+	const button = {
+		textContent: text,
+		clicks: 0,
+		closest: (selector) => (selector === "button" ? button : selector === "[data-conversation-scroll]" ? scroller : null),
+		click: () => {
+			button.clicks += 1;
+		},
+	};
+	return button;
+}
+
+/**
+ * Load and apply the client half against a fake document.
+ * @param clock - frame/time harness.
+ * @returns the client factory, the fake document, and the applied disposer.
+ */
+function mountedClient(clock) {
+	const { document, listeners, dispatch } = fakeDocument();
+	const client = loadClient({
+		document,
+		requestAnimationFrame: clock.raf,
+		cancelAnimationFrame: clock.cancel,
+		performance: { now: clock.now },
+	});
+	let disposer;
+	client.apply({
+		effect: (callback) => {
+			disposer = callback();
+		},
+	});
+	return {
+		client,
+		document,
+		listeners,
+		dispatch,
+		dispose: () => {
+			disposer?.();
+		},
 	};
 }
 
@@ -75,77 +151,16 @@ test("disarm stops a pending reveal", () => {
 	assert.equal(scroller.scrollTop, 80);
 });
 
-test("wires the pager click to one reveal and stands down on user input", () => {
-	const clock = fakeClock();
-	const listeners = new Map();
-	const document = {
-		documentElement: { dataset: {} },
-		addEventListener: (type, handler) => {
-			if (!listeners.has(type)) listeners.set(type, []);
-			listeners.get(type).push(handler);
-		},
-		removeEventListener: () => {},
-	};
-	const client = loadClient({
-		document,
-		requestAnimationFrame: clock.raf,
-		cancelAnimationFrame: clock.cancel,
-		performance: { now: clock.now },
-	});
-	const scroller = { scrollTop: 0, scrollHeight: 100 };
-	const button = {
-		textContent: "加载更早",
-		closest: (selector) => (selector === "button" ? button : selector === "[data-conversation-scroll]" ? scroller : null),
-	};
-	let disposer;
-	const ctx = { effect: (callback) => { disposer = callback(); } };
-	client.apply(ctx);
-	assert.deepEqual([...listeners.keys()].sort(), ["click", "keydown", "touchstart", "wheel"]);
-
-	listeners.get("click")[0]({ target: button });
-	scroller.scrollHeight = 160;
-	scroller.scrollTop = 60;
-	clock.runFrame();
-	assert.equal(scroller.scrollTop, 0, "the click must reveal the page it loaded");
-
-	// User input during the wait cancels the pending reveal instead of fighting it.
-	listeners.get("click")[0]({ target: button });
-	scroller.scrollHeight = 200;
-	listeners.get("wheel")[0]();
-	scroller.scrollTop = 90;
-	clock.runFrame();
-	assert.equal(scroller.scrollTop, 90);
-
-	disposer();
-});
-
-test("ignores clicks that are not the native pager", () => {
-	const clock = fakeClock();
-	const listeners = new Map();
-	const document = { documentElement: { dataset: {} }, addEventListener: (type, handler) => listeners.set(type, handler), removeEventListener: () => {} };
-	const client = loadClient({
-		document,
-		requestAnimationFrame: clock.raf,
-		cancelAnimationFrame: clock.cancel,
-		performance: { now: clock.now },
-	});
-	const scroller = { scrollTop: 0, scrollHeight: 100 };
-	const other = { textContent: "复制", closest: (selector) => (selector === "button" ? other : null) };
-	const ctx = { effect: (callback) => callback() };
-	client.apply(ctx);
-	listeners.get("click")({ target: other });
-	scroller.scrollHeight = 200;
-	scroller.scrollTop = 90;
-	clock.runFrame();
-	assert.equal(scroller.scrollTop, 90);
-});
-
-test("retries one empty click, once", () => {
+test("retries one empty click, once (retained state machine)", () => {
 	const clock = fakeClock();
 	const reveal = loadClient().createReveal({ raf: clock.raf, cancel: clock.cancel, now: clock.now, windowMs: 3000 });
 	const scroller = { scrollTop: 0, scrollHeight: 100 };
 	let retries = 0;
-	reveal.arm(scroller, { retry: () => { retries += 1; } });
+	reveal.arm(scroller, {
+		retry: () => {
+			retries += 1;
+		},
+	});
 	clock.advance(1300);
 	clock.runFrame();
 	assert.equal(retries, 1, "a click that applied nothing is asked again once");
@@ -154,40 +169,66 @@ test("retries one empty click, once", () => {
 	assert.equal(retries, 1, "the retry must not repeat");
 });
 
-test("the wired retry clicks the live button once and skips a detached one", () => {
+test("never synthesizes a click on a third-party control labelled like the pager", () => {
 	const clock = fakeClock();
-	const listeners = new Map();
-	const document = { documentElement: { dataset: {} }, addEventListener: (type, handler) => listeners.set(type, handler), removeEventListener: () => {} };
+	const mounted = mountedClient(clock);
+	const scroller = { scrollTop: 0, scrollHeight: 100 };
+	// A SmartUI sortable header renders the same words as the native pager.
+	const header = buttonOf("Load earlier", scroller);
+	mounted.dispatch("click", { target: header });
+	// Nothing loads: a retry window elapses with no growth.
+	clock.advance(1500);
+	clock.runFrame();
+	assert.equal(header.clicks, 0, "a control the plugin cannot own must never receive a synthetic click");
+	mounted.dispose();
+});
+
+test("leaves a native page load to the host's own anchoring", () => {
+	const clock = fakeClock();
+	const mounted = mountedClient(clock);
+	const scroller = { scrollTop: 0, scrollHeight: 100 };
+	// The shipped pager: a plain button whose own handler pages backwards.
+	const pager = buttonOf("加载更早", scroller);
+	pager.click();
+	mounted.dispatch("click", { target: pager });
+	// The page landed, the host anchored the reading position, and the plugin
+	// must not overwrite it.
+	scroller.scrollHeight = 160;
+	scroller.scrollTop = 60;
+	clock.advance(1500);
+	clock.runFrame();
+	assert.equal(pager.clicks, 1, "the plugin must not re-issue the user's own page request");
+	assert.equal(scroller.scrollTop, 60, "the disabled client half must not move the viewport");
+	mounted.dispose();
+});
+
+test("registers no document-level gesture listener while the client half is disabled", () => {
+	const clock = fakeClock();
+	const mounted = mountedClient(clock);
+	assert.deepEqual([...mounted.listeners.keys()], [], "the disabled client half must observe no user gesture");
+	mounted.dispose();
+});
+
+test("reports the disabled state instead of a working fix", () => {
+	const clock = fakeClock();
+	const window = {};
+	const { document, listeners } = fakeDocument();
 	const client = loadClient({
+		window,
 		document,
 		requestAnimationFrame: clock.raf,
 		cancelAnimationFrame: clock.cancel,
 		performance: { now: clock.now },
 	});
-	const scroller = { scrollTop: 0, scrollHeight: 100 };
-	let clicks = 0;
-	const button = {
-		textContent: "加载更早",
-		disabled: false,
-		isConnected: true,
-		click: () => { clicks += 1; },
-		closest: (selector) => (selector === "button" ? button : selector === "[data-conversation-scroll]" ? scroller : null),
-	};
-	client.apply({ effect: (callback) => callback() });
-	listeners.get("click")({ target: button });
-	clock.advance(1300);
-	clock.runFrame();
-	assert.equal(clicks, 1, "the empty click is retried through the button itself");
-
-	// A second gesture on the same button inside the guard window is not retried.
-	listeners.get("click")({ target: button });
-	clock.advance(1300);
-	clock.runFrame();
-	assert.equal(clicks, 1);
-
-	button.isConnected = false;
-	listeners.get("click")({ target: button });
-	clock.advance(1300);
-	clock.runFrame();
-	assert.equal(clicks, 1, "a detached button is never clicked");
+	let disposer;
+	client.apply({
+		effect: (callback) => {
+			disposer = callback();
+		},
+	});
+	assert.equal(document.documentElement.dataset.dshHistoryBudget, "off", "the mount marker must not claim a working fix");
+	assert.equal(window.__dshHistoryBudget, undefined, "a disabled client half publishes no click/retry/reveal counters");
+	assert.deepEqual([...listeners.keys()], []);
+	disposer?.();
+	assert.equal(document.documentElement.dataset.dshHistoryBudget, undefined, "unmounting the client half restores the document");
 });
