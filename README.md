@@ -10,8 +10,9 @@ DeepSeek Harness（DSH）插件集合。每个子目录是一个可独立装入 
 | [dsh-mobile](<dsh-mobile/README.md>) | `@local/dsh-mobile`（private） | 0.2.0 | 移动端布局与触控优化：侧栏抽屉、横滑开关抽屉、会话行操作触屏可达、设置面板重排、44px 触控目标、宽表格横滑、软键盘与进入会话不弹键盘；桌面端不受影响 | Host + Web Client 双端插件，需构建 |
 | [dsh-smartui](<dsh-smartui/README.md>) | `@local/dsh-smartui`（private） | 0.1.3 | ChatGPT 风格外观 + 对话内安全声明式组件（卡片/表格/图表/表单/选项） | Host + Web Client 双端插件，需构建 |
 | [dsh-lan-connect](<dsh-lan-connect/README.md>) | `@local/dsh-lan-connect`（private） | 0.1.0 | 在现有 Web 服务的同一端口增加固定 `/lan` 入口，让局域网设备用原生认证登录；链接与二维码不含 token | Host + Web Client 双端插件，仅需构建 client |
+| [dsh-history-budget](<dsh-history-budget/README.md>) | `@local/dsh-history-budget`（private） | 0.1.0 | 按编码字节预算裁剪会话首帧与历史页，长 goal 回合或大工具输出不再整帧几 MB；被裁掉的记录仍由原生「加载更早」取回 | Host-only 插件 bundle（纯 JS，无依赖，无需构建） |
 
-四者共用 `@deepseek-ai/cordis ~4.0.5`，均要求 Node.js ≥ 22。`pin-subagent-model` 另以 `@deepseek-ai/schemastery ~3.18.5` 声明 Host 配置 schema；四个插件均针对 DSH `0.2.1-rc.2`。
+前四者共用 `@deepseek-ai/cordis ~4.0.5`，`dsh-history-budget` 无运行时依赖；五者均要求 Node.js ≥ 22。`pin-subagent-model` 另以 `@deepseek-ai/schemastery ~3.18.5` 声明 Host 配置 schema；五个插件均针对 DSH `0.2.1-rc.2`。
 
 ## 目录结构
 
@@ -39,13 +40,20 @@ dsh-plugins/
 │   ├── docs/               # 协议、兼容性、验证记录
 │   ├── examples/           # 三类 UI 文档示例（虚构数据）
 │   └── tests/
-└── dsh-lan-connect/
-    ├── index.js            # Host 侧：同端口 /lan 入口与 boot 元数据
-    ├── src/client.js       # Client 侧：设置卡片、复制、本地二维码
-    ├── scripts/build.mjs   # 只构建 dist/client.js
-    ├── locale/             # 插件管理卡片与卡片 UI 的中英文
+├── dsh-lan-connect/
+│   ├── index.js            # Host 侧：同端口 /lan 入口与 boot 元数据
+│   ├── src/client.js       # Client 侧：设置卡片、复制、本地二维码
+│   ├── scripts/build.mjs   # 只构建 dist/client.js
+│   ├── locale/             # 插件管理卡片与卡片 UI 的中英文
+│   ├── assets/icon.svg
+│   └── test/               # Host / Client / bundle / 原生内存集成
+└── dsh-history-budget/
+    ├── index.js            # Host 侧：替换 follow/page，按字节预算裁剪
+    ├── src/budget.js       # 纯函数：保留最新的、能放进预算的记录后缀
+    ├── cordis.patch.yml    # bundle 层：插入 entry `history-budget`
+    ├── locale/             # 插件管理卡片的中英文标题与说明
     ├── assets/icon.svg
-    └── test/               # Host / Client / bundle / 原生内存集成
+    └── test/               # 裁剪算术、页面形状、幂等、恢复、bundle 契约
 ```
 
 ## 安装
@@ -121,6 +129,27 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-lan-connec
 插件复用现有 `webServer` 的监听地址和端口，新增固定 `GET /lan`；入口 URL 取自 `webApp.getAdvertisedUrl()`，因此支持已有代理/路径前缀，不硬编码端口，也不会另开服务、改监听或替换原生 Connection。浏览器打开 `/lan` 后，Host 先执行原生 Host/Origin 信任检查，再用该对外根与原生 `connection.authenticatedUrl()` 做一次 303，最终由原生代码签发 `HttpOnly; SameSite=Strict` Cookie。**入口是匿名的：任何能访问 `/lan` 的设备都会获得原生浏览器 operator 权限。** 设置卡片里的入口链接和本地二维码不含 token。
 
 停用/卸载只撤销 `/lan` 与设置卡片，已经签发的原生 Cookie 不撤销；插件也不提供设备级撤销。明文 HTTP、对外入口与服务端监听不一致、多网卡候选都会在卡片中提示，插件不会自动改绑定或代理，也不探测候选地址连通性；建议先在路由器固定这台机器的 LAN IP。`patchReload: live` 下本次安装无需重启即生效；HMR 不可用或包解析被拒绝时仍可能需要重启，以插件管理器结果为准。完整语义与限制见 [插件文档](<dsh-lan-connect/README.md>)。
+
+### dsh-history-budget
+
+纯 ESM、无运行时依赖、无构建产物，`link:` 安装即可：
+
+```bash
+dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-history-budget --offline
+```
+
+bundle 层只注册 entry `history-budget`，预算由 profile 配置提供（默认 512 KiB）：
+
+```yaml
+# ~/.dsh/profiles/web/cordis.patch.yml
+- id: history-budget
+  config:
+    maxBytes: 524288    # 单帧/单页编码字节预算
+    minRecords: 1       # 单条记录超过预算时也至少保留的最新条数
+    log: false          # 每次裁剪输出一行诊断
+```
+
+它只在挂载期间替换存活 `sessionController` 的 `follow` 与 `page`：首帧保留最新的、能放进预算的记录后缀并置 `hasMore: true`，`cursor` / `projections` / `assistantStream` 不动，WebUI 的「加载更早」仍从原生 `session/page` 取回被裁记录，客户端无需改动。单条记录超过预算时仍整条发出，不截断内容。详见 [插件文档](<dsh-history-budget/README.md>)。
 
 ## 开发约定
 

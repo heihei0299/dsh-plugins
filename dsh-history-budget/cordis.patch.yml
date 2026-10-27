@@ -1,0 +1,18 @@
+# Bundle layer contributed by @local/dsh-history-budget.
+#
+# It only registers the entry; the budget is profile configuration, so one
+# package can serve any profile. Set it with an id-targeted override:
+#
+#   - id: history-budget
+#     config:
+#       maxBytes: 524288    # default 512 KiB; encoded JSON bytes of one frame
+#       minRecords: 1       # newest records kept even when one record alone is larger
+#       log: false          # one info line per trimmed frame, for diagnosis
+#
+# Until it is configured the entry runs with the defaults above. Enabling or
+# removing it never touches the session log, the gateway, or the client bundle:
+# it only shadows two methods of the live `sessionController` service while the
+# entry is mounted, and restoring the entry restores them exactly.
+- insert:
+    - id: history-budget
+      name: '@local/dsh-history-budget'

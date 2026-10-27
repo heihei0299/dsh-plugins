@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session opening-frame byte budget",
+    "description": "Bounds the frame the Web client receives when it opens a session, and every older history page, by encoded bytes instead of the 500-message count cap; the native \"load earlier\" pager still reaches the trimmed entries."
+  }
+}

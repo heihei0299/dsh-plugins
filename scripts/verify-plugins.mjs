@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const plugins = ['pin-subagent-model', 'dsh-mobile', 'dsh-smartui', 'dsh-lan-connect'];
+const plugins = ['pin-subagent-model', 'dsh-history-budget', 'dsh-mobile', 'dsh-smartui', 'dsh-lan-connect'];
 
 /** Build a fixed command plan; plugin names are not interpreted as shell input. */
 export function verificationPlan(requested = []) {
@@ -19,7 +19,7 @@ export function verificationPlan(requested = []) {
   const plan = [{ label: 'bundle metadata', cwd: root, command: process.execPath, args: ['scripts/check-bundles.mjs', ...selected] }];
   const add = (name, label, command, ...args) => plan.push({ label: `${name}: ${label}`, cwd: path.join(root, name), command, args });
   for (const name of selected) {
-    if (name === 'pin-subagent-model') {
+    if (name === 'pin-subagent-model' || name === 'dsh-history-budget') {
       add(name, 'test', process.execPath, '--test', '--test-concurrency=1');
       continue;
     }

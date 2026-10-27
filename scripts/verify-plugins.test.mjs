@@ -20,6 +20,7 @@ test('each built plugin builds before its tests and artifact verification', () =
     if (bundle >= 0) assert.ok(tests < bundle, name);
   }
   assert.ok(plan.some(step => step.label === 'pin-subagent-model: test'));
+  assert.ok(plan.some(step => step.label === 'dsh-history-budget: test'));
 });
 
 test('a failing command stops the remaining steps', () => {
