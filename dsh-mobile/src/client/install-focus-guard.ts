@@ -49,9 +49,11 @@ export function shouldDeferComposerFocus(input: { now: number; lastIntentAt: num
  * every composer focus that follows a tap (including the send button's own
  * refocus), goes straight to the original implementation.
  *
- * The patch is global, so it is identity-checked on teardown: a patch another
- * plugin installed afterwards is left in place, and the captured original is
- * what gets restored.
+ * The patch is global, so teardown owns a closure that can outlive it: another
+ * plugin may capture the patched method and keep delegating to it, or put it
+ * back on the prototype while disposing. Each install therefore carries its own
+ * `active` flag, and the property is only restored while this install still owns
+ * it — a patch someone else installed afterwards is left in place.
  * @returns a disposer restoring `HTMLElement.prototype.focus`.
  */
 export function installComposerFocusGuard(): Disposer {
@@ -60,9 +62,12 @@ export function installComposerFocusGuard(): Disposer {
   const original = prototype.focus;
   /** When the user last touched the composer itself; 0 means never. */
   let lastIntentAt = 0;
+  /** True only while this install is mounted; teardown retires the closure. */
+  let active = true;
   const patched = function focused(this: HTMLElement, options?: FocusOptions): void {
-    if (isComposerField(this) && shouldDeferComposerFocus({ now: Date.now(), lastIntentAt })) return;
-    original.call(this, options);
+    if (!active || !isComposerField(this) || !shouldDeferComposerFocus({ now: Date.now(), lastIntentAt })) {
+      original.call(this, options);
+    }
   };
   function onPointerDown(event: Event): void {
     const target = event.target;
@@ -71,6 +76,9 @@ export function installComposerFocusGuard(): Disposer {
   prototype.focus = patched;
   document.addEventListener('pointerdown', onPointerDown, true);
   return () => {
+    // Retire this closure before anything else, so a wrapper that captured it
+    // starts passing focus through even if it never releases the property.
+    active = false;
     document.removeEventListener('pointerdown', onPointerDown, true);
     if (prototype.focus === patched) prototype.focus = original;
   };
