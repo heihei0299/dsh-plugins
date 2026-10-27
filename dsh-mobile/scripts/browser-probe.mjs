@@ -1,17 +1,24 @@
 import { pathToFileURL } from 'node:url';
 import http from 'node:http';
 import https from 'node:https';
+import { PROBE_ANCHORS, PROBE_LANDMARKS, probeExitCode, probeVerdict } from './probe-landmarks.mjs';
 
 /**
  * Read-only probe for the DSH mobile acceptance checklist.
  *
  * Connects to an ALREADY RUNNING Chrome remote-debugging endpoint, measures the
  * page's layout at a given viewport, and prints one JSON report. It never
- * starts Chrome, never reads credentials, never patches page state, and always
- * restores the emulation it applied.
+ * starts Chrome, reads credentials, or changes page content. It clears the
+ * device and touch overrides it applies, but cannot restore prior overrides.
+ *
+ * The default mode is a report: it exits 0 even when no DSH tab was found.
+ * `--verify` is the explicit live-host acceptance gate: it exits 1 unless the
+ * mobile layout is active and every key landmark required by the current page
+ * state is present. `pnpm run verify:bundle` is the separate, offline artifact
+ * check and cannot observe host markup.
  *
  * Usage:
- *   node scripts/browser-probe.mjs http://127.0.0.1:9222 [--viewport 390x844] [--app http://127.0.0.1:50020] [--target <id>]
+ *   node scripts/browser-probe.mjs http://127.0.0.1:9222 [--viewport 390x844] [--app http://127.0.0.1:50020] [--target <id>] [--touch] [--verify]
  */
 
 const DEFAULT_APP_ORIGIN = process.env.DSH_APP_ORIGIN || 'http://127.0.0.1:50020';
@@ -21,6 +28,11 @@ const USAGE = [
   '  --app ORIGIN     DSH page origin (default http://127.0.0.1:50020)',
   '  --target ID      pick one DSH tab instead of the only one',
   '  --touch          emulate a coarse pointer while measuring',
+  '  --verify         acceptance gate: exit 1 unless the mobile layout is active and every',
+  '                   key landmark required by the current page state is present',
+  '  --expect STATE   require --verify and declare a page state that must exist (repeatable or',
+  '                   comma-separated): conversation, settings, tabs, table, messageActions, …',
+  'Exit codes: 0 report (default) or --verify passed; 1 probe/acceptance failed; 2 usage.',
   'Connects only to an already-running Chrome CDP endpoint; never starts Chrome or reads credentials.',
 ].join('\n');
 
@@ -127,13 +139,21 @@ export async function connectPage(url) {
   };
 }
 
-/** Everything the acceptance checklist asserts, evaluated inside the page. */
+/**
+ * Everything the acceptance checklist asserts, evaluated inside the page.
+ *
+ * `--verify` reads `landmarks`/`anchors`; the other fields stay for the report
+ * and for a human reading the JSON, and are not part of the gate.
+ */
 const MEASURE = String.raw`(() => {
   const q = selector => Array.from(document.querySelectorAll(selector));
+  const count = selector => { try { return document.querySelectorAll(selector).length; } catch { return -1; } };
   const size = element => {
     const box = element.getBoundingClientRect();
     return { width: Math.round(box.width), height: Math.round(box.height) };
   };
+  const landmarkSelectors = ${JSON.stringify(Object.fromEntries(PROBE_LANDMARKS.map(({ key, selector }) => [key, selector])))};
+  const anchorSelectors = ${JSON.stringify(PROBE_ANCHORS)};
   const frame = document.querySelector('[data-slot="root"] > div');
   const composer = q('[data-composer-card] button');
   const actions = q('[data-actions-reveal] button');
@@ -174,11 +194,13 @@ const MEASURE = String.raw`(() => {
     viewportMeta: meta === null ? null : meta.getAttribute('content'),
     styleTags: q('style[data-plugin-css^="@local/dsh-mobile"]').length,
     crashes: q('[data-slot-error]').length,
+    landmarks: Object.fromEntries(Object.entries(landmarkSelectors).map(([key, selector]) => [key, count(selector)])),
+    anchors: Object.fromEntries(Object.entries(anchorSelectors).map(([key, selector]) => [key, count(selector)])),
   };
 })()`;
 
 /**
- * Measure one DSH tab at one viewport, restoring emulation afterwards.
+ * Measure one DSH tab, then clear the device and touch overrides applied here.
  * @param input - Chrome debugging HTTP address.
  * @param options - viewport, app origin, target id and pointer mode.
  * @returns the report.
@@ -230,17 +252,38 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     console.log(USAGE);
     if (argv.length === 0) process.exitCode = 2;
   } else {
-    try {
-      const report = await probe(argv[0], {
-        viewport: parseViewport(option('--viewport') ?? '390x844'),
-        appOrigin: option('--app'),
-        targetId: option('--target'),
-        touch: argv.includes('--touch'),
-      });
-      console.log(JSON.stringify(report, null, 2));
-    } catch (error) {
-      console.error(error instanceof Error ? error.message : 'Chrome probe failed.');
-      process.exitCode = 1;
+    const invalidExpect = argv.some((argument, index) => argument === '--expect' &&
+      (argv[index + 1] === undefined || argv[index + 1].startsWith('--') || argv[index + 1].split(',').every(value => value === '')));
+    const expect = argv.reduce((values, argument, index) => {
+      if (argument !== '--expect' || argv[index + 1] === undefined) return values;
+      return [...values, ...argv[index + 1].split(',').filter(value => value !== '')];
+    }, []);
+    const unknownExpect = expect.filter(name => !Object.hasOwn(PROBE_ANCHORS, name));
+    if (invalidExpect || (expect.length > 0 && !argv.includes('--verify'))) {
+      console.error('--expect requires --verify and at least one page state.');
+      process.exitCode = 2;
+    } else if (unknownExpect.length > 0) {
+      console.error(`Unknown --expect value(s): ${unknownExpect.join(', ')}. Known page states: ${Object.keys(PROBE_ANCHORS).join(', ')}.`);
+      process.exitCode = 2;
+    } else {
+      try {
+        const verify = argv.includes('--verify');
+        const report = await probe(argv[0], {
+          viewport: parseViewport(option('--viewport') ?? '390x844'),
+          appOrigin: option('--app'),
+          targetId: option('--target'),
+          touch: argv.includes('--touch'),
+        });
+        const verdict = verify ? probeVerdict(report, { expect }) : undefined;
+        console.log(JSON.stringify(verdict === undefined ? report : { ...report, verdict }, null, 2));
+        if (verdict !== undefined && !verdict.ok) {
+          for (const failure of verdict.failures) console.error(`FAIL ${failure.code}: ${failure.message}`);
+        }
+        process.exitCode = probeExitCode(report, verify, expect);
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : 'Chrome probe failed.');
+        process.exitCode = 1;
+      }
     }
   }
 }

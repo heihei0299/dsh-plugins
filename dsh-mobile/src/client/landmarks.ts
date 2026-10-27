@@ -7,9 +7,14 @@
  * `data-composer-card`. Hashed CSS-module classes (`wSkVaW_*`, `uV2eYG_*`) are
  * deliberately NOT used — they change with every build.
  *
- * `scripts/verify-bundle.ts` and `.agents/skills/dsh-compat-check` assert that
- * each selector still appears in the built bundle, so a host upgrade that moves
- * a landmark fails a mechanical check instead of silently doing nothing.
+ * `scripts/verify-bundle.ts` checks the built artifact against `HOST_LANDMARKS`
+ * below — but that is only an artifact self-check (the bundle contains no host
+ * markup), so it catches plugin/build drift, not a host upgrade. The live host
+ * contract is checked separately and optionally by
+ * `scripts/browser-probe.mjs --verify`, which exits non-zero when a key
+ * landmark required by the current page state is missing. The host-side
+ * compatibility sweep in `.agents/skills/dsh-compat-check` reads the installed
+ * packages directly; neither check should be described as the other.
  */
 
 /** The web shell's single root slot; its only element child is the AppFrame. */
@@ -127,7 +132,12 @@ export const SETTINGS_OPTIONS = `${SETTINGS_CONTENT} > div:last-child`;
 export const SETTINGS_LIST_HEAD = `${SETTINGS_PANEL} [data-slot="settings.section"] li > div:first-child`;
 
 /**
- * Every landmark the stylesheet must actually use, for the mechanical checks.
+ * Every landmark the stylesheet must actually use, for the artifact checks.
+ *
+ * `scripts/verify-bundle.ts` asserts that the built stylesheet still references
+ * each of these selectors. That is an artifact-level contract only; whether the
+ * installed host really exposes them is decided by the optional live probe
+ * (`scripts/browser-probe.mjs --verify`), never by this list alone.
  * `VIEW_TABS` and `COLLAPSED_ATTRIBUTE` are excluded on purpose: the former is
  * measured but never styled, the latter is read by the activation source rather
  * than written into a selector.
