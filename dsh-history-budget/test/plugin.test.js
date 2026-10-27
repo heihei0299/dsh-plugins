@@ -60,6 +60,18 @@ function contextOf(service) {
 }
 
 /**
+ * Build a promise that stays pending until its `release` is called.
+ * @returns the pending promise plus the resolver that opens it.
+ */
+function gate() {
+	let release;
+	const opened = new Promise((resolve) => {
+		release = resolve;
+	});
+	return { opened, release };
+}
+
+/**
  * Drain one follow stream.
  * @param service - the fake service.
  * @param request - the follow request.
@@ -177,4 +189,197 @@ test("does not clobber a wrapper installed after this mount", () => {
 	service.follow = later;
 	dispose();
 	assert.equal(service.follow, later);
+});
+
+test("hands on a first frame that arrives after the mount is gone", async () => {
+	const waiting = gate();
+	const full = { type: "snapshot", cursor: 9, hasMore: false, records: [record(1), record(2), record(3), record(4)] };
+	const { service, proto } = serviceOf(full, { records: [], hasMore: false });
+	proto.follow = async function* pausedFollow() {
+		await waiting.opened;
+		yield full;
+	};
+	const { ctx, dispose, infos } = contextOf(service);
+	apply(ctx, { maxBytes: 100, log: true });
+	assert.ok(encodedBytes(full) > 100, "the fixture must exceed the budget");
+
+	const iterator = service.follow({}, undefined);
+	const pending = iterator.next();
+	dispose();
+	waiting.release();
+	const { value, done } = await pending;
+	assert.equal(done, false);
+	assert.equal(value, full, "a frame arriving after dispose must pass through untouched");
+	assert.deepEqual(
+		infos.filter((message) => /trimmed/.test(message)),
+		[],
+		"a disposed mount must not report a trim it no longer owns",
+	);
+	await iterator.return();
+});
+
+test("a wrapper that kept this mount's follow stops trimming after dispose", async () => {
+	const waiting = gate();
+	const full = { type: "snapshot", cursor: 5, hasMore: false, records: [record(1), record(2), record(3), record(4)] };
+	const { service, proto } = serviceOf(full, { records: [], hasMore: false });
+	proto.follow = async function* pausedFollow() {
+		await waiting.opened;
+		yield full;
+	};
+	const { ctx, dispose } = contextOf(service);
+	apply(ctx, { maxBytes: 100 });
+
+	// A later plugin captures this mount's wrapper; dispose cannot reach it.
+	const retained = service.follow;
+	service.follow = function thirdPartyFollow(request, signal) {
+		return retained.call(this, request, signal);
+	};
+	const iterator = service.follow({}, undefined);
+	const pending = iterator.next();
+	dispose();
+	waiting.release();
+	const { value } = await pending;
+	assert.equal(value, full, "a retained old closure must hand the frame on untouched");
+	await iterator.return();
+	assert.equal(service.follow.name, "thirdPartyFollow", "dispose must leave the later wrapper in place");
+});
+
+test("returns a history page untouched when the mount is gone before it arrives", async () => {
+	const waiting = gate();
+	const pageValue = { records: [record(1), record(2), record(3), record(4)], hasMore: false };
+	const { service, proto } = serviceOf({ type: "snapshot", cursor: 4, hasMore: false, records: [] }, pageValue);
+	proto.page = async function pausedPage() {
+		await waiting.opened;
+		return pageValue;
+	};
+	const { ctx, dispose } = contextOf(service);
+	apply(ctx, { maxBytes: 100 });
+
+	const pending = service.page({ beforeSeq: 9 }, undefined);
+	dispose();
+	waiting.release();
+	assert.equal(await pending, pageValue, "a page arriving after dispose must be returned untouched");
+});
+
+test("keeps upstream failures and passes the request and signal through", async () => {
+	const failure = new Error("session/gone");
+	const full = { type: "snapshot", cursor: 4, hasMore: false, records: [record(1), record(2), record(3), record(4)] };
+	const request = { maxMessages: 500 };
+	const signal = { aborted: false };
+	const seen = [];
+	const { service, proto } = serviceOf(full, { records: [], hasMore: false });
+	proto.follow = async function* failingFollow(args, token) {
+		seen.push([args, token]);
+		yield full;
+		throw failure;
+	};
+	const { ctx } = contextOf(service);
+	apply(ctx, { maxBytes: 500 });
+
+	const frames = [];
+	await assert.rejects(async () => {
+		for await (const frame of service.follow(request, signal)) frames.push(frame);
+	}, failure);
+	assert.deepEqual(seen, [[request, signal]], "the upstream call must receive the caller's arguments");
+	assert.equal(frames.length, 1);
+	assert.ok(encodedBytes(frames[0]) <= 500, "the active mount must still trim before the failure");
+});
+
+test("closes the upstream iterator when the caller closes it", async () => {
+	const full = { type: "snapshot", cursor: 4, hasMore: false, records: [record(1), record(2), record(3), record(4)] };
+	const closed = [];
+	const { service, proto } = serviceOf(full, { records: [], hasMore: false });
+	proto.follow = async function* closingFollow() {
+		try {
+			yield full;
+			yield { type: "event" };
+		} finally {
+			closed.push("upstream");
+		}
+	};
+	const { ctx } = contextOf(service);
+	apply(ctx, { maxBytes: 500 });
+
+	const iterator = service.follow({}, undefined);
+	const { value } = await iterator.next();
+	assert.ok(encodedBytes(value) <= 500, "the active mount must still trim");
+	assert.deepEqual(closed, [], "the upstream iterator must stay open until the caller closes it");
+	await iterator.return();
+	assert.deepEqual(closed, ["upstream"], "caller cancellation must close the upstream iterator");
+});
+
+test("leaves a real caller AbortSignal alone when the mount is disposed", async () => {
+	const waiting = gate();
+	const controller = new AbortController();
+	const abortEvents = [];
+	const received = [];
+	const full = { type: "snapshot", cursor: 9, hasMore: false, records: [record(1), record(2), record(3), record(4)] };
+	const { service, proto } = serviceOf(full, { records: [], hasMore: false });
+	proto.follow = async function* abortAwareFollow(request, signal) {
+		received.push(signal);
+		const onAbort = () => abortEvents.push(signal.reason);
+		signal.addEventListener("abort", onAbort, { once: true });
+		try {
+			await waiting.opened;
+			yield full;
+		} finally {
+			signal.removeEventListener("abort", onAbort);
+		}
+	};
+	const { ctx, dispose } = contextOf(service);
+	apply(ctx, { maxBytes: 100 });
+
+	const iterator = service.follow({}, controller.signal);
+	const pending = iterator.next();
+	dispose();
+	waiting.release();
+	const { value } = await pending;
+	assert.equal(received[0], controller.signal, "the caller's signal must reach the upstream stream");
+	assert.equal(value, full, "the late frame must still pass through untouched");
+	assert.equal(controller.signal.aborted, false, "dispose must not abort the caller's signal");
+	assert.deepEqual(abortEvents, [], "dispose must not fire the signal's abort listeners");
+	await iterator.return();
+	assert.equal(controller.signal.aborted, false, "closing the iterator must not abort the caller's signal");
+});
+
+test("propagates a real caller abort to the upstream stream unchanged", async () => {
+	const controller = new AbortController();
+	const reason = new Error("user/cancelled");
+	const abortEvents = [];
+	const closed = [];
+	const full = { type: "snapshot", cursor: 4, hasMore: false, records: [record(1), record(2), record(3), record(4)] };
+	const { service, proto } = serviceOf(full, { records: [], hasMore: false });
+	proto.follow = async function* cancellingFollow(request, signal) {
+		// Listen from the start: the caller may abort while the generator is
+		// suspended at a yield, when a listener added after the resume would
+		// never see the event.
+		const aborted = new Promise((_, reject) => {
+			signal.addEventListener(
+				"abort",
+				() => {
+					abortEvents.push(signal.reason);
+					reject(signal.reason);
+				},
+				{ once: true },
+			);
+		});
+		aborted.catch(() => {});
+		try {
+			yield full;
+			await aborted;
+			yield { type: "event" };
+		} finally {
+			closed.push("upstream");
+		}
+	};
+	const { ctx } = contextOf(service);
+	apply(ctx, { maxBytes: 500 });
+
+	const iterator = service.follow({}, controller.signal);
+	const first = await iterator.next();
+	assert.ok(encodedBytes(first.value) <= 500, "the active mount must still trim the first frame");
+	controller.abort(reason);
+	await assert.rejects(iterator.next(), (error) => error === reason);
+	assert.deepEqual(abortEvents, [reason], "the real abort must reach the upstream stream");
+	assert.deepEqual(closed, ["upstream"], "the upstream iterator must close once the abort lands");
 });

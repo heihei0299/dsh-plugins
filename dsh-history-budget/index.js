@@ -160,6 +160,15 @@ export function apply(ctx, config) {
 			}
 			let opening = true;
 			for await (const frame of stream) {
+				// `for await` is an async resume point: the mount may be disposed
+				// while a frame is in flight, and a later wrapper may keep this
+				// closure alive. A frame that arrives after dispose is handed on
+				// untouched instead of being trimmed by a configuration its mount
+				// no longer owns.
+				if (!active) {
+					yield frame;
+					continue;
+				}
 				if (opening) {
 					opening = false;
 					if (frame?.type === "snapshot" && Array.isArray(frame.records)) {
