@@ -126,7 +126,9 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-lan-connec
 
 - Node.js ≥ 22，包管理器统一用 `pnpm`，不做全局安装。
 - 所有安装、构建、类型检查、测试、打包与发布都需要针对当前任务单独授权；本机 release 构建交由 GitHub Actions。
-- 获得授权后，命令均在对应子目录内执行：
+- 获得授权且各插件依赖已准备好后，可在仓库根目录运行 `node scripts/verify-plugins.mjs`，或在命令后指定一个或多个插件目录名。该门禁先检查 bundle 元数据，再按插件执行类型检查、**先构建再测试**及需要的产物校验；它不安装依赖，也不代替 native 或真实浏览器检查。LAN 的常规测试已包含 bundle 测试，不再重复执行同一测试。
+- 该门禁会覆盖所选插件的 `dist/`；如果工作区通过 `link:` 装入正在使用的 GUI，产物更新可能影响后续刷新或热更新。需要保持 GUI 不变时，应在隔离副本中执行。
+- 也可以获得授权后在对应子目录单独执行：
 
 ```bash
 # pin-subagent-model（无需构建）
@@ -139,8 +141,8 @@ DSH_TEST_RUNTIME_ROOT=/home/shial/.local/share/fnm/node-versions/v24.16.0/instal
 # dsh-smartui
 pnpm install
 pnpm run typecheck
-pnpm test
 pnpm run build
+pnpm test
 pnpm run verify:bundle
 
 # dsh-mobile（先 build，bundle 测试读取 dist；pretest 也会自动构建）
@@ -171,6 +173,7 @@ DSH_TEST_RUNTIME_ROOT=/home/shial/.local/share/fnm/node-versions/v24.16.0/instal
 - `docs/*.md`、插件内的设计/验证记录与 `pnpm-lock.yaml` 不纳入 git；文件保留在本地，`.gitignore` 继续忽略 `*.md`（README 除外）和 lockfile。仓库只分发插件源码、测试与 README。
 - 关键契约与决策压缩在各插件 README；代码与 README 不再引用不存在的 `docs/` 路径（`dsh-mobile` 的 contracts 已改指 README）。SmartUI 的 `docs/` 与 `HANDOFF.md` 是本地记录，README 已注明其非分发属性。
 - lockfile 可复现策略：DSH 版本由 `engines.dsh` 精确钉住（当前 `0.2.1-rc.2`），包管理器由 `packageManager` 钉住；在保留 lockfile 的准备构建工作区用 `pnpm install --frozen-lockfile` 安装，再从该工作区构建/发布。干净检出按 `package.json` 的 semver 范围解析，不承诺字节级依赖复现；安装后必须重跑对应插件的完整门禁。发布工件只从已验证工作区构建，lockfile 随发布记录归档而不入 git。
+- 每次发布记录至少关联源码提交与工作树状态、实际 Node/pnpm/DSH 版本、各插件使用的 lockfile 原件及其 SHA-256、构建与验证日志，以及发布产物的 SHA-256。仓库目前没有受跟踪的 GitHub Actions 工作流；若外部工作流负责归档，应在发布记录中保留可追溯的运行信息，不能仅凭上述约定假定归档已经执行。
 
 ### 默认验证与可选活体检查
 
