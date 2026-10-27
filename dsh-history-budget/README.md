@@ -2,7 +2,7 @@
 
 把 Web 客户端打开会话时收到的**首帧**和历史页按编码字节裁剪，而不是只按 500 条消息计数。
 
-Host-only、纯 JS、无依赖、无需构建：它不读会话日志，不改网关，也不带客户端 bundle，只在挂载期间替换存活 `sessionController` 服务的两个方法，卸载时按原属性恢复。
+纯 JS、无依赖、无需构建，分两半：**Host** 只在挂载期间替换存活 `sessionController` 服务的两个方法（卸载时按原属性恢复），**Web Client** 只修复「加载更早」加载成功却看不见的滚动行为。它不读会话日志，不改网关，也不碰会话存储。
 
 ## 它解决什么
 
@@ -59,6 +59,17 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-history-bu
 
 无依赖、无构建产物，`link:` 安装后重载 entry 即可。首次加入 profile 时仍可能需要重启一次 dsh，让新的 bundle 层参与组装，以插件管理器结果为准。
 
+## 浏览器半边
+
+Host 裁剪后，`加载更早` 成为常用路径，而原生客户端有一个交互缺陷：新页被 prepend 到视口**上方**后，Chrome 的滚动锚定会把 `scrollTop` 同步加上新增高度，屏幕仍停在原来那条消息上——加载成功，但用户看不到任何变化（实测：`scrollTop 0 → 160`，高度 8612 → 8772 px，屏幕不动）。
+
+`client.js`（build-free loader bundle）做两件事：
+
+1. **还原滚动位置**：捕获「加载更早 / Load earlier」的点击，记录 `scrollTop`；3 秒内检测到内容增长，就把 `scrollTop` 放回点击时的位置，视口直接落在新加载的条目上。
+2. **一次性重试**：会话刚打开时，第一次点击可能因为 follow 流还在建立而整页被静默丢弃（实测前两次点击内容完全不变）。若 1.2 秒内没有任何增长、按钮仍挂载且可用、用户也没有滚动，就再触发一次按钮自身的 click；同一按钮 5 秒内最多重试一次。
+
+`wheel` / `touchstart` / `keydown` 会立刻取消等待，绝不和用户抢滚动；没有增长就什么都不做。它不修改会话存储、请求或按钮行为。
+
 ## 限制
 
 - **单条记录超过预算时仍会整帧发出。** 不截断、不拆分记录——那会交给客户端会话日志里没有的内容。`minRecords` 优先于预算，所以 2 MB 的单条工具输出仍是 2 MB 一帧；这与 `dsh-remote-bridge` 的取舍一致。
@@ -66,6 +77,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-history-bu
 - **进程内替换。** 宿主升级后若方法名或分发路径变化，插件会放弃包装并给出警告，不会让调用失败；请求自带 `maxBytes`（未来宿主原生预算）时它直接让位，避免双重分页。
 - **分页粒度是记录（entry）而不是 turn。** 一个 turn 可以跨页；官方客户端本来就按 entry 追加，实测无渲染问题，但这不是 turn 对齐的分页。
 - **首帧更短意味着首屏更少。** 需要回看更早内容时要点「加载更早」，这是用一次交互换首帧体积。
+- **客户端半边需要重启才能被发现。** 运行中的 dsh 会按 Loader specifier 缓存「这个包没有 client」的结论；从 0.1.x（Host-only）升级到 0.2.0 后，必须重启一次 dsh，再刷新页面，`client.js` 才会被加载。
 
 ## 兼容性
 
@@ -77,7 +89,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-history-bu
 
 ```bash
 cd dsh-history-budget
-node --test --test-concurrency=1     # 21 项：裁剪算术、页面形状、幂等、恢复、bundle 契约
+node --test --test-concurrency=1     # 28 项：裁剪算术、页面形状、幂等、恢复、bundle 契约、滚动还原与重试
 ```
 
 活体验证（不属于常规门禁）：临时 `DSH_HOME` + 复制会话 + 独立端口，用 `--patch` 只把本插件装进 web profile；浏览器侧用 CDP 记录 `WebSocket` 消息字节与 `/api/session/page` 的 `decodedBodySize`。本次结果的数字见上文「实测」。

@@ -18,9 +18,10 @@ test("bundle patch inserts the entry the package exports", () => {
 	assert.match(patch, /- insert:\n {4}- id: history-budget\n {6}name: '@local\/dsh-history-budget'\n$/);
 });
 
-test("ships no client half", () => {
-	assert.equal(manifest.dsh?.client, undefined, "the budget lives on the host; no client bundle is involved");
-	assert.equal(manifest.exports?.["./client"], undefined);
+test("ships the browser half that reveals the pager's page", () => {
+	assert.equal(manifest.dsh?.client?.platform, "web");
+	assert.equal(manifest.exports?.["./client"], "./client.js");
+	assert.ok(existsSync(path.join(root, "client.js")), "the declared client entry must exist");
 });
 
 test("exports the host entry the loader resolves", () => {

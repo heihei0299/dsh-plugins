@@ -1,12 +1,13 @@
 {
   "name": "@local/dsh-history-budget",
-  "version": "0.1.0",
-  "description": "Bound the Web client's opening session frame and older history pages by encoded bytes instead of the 500-message count cap",
+  "version": "0.2.0",
+  "description": "Bound the Web client's opening session frame and older history pages by encoded bytes, and reveal the entries the native pager loads",
   "private": true,
   "type": "module",
   "main": "index.js",
   "exports": {
     ".": "./index.js",
+    "./client": "./client.js",
     "./package.json": "./package.json",
     "./icon": "./assets/icon.svg",
     "./locale/*.json": "./locale/*.json"
@@ -15,6 +16,7 @@
     "index.js",
     "src/budget.js",
     "cordis.patch.yml",
+    "client.js",
     "assets/icon.svg",
     "locale/*.json",
     "README.md",
@@ -23,6 +25,9 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
     }
   },
   "keywords": [
