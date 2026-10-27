@@ -118,8 +118,26 @@ export function buildStyles(options: StyleOptions): string {
   // Retire a host badge only while its compact replacement is rendered. The
   // component publishes which categories it covers on the slot anchor, so an
   // unreadable projection falls back to the host control instead of nothing.
-  rules.push(`${scope} ${HEADER_ACTIONS}[${BADGES_ATTRIBUTE}~="subagents"] > *:not(.dsh-mobile-badge-group):is([aria-label*="子智能体"],[aria-label*="subagent" i],:has([aria-label*="子智能体"]),:has([aria-label*="subagent" i])){display:none}`);
-  rules.push(`${scope} ${HEADER_ACTIONS}[${BADGES_ATTRIBUTE}~="jobs"] > *:not(.dsh-mobile-badge-group):is([aria-label*="后台任务"],[aria-label*="job" i],:has([aria-label*="后台任务"]),:has([aria-label*="job" i])){display:none}`);
+  //
+  // Subagents: the host's catalog trigger is the only tree popup in this slot
+  // (ui-subagent's CatalogDropdown sets `aria-haspopup="tree"` on it). That is
+  // a language-independent marker, unlike the localized `aria-label` the first
+  // version matched. The rule stays scoped to the exact slot anchor and a
+  // direct entry, excluding our own group. Another tree popup in that slot
+  // could still match; if the host drops the marker both badges stay visible.
+  rules.push(`${scope} ${HEADER_ACTIONS}[${BADGES_ATTRIBUTE}~="subagents"] > *:not(.dsh-mobile-badge-group):has(> button[aria-haspopup="tree"]){display:none}`);
+  // Jobs: the host exposes no stable entry/component marker for the background
+  // job trigger (verified against ui-jobs 0.2.1-rc.2: one plain <div> whose
+  // direct child is the trigger <button aria-expanded aria-label=…>; list-entry
+  // ids are not reflected into the DOM). The localized fallback is therefore
+  // kept, but narrowed to that exact shape and to the specific phrases the host
+  // ships: a direct button with aria-expanded whose label contains “后台任务” or
+  // “background job”. The old `aria-label*="job"` descendant match is gone.
+  // A host copy change or an unknown language can leave both badges visible.
+  // The narrower match reduces, but cannot eliminate, the risk of hiding an
+  // unrelated control with the same shape and label; a stable host marker is
+  // needed to remove that ambiguity.
+  rules.push(`${scope} ${HEADER_ACTIONS}[${BADGES_ATTRIBUTE}~="jobs"] > *:not(.dsh-mobile-badge-group):has(> button[aria-expanded]:is([aria-label*="后台任务"],[aria-label*="background job" i])){display:none}`);
 
   rules.push(`${scope} :is(button,[role="button"],summary,a[href]){touch-action:manipulation}`);
   // The dock is outside data-composer-card, so the card's larger targets never

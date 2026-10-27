@@ -161,12 +161,21 @@ test('the header keeps its height while gaining breathing room under the tabs', 
 test('host badges are retired only for a category this plugin replaces', () => {
   const subagents = full.split('\n').find(line => line.includes('[data-dsh-mobile-badges~="subagents"]')) ?? '';
   const jobs = full.split('\n').find(line => line.includes('[data-dsh-mobile-badges~="jobs"]')) ?? '';
-  assert.match(subagents, /aria-label\*="子智能体"/);
-  assert.match(subagents, /aria-label\*="subagent" i/);
-  assert.match(jobs, /aria-label\*="后台任务"/);
-  assert.match(jobs, /aria-label\*="job" i/);
-  // The plugin's own badges must never match their own hide rule.
+  // Subagents are identified by the current host's ARIA popup type rather than
+  // localized copy; a future unrelated tree popup in this slot could also match.
+  assert.match(subagents, /button\[aria-haspopup="tree"\]/);
+  assert.match(subagents, /:has\(> button\[aria-haspopup="tree"\]\)/);
+  assert.doesNotMatch(subagents, /aria-label/, 'subagents must not be matched by localized copy');
+  // The jobs entry has no stable host marker in 0.2.1-rc.2, so the localized
+  // fallback is deliberately retained — but only for the host's actual shape
+  // (direct trigger button with aria-expanded) and the specific shipped phrases.
+  assert.match(jobs, /:has\(> button\[aria-expanded\]:is\(\[aria-label\*="后台任务"\],\[aria-label\*="background job" i\]\)\)/);
+  assert.doesNotMatch(jobs, /aria-label\*="job" i/, 'the old over-broad substring must stay gone');
+  assert.doesNotMatch(jobs, /:has\(\[aria-label/, 'no descendant label matching');
+  // Both rules are scoped to the documented slot anchor.
   for (const rule of [subagents, jobs]) {
+    assert.match(rule, /\[data-slot="conversation\.session\.header\.actions"\]/);
+    // The plugin's own badges must never match their own hide rule.
     assert.match(rule, /> \*:not\(\.dsh-mobile-badge-group\)/);
     assert.match(rule, /display:none\}/);
   }

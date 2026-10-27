@@ -47,8 +47,8 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 
 ## 边界与已知限制
 
-- **依赖宿主 DOM 地标**，不依赖哈希类名。全部集中在 [`src/client/landmarks.ts`](<src/client/landmarks.ts>)，并由两道机械检查守护（构建产物断言 + `dsh-compat-check`）。地标缺失时样式自然不命中，插件退化为「只是多一个按钮」，不抛异常。
-- **设置面板依赖宿主的设置对话框标记**：`[data-shortcut-modal="settings"]`、它下面的 `nav` / 内容两级子节点，以及分区 slot `[data-slot="settings.section"]`。列表行头按 `li > div:first-child` 结构匹配，不依赖提供商文案或哈希类名；宿主改名或改结构时对应规则不命中，面板退回宿主布局（不抛错），构建断言会先提示。设置页不额外补偿软键盘，沿用宿主 options 滚动容器。
+- **依赖宿主 DOM 地标**，不依赖哈希类名。地标集中在源码的 `src/client/landmarks.ts`；构建断言只检查插件产物是否使用这些选择器，宿主是否仍提供对应结构须通过下述活体探针检查。地标缺失时相关样式可能不命中，不能假定所有布局均保持正常。
+- **设置面板依赖宿主的设置对话框标记**：`[data-shortcut-modal="settings"]`、它下面的 `nav` / 内容两级子节点，以及分区 slot `[data-slot="settings.section"]`。列表行头按 `li > div:first-child` 结构匹配，不依赖提供商文案或哈希类名；宿主改名或改结构时对应规则可能不命中，构建断言不能发现宿主变化。设置页不额外补偿软键盘，沿用宿主 options 滚动容器。
 - **抽屉状态是宿主自己的**。插件只调用公开的 `ctx.layout.toggleSidebar()`，并读宿主写在帧上的 `data-sidebar-collapsed`，不另存一份状态。
 - **抽屉使用宿主的滑动时长与缓动**，遮罩按相同时长淡出，退出完成前仍拦截触摸；关闭过程中的重复遮罩点击不会重新打开抽屉。开关抽屉及不影响启用状态的窗口缩放，不重装样式、viewport 或键盘监听。
 - **抽屉具有模态焦点管理**：进入时聚焦内部控件，Tab 在抽屉内循环，Esc 关闭，退出时恢复焦点；宿主菜单/弹窗优先处理自己的键盘与焦点。会话主视图或全局面板成功切换后收起，不因展开分组或无关列表更新收起；没有对话头部的全局面板保留底角导航按钮，避免收起后失去入口。
@@ -61,7 +61,8 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
   - 数据分别来自 `sessions.list` 的 `subagentCatalog` 投影与 `ctx.jobs` 的任务名册；后台任务名册需要 `watchRows` 订阅。
   - 子智能体跳转使用显式注入的 `uiWorkspace.openSession`；Cordis 对未声明的服务会抛错，不能用可选链跳过依赖声明。
   - **宿主徽标只在同类替代徽标渲染时才隐藏**：插件把覆盖的类别写在插槽的 `data-dsh-mobile-badges` 上，样式据此隐藏对应宿主控件；投影读不到时该类别不隐藏，回退到宿主原控件而不是什么都不显示。
-  - 隐藏依靠 `aria-label` 文案匹配（中英文），宿主改文案会导致两套徽标同时出现——这是可见降级，不是静默失效。
+  - 子智能体徽标按宿主的 `aria-haspopup="tree"` 标识隐藏（已核对 0.2.1-rc.2 的 `CatalogDropdown`），与语言/文案无关，且只匹配该插槽下的直接条目；未来若同一插槽出现其他树形弹出控件，仍可能误匹配。
+  - 后台任务徽标**没有**可用的稳定宿主标识（宿主条目是普通 `<div>`，直接子 `<button aria-expanded>` 只带本地化 `aria-label`，插槽条目 id 未落到 DOM）。因此只保留收窄后的文案匹配：直属 `button[aria-expanded]` 且文案含“后台任务”或“background job”，不再匹配任意 `job` 后代。宿主改文案或使用未知语言时可能出现两套徽标；若其他控件恰好具有相同结构和文案，仍可能被误隐藏。建议宿主为插槽条目输出稳定标记（例如 `data-slot-entry`），插件不为此发明接口。
 - **头部只改横向内边距与标签行底部 6px**（20/28px → 12px）。改 `min-height` 反而让两行头部更高。
 - 390×844 实测头部：原始 90px，本插件 83.5px（32px 抽屉按钮 + 6px 标签行留白）。
 - **抽屉宽度取 `min(86vw, 320px)`**，不使用宿主拖拽出的宽度偏好。
@@ -70,23 +71,34 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 
 ## 开发
 
+以下构建、测试与探针命令在源码检出中运行；插件包只分发构建产物和资源，不包含 `src/`、`tests/` 或 `scripts/`。
+
 ```bash
 pnpm install
 pnpm run typecheck
 pnpm run build           # dist/host/index.js + dist/client.js
 pnpm test                # pretest 会先构建；回归用例串行
-pnpm run verify:bundle   # 惰性 factory、仅宿主 React、地标契约、注册与清理
+pnpm run verify:bundle   # 产物检查：惰性 factory、仅宿主 React、样式表地标引用、注册与清理
 ```
 
-默认门禁是 typecheck、build、Node 测试和 bundle 校验，全部离线、不启动浏览器；干净检出可直接 `pnpm test`（`pretest` 先构建 `dist`）。可选活体检查不属于默认门禁：触摸回归需要本地 Playwright 与 Chromium，用 `DSH_MOBILE_PLAYWRIGHT_MODULE`（模块绝对路径）和 `DSH_MOBILE_BROWSER_EXECUTABLE`（浏览器绝对路径）启用；页面探针需要已运行的 Chrome CDP。两者都应在验证记录中单独标明执行或未执行，不能把 Node 测试当作真机/GUI 验收。
+默认门禁是 typecheck、build、Node 测试和 bundle 校验，全部离线、不启动浏览器；干净检出可直接 `pnpm test`（`pretest` 先构建 `dist`）。**`verify:bundle` 只是产物自检**：它检查构建出的样式表是否仍引用 `landmarks.ts` 的每个选择器，产物体内没有宿主 DOM，因此不能证明宿主升级后地标仍存在。宿主活体地标由可选探针的 `--verify` 验收，两者不可互相替代。
+
+可选活体检查不属于默认门禁：触摸回归需要本地 Playwright 与 Chromium，用 `DSH_MOBILE_PLAYWRIGHT_MODULE`（模块绝对路径）和 `DSH_MOBILE_BROWSER_EXECUTABLE`（浏览器绝对路径）启用；页面探针需要已运行的 Chrome CDP。两者都应在验证记录中单独标明执行或未执行，不能把 Node 测试当作真机/GUI 验收。
 
 触摸回归在隔离页面运行真实插件 bundle，验证服务声明、子智能体菜单点击和底部按钮的触摸命中与关闭插件后的还原；不连接用户会话、不代表登录态 GUI 的端到端验收。
 
-只读页面探针（连**已在运行**的 Chrome CDP，不启动浏览器、不读凭据、量完自动还原视口）：
+页面探针连接**已在运行**的 Chrome CDP，不启动浏览器或读取凭据。它临时设置设备视口和触摸仿真，结束时清除这些覆盖；无法恢复目标页原先已有的仿真设置，使用前应选择无既有仿真的页面：
 
 ```bash
+# 报告模式：没找到 DSH 目标只输出 needsTarget、退出 0；连接/执行错误仍退出 1
 node scripts/browser-probe.mjs http://127.0.0.1:9222 --viewport 390x844 --touch
+
+# 验收模式：找到唯一 DSH 页面、插件已激活、无插槽崩溃、当前页面状态所需的关键地标齐全才退出 0
+# --expect conversation 显式声明“这个验收目标应当处于会话页”，锚点消失时不会被当成别的页面状态跳过
+node scripts/browser-probe.mjs http://127.0.0.1:9222 --viewport 390x844 --touch --verify --expect conversation
 ```
+
+`--verify` 始终要求 shell 锚点（root、AppFrame、sidebar/main/rightbar）存在——宿主改名会直接失败，而不是让整组检查静默跳过。会话头、设置面板、View 标签、表格等条件性地标只在对应锚点存在时才要求；若验收目标本身就是这些条件状态，用 `--expect conversation`（及 `settings`/`tabs`/`table` 等 `PROBE_ANCHORS` 名称）显式声明，锚点被改名/删除时报 `expected:*` 失败。`--expect` 必须与 `--verify` 一起使用并提供非空状态。因此探针只对“当前页面状态 + 显式声明”的条件地标负责，不声称无条件覆盖所有条件 DOM；只读子智能体等由宿主替换输入组件的会话没有 `data-composer-card`，不属于默认 `--expect conversation` 验收场景。无 DSH 目标算验收失败（退出码 1）。退出码：0 成功/报告，1 探针或验收失败，2 用法错误。
 
 产物是 DSH Host ESM + `window.__ModuleLoader__` 惰性 Client factory；React 从宿主模块表取。Client 不运行时 import 任何 DSH Client 内部包。
 
