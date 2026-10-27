@@ -7,7 +7,7 @@ DeepSeek Harness（DSH）插件集合。每个子目录是一个可独立装入 
 | 目录 | 包名 | 版本 | 作用 | 形态 |
 | --- | --- | --- | --- | --- |
 | [pin-subagent-model](<pin-subagent-model/README.md>) | `dsh-plugin-pin-subagent-model` | 0.4.0 | 把每次委派的子 Agent 固定到指定 LLM 路由，并可选地直接指定其 Agent 预设，不继承父 Agent 的实时路由与组合；路由与预设可在插件页的行配置中修改，子代理会话输入框仍只读显示实际请求的模型短名与 effort | Host + Web Client 双端插件 bundle（纯 JS，无需构建） |
-| [dsh-mobile](<dsh-mobile/README.md>) | `@local/dsh-mobile`（private） | 0.2.0 | 移动端布局与触控优化：侧栏抽屉、横滑开关抽屉、会话行操作触屏可达、设置面板重排、44px 触控目标、宽表格横滑、软键盘与进入会话不弹键盘；桌面端不受影响 | Host + Web Client 双端插件，需构建 |
+| [dsh-mobile](<dsh-mobile/README.md>) | `@local/dsh-mobile`（private） | 0.3.0 | 移动端布局与触控优化：侧栏抽屉、横滑开关抽屉、顶部下拉加载更早（锚点保持阅读位置）、会话行操作触屏可达、设置面板重排、44px 触控目标、宽表格横滑、软键盘与进入会话不弹键盘；桌面端不受影响 | Host + Web Client 双端插件，需构建 |
 | [dsh-smartui](<dsh-smartui/README.md>) | `@local/dsh-smartui`（private） | 0.1.3 | ChatGPT 风格外观 + 对话内安全声明式组件（卡片/表格/图表/表单/选项） | Host + Web Client 双端插件，需构建 |
 | [dsh-lan-connect](<dsh-lan-connect/README.md>) | `@local/dsh-lan-connect`（private） | 0.1.0 | 在现有 Web 服务的同一端口增加固定 `/lan` 入口，让局域网设备用原生认证登录；链接与二维码不含 token | Host + Web Client 双端插件，仅需构建 client |
 | [dsh-history-budget](<dsh-history-budget/README.md>) | `@local/dsh-history-budget`（private） | 0.2.0 | 按编码字节预算裁剪会话首帧与历史页，长 goal 回合或大工具输出不再整帧几 MB；被裁记录由原生「加载更早」取回 | 纯 Host 插件 bundle（纯 JS，无依赖，无需构建） |

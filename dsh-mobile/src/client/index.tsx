@@ -13,6 +13,7 @@ import { installStyles } from './install-styles.js';
 import { installViewport } from './install-viewport.js';
 import { installKeyboardInset } from './install-keyboard.js';
 import { installSwipeNavigation } from './install-gestures.js';
+import { installHistoryAutoload } from './install-history-autoload.js';
 import { installComposerFocusGuard } from './install-focus-guard.js';
 import { DrawerFallbackToggle, DrawerScrim, DrawerToggle } from './Drawer.js';
 import { Settings } from './Settings.js';
@@ -49,9 +50,13 @@ function activate(ctx: ClientContext, settings: MobileSettings): Disposer {
   // Both interaction layers are separate settings: each changes what a touch
   // does, so each has to be reversible on its own.
   const restoreGestures = settings.swipeNavigation ? installSwipeNavigation(ctx) : () => {};
+  // Paging belongs to the layout layer, not to a setting: the manual pager
+  // stays available and this only adds a deliberate pull at the transcript head.
+  const restoreHistory = installHistoryAutoload(ctx);
   const restoreFocusGuard = settings.quietComposerFocus ? installComposerFocusGuard() : () => {};
   return () => {
     restoreFocusGuard();
+    restoreHistory();
     restoreGestures();
     restoreKeyboard();
     restoreViewport();

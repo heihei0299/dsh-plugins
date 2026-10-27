@@ -1,7 +1,7 @@
 {
   "name": "@local/dsh-mobile",
-  "version": "0.2.0",
-  "description": "Mobile layout, touch targets, swipe navigation, touch row actions and on-screen-keyboard handling for the DSH Web GUI; desktop is untouched",
+  "version": "0.3.0",
+  "description": "Mobile layout, touch targets, swipe navigation, pull-to-page history, touch row actions and on-screen-keyboard handling for the DSH Web GUI; desktop is untouched",
   "private": true,
   "type": "module",
   "license": "MIT",

@@ -1,6 +1,7 @@
 import type { ClientContext, Disposer } from './contracts.js';
 import { CENTER_COLUMN, RIGHTBAR_COLUMN, SIDEBAR_COLUMN } from './landmarks.js';
 import { isDrawerClosed } from './environment.js';
+import { mainSession } from './session.js';
 
 export const DRAWER_ID = 'dsh-mobile-drawer';
 const TOGGLE = '.dsh-mobile-toggle';
@@ -49,11 +50,6 @@ function visible(element: HTMLElement): boolean {
 function focusable(drawer: HTMLElement): HTMLElement[] {
   return Array.from(drawer.querySelectorAll<HTMLElement>(FOCUSABLE))
     .filter(element => element.tabIndex >= 0 && !element.matches(':disabled') && visible(element));
-}
-
-function mainSession(ctx: ClientContext): string | undefined {
-  return Object.entries(ctx.sessions.list.getSnapshot().byId)
-    .find(([, row]) => (row.retainedBy.mainView ?? 0) > 0)?.[0];
 }
 
 /**

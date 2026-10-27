@@ -60,6 +60,16 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 | 会话行 / 工作区行操作可达 | 插件激活期间让宿主的行操作条常驻，并用伪元素把按钮命中区向外扩 12×8（实测 16px 图标 → 40×32） | 宿主的行操作只在 `:hover` 出现，手机上因此完全不可达；用选择器特异性获胜，不引入 `!important`，也不改变行高 |
 | 会话打开不弹键盘 | 拦截 `HTMLElement.prototype.focus`：输入区编辑面在没有 3 秒内真实点按的情况下拒绝聚焦 | 只在移动层激活期间生效，退出时按函数身份还原；其他插件后装的补丁不会被移除 |
 
+**本插件新增：顶部下拉加载更早**
+
+宿主的「加载更早」只有一个约 25px 高的按钮；手机读长会话时手指已经在顶部，再往下拉却没有反应。移动层激活后，在 Chat 视图的会话滚动区顶部继续下拉 ≥48px，就按公开的 `SessionFace.loadOlder()` 取一页，不必精确点到按钮：
+
+- 只认 Chat 视图：滚动区里没有 `[data-chat-flow]`（轨迹视图、会话检查器）时不响应。
+- 一次手势最多一页；`hasMore === false`、`loadingOlder === true` 或窗口尚未 `open` 时不发请求。
+- 不合成点击、不按按钮文案找控件；宿主原生的分页按钮、游标和手动翻页保持原样。
+- prepend 后用宿主自己的 `[data-chat-anchor-key]` 行测量位移并同步 `scrollTop`，读者视线不跳；锚点行找不到时才退回 `scrollHeight` 差值。实测 390×844 下拉一页：内容 2905→14341px、`scrollTop` 0→11435.5px，锚点行仍停在 47.5px。
+- 手势起于输入框、可编辑区或输入卡片（`data-composer-seat`）时不响应；多指、`touchcancel` 与普通滚动都不触发。从原生分页按钮上起手下拉同样有效（纯点按没有位移，不会误触发）。
+
 **没有移植的部分及原因**（都在本机宿主上逐条核对过已原生解决，或会与宿主行为冲突）：
 
 - **长按行菜单**：宿主给行加了 `HoverCard`（`openDelayMs: 800`，`pointerenter` 不过滤 touch），长按 0.8 秒本身就是「预览卡片」。再把长按改成菜单会让同一手势有两种含义，因此改为直接显示行操作控件。
@@ -69,6 +79,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 ## 边界与已知限制
 
 - **依赖宿主 DOM 地标**，不依赖哈希类名。地标集中在源码的 `src/client/landmarks.ts`；构建断言只检查插件产物是否使用这些选择器，宿主是否仍提供对应结构须通过下述活体探针检查。地标缺失时相关样式可能不命中，不能假定所有布局均保持正常。
+- **顶部下拉分页依赖宿主的 Chat 滚动区与锚点行**：`[data-conversation-scroll]`、`[data-chat-flow]` 与 `[data-chat-anchor-key]`。宿主改名或改结构时下拉不再命中；锚点行缺失时只按 `scrollHeight` 差值补偿，滚动区自身的折叠/展开动画可能让该差值不精确。该行为没有独立开关，随移动层一起启停；宿主「加载更早」按钮的手动行为不受影响。
 - **设置面板依赖宿主的设置对话框标记**：`[data-shortcut-modal="settings"]`、它下面的 `nav` / 内容两级子节点，以及分区 slot `[data-slot="settings.section"]`。列表行头按 `li > div:first-child` 结构匹配，不依赖提供商文案或哈希类名；宿主改名或改结构时对应规则可能不命中，构建断言不能发现宿主变化。设置页不额外补偿软键盘，沿用宿主 options 滚动容器。
 - **抽屉状态是宿主自己的**。插件只调用公开的 `ctx.layout.toggleSidebar()`，并读宿主写在帧上的 `data-sidebar-collapsed`，不另存一份状态。
 - **抽屉使用宿主的滑动时长与缓动**，遮罩按相同时长淡出，退出完成前仍拦截触摸；关闭过程中的重复遮罩点击不会重新打开抽屉。开关抽屉及不影响启用状态的窗口缩放，不重装样式、viewport 或键盘监听。
@@ -143,6 +154,8 @@ node scripts/browser-probe.mjs http://127.0.0.1:9222 --viewport 390x844 --touch 
 | 硬关闭 | `mode=off` 后重载 | 根属性、移动样式表、抽屉按钮、键盘 inset 变量全部撤销，`meta[viewport]` 复原为 `width=device-width, initial-scale=1`，程序化聚焦恢复、横滑不再响应 |
 
 未覆盖：真实 iOS/Android 手势管线（`Input.dispatchTouchEvent` 不等价于真实触摸滚动竞争）、会话行（非空白）的操作菜单、以及登录态 GUI 的端到端验收——隔离实例无凭据、真实 GUI 匿名 401。`scripts/browser-probe.mjs --verify --expect conversation` 在该隔离实例上仅因 `header-actions` 缺失失败：该实例处在「新会话」页，宿主不渲染会话头部的动作槽，与本插件无关。
+
+顶部下拉另在登录态 GUI（同一 `dsh-mobile` link 安装，Chrome 390×844 / mobile / touch 仿真）复验：在会话顶部合成 `TouchEvent` 下拉 70px，插件经公开 `loadOlder()` 取回一页，内容 2905→14341px、`scrollTop` 0→11435.5px，`[data-chat-anchor-key]` 锚点行仍停在 47.5px；原生「加载更早」按钮仍在。合成事件验证的是插件判定与锚点补偿，不等价于真机滚动竞争、地址栏收缩与 iOS 回弹。
 
 ## License
 

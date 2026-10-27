@@ -57,6 +57,25 @@ export interface LayoutService {
   toggleSidebar(): void;
 }
 
+/** The history-window state the pull gesture has to respect before paging. */
+export interface SessionHistoryState {
+  readonly openState: 'cold' | 'loading' | 'open' | 'error';
+  readonly hasMore: boolean;
+  readonly loadingOlder: boolean;
+}
+
+/**
+ * The outward session verbs a feature may call.
+ *
+ * `loadOlder` is the documented history verb the Chat pager, the trajectory
+ * view, the session inspector and `ConversationController` all share; this
+ * plugin calls it instead of synthesizing a click on any control.
+ */
+export interface SessionHistoryFace {
+  getSnapshot(): SessionHistoryState;
+  loadOlder(): Promise<void>;
+}
+
 /** The same public main-view ownership projection used by the host's session tree. */
 export interface SessionsService {
   readonly list: HostSource<{
@@ -74,6 +93,8 @@ export interface SessionsService {
       }[] };
     } | undefined>>;
   }>;
+  /** The live binding for one retained session; absent when it is not materialized. */
+  binding(sessionId: string): { readonly session: SessionHistoryFace } | undefined;
 }
 
 /** `ctx.jobs` face: the reference-counted background-job rosters. */

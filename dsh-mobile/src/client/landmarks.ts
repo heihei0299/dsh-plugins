@@ -114,6 +114,24 @@ export const VIEW_TABS = '[data-conversation-tabs] button';
 /** Transcript scrollport; also the anchor for overscroll containment. */
 export const CONVERSATION_SCROLL = '[data-conversation-scroll]';
 
+/**
+ * Chat transcript column inside that scrollport.
+ *
+ * The conversation scrollport is shared by every view, so its presence is what
+ * distinguishes "the Chat view is showing" from the Trajectory or inspector
+ * view, both of which page the same session window from their own controls.
+ */
+export const CHAT_FLOW = '[data-chat-flow]';
+
+/**
+ * Per-node identity the host's own scroll memory anchors on.
+ *
+ * Used only to keep a reader's place across a history prepend this plugin
+ * triggered itself: the same row is measured before and after the page lands,
+ * and the scrollport follows the row by the measured offset change.
+ */
+export const CHAT_ANCHOR = '[data-chat-anchor-key]';
+
 /** Markdown table wrappers: a stable semantic class plus the structural parent of `<table>`. */
 export const WIDE_TABLE = '.md-table-wide';
 export const TABLE_WRAPPER = 'div:has(> table)';
