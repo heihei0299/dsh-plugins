@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SmartUI · 轻量报告视觉 Demo</title>
+<script>document.documentElement.dataset.theme = new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light';</script>
+<style>
+:root { color-scheme:light; --board:#f1f2f0; --surface:#fff; --soft:#f7f8f6; --soft-hover:#eff1ed; --text:#20251f; --muted:#72786f; --line:#e8ebe5; --strong:#d7dcd3; --accent:#38684c; --accent-soft:#eaf2eb; --chart:#648670; --chart-2:#a9b5a8; --chart-3:#cbd2c5; --shadow:0 18px 60px -32px #24332140; --ui-font:"Noto Sans CJK SC","Microsoft YaHei",system-ui,sans-serif; }
+:root[data-theme="dark"] { color-scheme:dark; --board:#161a17; --surface:#212622; --soft:#292f29; --soft-hover:#333c34; --text:#edf1e9; --muted:#a4afa3; --line:#353e35; --strong:#4b574b; --accent:#a4c6ac; --accent-soft:#304437; --chart:#8cb09a; --chart-2:#697f70; --chart-3:#506052; --shadow:0 18px 60px -32px #0009; }
+* { box-sizing:border-box; }
+body { margin:0; padding:42px 54px 32px; background:var(--board); color:var(--text); font:14px/1.6 var(--ui-font); -webkit-font-smoothing:antialiased; }
+button,textarea { font:inherit; }
+button { cursor:pointer; }
+button:focus-visible,textarea:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+button { color:inherit; }
+h1,h2,h3,p { margin:0; }
+.board-header { max-width:1400px; margin:0 auto 28px; display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }
+.brand { display:flex; gap:9px; align-items:center; font-size:12px; letter-spacing:.045em; color:var(--muted); }
+.brand-mark { display:inline-grid; place-items:center; width:25px; height:25px; border:1px solid var(--strong); border-radius:8px; color:var(--accent); font-size:17px; }
+h1 { margin-top:10px; font-size:30px; font-weight:650; letter-spacing:-1px; }
+.board-subtitle { margin-top:6px; color:var(--muted); font-size:13px; }
+.theme-controls { padding-top:3px; display:flex; flex-direction:column; align-items:flex-end; gap:12px; }
+.theme-button { border:1px solid var(--strong); border-radius:99px; padding:6px 14px; background:var(--surface); font-size:12px; }
+.preview-label { color:var(--muted); font-size:11px; display:flex; align-items:center; gap:6px; }
+.preview-label i { width:6px; height:6px; border-radius:50%; background:var(--accent); }
+.canvas { display:grid; grid-template-columns:minmax(0,1fr) 362px; gap:32px; align-items:start; max-width:1400px; margin:auto; }
+.platform-label { display:flex; justify-content:space-between; align-items:center; margin:0 3px 10px; color:var(--muted); font-size:11px; letter-spacing:.04em; }
+.platform-label b { font-weight:500; color:var(--text); }
+.window { border:1px solid var(--strong); border-radius:18px; background:var(--surface); overflow:hidden; box-shadow:var(--shadow); }
+.window-bar { height:38px; border-bottom:1px solid var(--line); background:var(--soft); display:flex; align-items:center; padding:0 16px; gap:6px; }
+.window-dot { width:7px; height:7px; border-radius:50%; border:1px solid var(--strong); }
+.window-address { flex:1; text-align:center; font-size:10px; color:var(--muted); padding-right:33px; letter-spacing:.04em; }
+.chat-toolbar { height:54px; display:flex; align-items:center; justify-content:space-between; padding:0 26px; border-bottom:1px solid var(--line); }
+.chat-title { font-weight:600; font-size:13px; display:flex; align-items:center; gap:9px; }
+.chat-title svg { color:var(--muted); }
+.model-label { font-weight:400; color:var(--muted); font-size:11px; }
+.toolbar-action { border:0; background:none; color:var(--muted); letter-spacing:2px; }
+.conversation { padding:22px 30px 20px; }
+.speaker { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:600; color:var(--muted); }
+.speaker .spark { color:var(--accent); font-size:17px; line-height:1; }
+.intro { font-size:13px; margin:9px 0 18px; line-height:1.9; }
+.intro strong { font-weight:600; }
+.report { border:1px solid var(--line); border-radius:14px; padding:23px 24px 0; }
+.report-kicker { display:flex; align-items:center; gap:7px; color:var(--muted); font-size:10px; letter-spacing:.03em; }
+.sample-tag { background:var(--soft); border:1px solid var(--line); border-radius:5px; padding:0 5px; font-size:9px; line-height:18px; }
+.report-title { margin-top:7px; font-size:23px; font-weight:650; letter-spacing:-.6px; line-height:1.4; }
+.report-summary { margin-top:7px; color:var(--muted); font-size:12px; line-height:1.8; }
+.metrics { display:grid; grid-template-columns:1.12fr 1fr 1fr; gap:10px; margin-top:20px; }
+.metric { padding:14px 15px; background:var(--soft); border-radius:9px; min-width:0; }
+.metric-label { color:var(--muted); font-size:10px; }
+.metric-number { margin-top:5px; font-size:26px; font-weight:650; letter-spacing:-.7px; line-height:1.4; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.metric-number.text-value { font-size:21px; letter-spacing:-.4px; }
+.metric-number small { color:var(--muted); font-size:12px; font-weight:400; letter-spacing:0; }
+.metric-note { margin-top:3px; color:var(--muted); font-size:10px; }
+.report-section { margin-top:23px; }
+.section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.section-heading h3 { font-size:12px; font-weight:600; }
+.section-heading .meta { font-size:10px; color:var(--muted); margin-left:6px; font-weight:400; }
+.quiet-action { display:inline-flex; gap:4px; align-items:center; padding:3px 0 3px 7px; background:none; border:0; color:var(--muted); font-size:10px; white-space:nowrap; }
+.quiet-action:hover { color:var(--text); }
+.quiet-action svg { width:12px; height:12px; }
+table { width:100%; border-collapse:collapse; font-size:11px; font-variant-numeric:tabular-nums; }
+th { color:var(--muted); font-size:10px; font-weight:400; text-align:left; padding:8px 10px; background:var(--soft); }
+th:first-child { border-radius:6px 0 0 6px; }
+th:last-child { border-radius:0 6px 6px 0; }
+td { padding:11px 10px; border-bottom:1px solid var(--line); }
+tbody tr:last-child td { border:0; }
+tbody tr:hover { background:var(--soft); }
+.numeric { text-align:right; }
+.recommend { margin-left:6px; display:inline-block; font-size:9px; line-height:17px; border-radius:4px; padding:0 5px; color:var(--accent); background:var(--accent-soft); font-weight:500; }
+.score { display:inline-flex; align-items:center; gap:8px; }
+.score-track { width:36px; height:4px; border-radius:3px; background:var(--line); overflow:hidden; }
+.score-track i { display:block; height:100%; background:var(--chart); }
+.chart-unit { color:var(--muted); font-size:10px; }
+.chart-layout { display:grid; grid-template-columns:32px 1fr; margin-top:4px; }
+.chart-axis { height:137px; display:flex; flex-direction:column; justify-content:space-between; text-align:right; padding-right:9px; color:var(--muted); font-size:9px; font-variant-numeric:tabular-nums; }
+.chart-plot { height:137px; position:relative; border-bottom:1px solid var(--strong); }
+.grid-line { position:absolute; left:0; right:0; border-top:1px dashed var(--line); }
+.bars { position:absolute; inset:0; display:flex; justify-content:space-around; align-items:flex-end; padding:0 12px; }
+.bar { position:relative; width:44px; height:var(--height); background:var(--chart); border-radius:4px 4px 0 0; }
+.bar:nth-child(2) { background:var(--chart-2); }
+.bar:nth-child(3) { background:var(--chart-3); }
+.bar:hover { filter:brightness(.93); }
+.bar-value { position:absolute; top:-23px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:10px; font-weight:500; color:var(--text); font-variant-numeric:tabular-nums; }
+.chart-categories { display:flex; justify-content:space-around; margin:7px 0 0 32px; padding:0 12px; color:var(--muted); font-size:10px; }
+.chart-categories span { width:44px; text-align:center; }
+.chart-foot { display:flex; justify-content:space-between; gap:10px; margin-top:9px; font-size:9px; color:var(--muted); }
+.chart-foot details { text-align:right; }
+.chart-foot summary { cursor:pointer; }
+.chart-foot details[open] { flex:1; }
+.chart-foot table { margin-top:8px; }
+.next-step { border-top:1px solid var(--line); padding-top:17px; margin-top:19px; }
+.step-caption { margin-top:3px; font-size:10px; color:var(--muted); }
+.option-group { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
+.option { border:1px solid var(--strong); border-radius:7px; background:var(--surface); padding:7px 10px; font-size:11px; line-height:1.4; }
+.option:hover { background:var(--soft-hover); }
+.option[aria-pressed="true"] { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+.option[aria-pressed="true"]::before { content:'✓'; margin-right:5px; }
+.fill-row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.fill-button { border:1px solid var(--text); background:var(--text); color:var(--surface); border-radius:7px; padding:8px 13px; font-size:11px; line-height:1.4; font-weight:500; }
+.feedback { color:var(--muted); font-size:10px; }
+.feedback.is-success { color:var(--accent); }
+.report-footer { border-top:1px solid var(--line); margin-top:18px; padding:10px 0; display:flex; align-items:center; justify-content:space-between; color:var(--muted); font-size:9px; gap:12px; }
+.report-footer details { position:relative; }
+.report-footer summary { cursor:pointer; white-space:nowrap; }
+.report-footer .more-info { font-size:10px; max-width:240px; padding-top:8px; }
+.composer { margin-top:17px; border:1px solid var(--strong); background:var(--surface); border-radius:11px; padding:11px 12px 9px; }
+.composer textarea { padding:0; margin:0; width:100%; height:26px; display:block; border:0; resize:none; outline:none; background:none; color:var(--text); font-size:11px; line-height:1.7; }
+.composer textarea::placeholder { color:var(--muted); }
+.composer-tools { display:flex; justify-content:space-between; align-items:center; margin-top:5px; color:var(--muted); font-size:16px; }
+.send-placeholder { width:23px; height:23px; border-radius:50%; background:var(--soft); display:grid; place-items:center; font-size:14px; }
+.composer-note { text-align:center; color:var(--muted); margin-top:6px; font-size:9px; }
+.phone { border:5px solid var(--strong); border-radius:32px; background:var(--surface); overflow:hidden; box-shadow:var(--shadow); }
+.phone-status { display:flex; justify-content:space-between; align-items:center; height:34px; padding:0 19px; font-size:10px; font-weight:600; }
+.phone-status .status-icons { display:flex; gap:4px; align-items:center; font-size:9px; }
+.phone .chat-toolbar { height:47px; padding:0 15px; }
+.phone .chat-title { font-size:12px; }
+.phone .conversation { padding:17px 13px 12px; }
+.phone .intro { font-size:11px; margin:8px 0 13px; line-height:1.8; }
+.phone .speaker { font-size:10px; }
+.phone .report { padding:16px 14px 0; border-radius:11px; }
+.phone .report-title { font-size:19px; margin-top:6px; }
+.phone .report-summary { font-size:10px; margin-top:6px; }
+.phone .report-kicker { font-size:9px; }
+.phone .sample-tag { font-size:8px; line-height:15px; }
+.phone .metrics { grid-template-columns:1fr 1fr; gap:7px; margin-top:14px; }
+.phone .metric { padding:11px; border-radius:7px; }
+.phone .metric:first-child { grid-column:1 / -1; display:grid; grid-template-columns:1fr auto; align-items:center; padding:10px 11px; }
+.phone .metric:first-child .metric-number { grid-row:1 / 3; grid-column:2; margin:0; font-size:18px; }
+.phone .metric:first-child .metric-note { margin-top:1px; }
+.phone .metric-label,.phone .metric-note { font-size:9px; }
+.phone .metric-number { font-size:22px; }
+.phone .metric-number small { font-size:10px; }
+.phone .report-section { margin-top:18px; }
+.phone .section-heading { margin-bottom:7px; }
+.phone .section-heading h3 { font-size:11px; }
+.phone th,.phone td { padding:8px 7px; font-size:10px; }
+.phone th { font-size:9px; }
+.phone .mobile-hide { display:none; }
+.phone .recommend { margin-left:3px; font-size:8px; padding:0 3px; }
+.phone .score-track { display:none; }
+.phone .chart-layout { grid-template-columns:27px 1fr; }
+.phone .chart-axis,.phone .chart-plot { height:120px; }
+.phone .chart-axis { font-size:8px; padding-right:6px; }
+.phone .bar { width:32px; }
+.phone .bars { padding:0 3px; }
+.phone .bar-value { font-size:9px; top:-21px; }
+.phone .chart-categories { margin-left:27px; padding:0 3px; font-size:9px; }
+.phone .chart-categories span { width:32px; }
+.phone .chart-foot { font-size:8px; margin-top:7px; }
+.phone .next-step { margin-top:16px; padding-top:14px; }
+.phone .option-group { gap:6px; margin-top:10px; }
+.phone .option { font-size:10px; padding:7px 8px; }
+.phone .fill-row { gap:7px; }
+.phone .fill-button { font-size:10px; }
+.phone .feedback { font-size:9px; }
+.phone .report-footer { font-size:8px; margin-top:14px; padding:9px 0; }
+.phone .composer { margin-top:13px; }
+.phone .composer textarea { font-size:10px; height:36px; }
+.home-indicator { height:4px; width:96px; background:var(--text); border-radius:10px; margin:4px auto 8px; opacity:.8; }
+.annotation { display:flex; gap:9px; align-items:center; margin:14px 3px 0; color:var(--muted); font-size:11px; }
+.annotation-number { display:grid; place-items:center; width:21px; height:21px; flex:none; border:1px solid var(--strong); border-radius:50%; color:var(--accent); font-size:10px; }
+.board-footer { display:flex; justify-content:space-between; gap:18px; max-width:1400px; margin:26px auto 0; padding-top:15px; border-top:1px solid var(--strong); color:var(--muted); font-size:10px; }
+.board-footer strong { color:var(--text); font-weight:500; }
+@media (max-width:1050px) { body { padding:28px 22px; } .canvas { grid-template-columns:1fr; max-width:820px; gap:28px; } .phone-column { max-width:362px; width:100%; justify-self:center; } .board-header { max-width:820px; } }
+@media (max-width:520px) { body { padding:22px 12px; } h1 { font-size:24px; } .board-header { flex-direction:column; gap:12px; } .theme-controls { align-items:flex-start; flex-direction:row; align-items:center; } .desktop-column { display:none; } .board-footer { flex-direction:column; font-size:10px; } }
+@media (prefers-reduced-motion:reduce) { * { transition:none!important; } }
+</style>
+</head>
+<body>
+<header class="board-header">
+  <div><div class="brand"><span class="brand-mark" aria-hidden="true">✦</span> SMARTUI / VISUAL EXPLORATION 01</div><h1>少一点容器，多一点内容。</h1><p class="board-subtitle">“轻量报告”视觉方向 · 同一份回答，在桌面与手机上各得其所。</p></div>
+  <div class="theme-controls"><button class="theme-button" type="button" id="theme-toggle">切换深色预览 ◐</button><span class="preview-label"><i></i>概念 Demo · 非当前插件实装</span></div>
+</header>
+<main class="canvas">
+<section class="desktop-column">
+  <div class="platform-label"><b>01 / 桌面阅读</b><span>轻边框 · 紧凑工具栏 · 内容优先</span></div>
+  <div class="window"><div class="window-bar"><i class="window-dot"></i><i class="window-dot"></i><i class="window-dot"></i><span class="window-address">SmartUI · 本地静态预览</span></div><div class="chat-toolbar"><div class="chat-title"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2.5" y="3" width="15" height="14" rx="3" stroke="currentColor"/><path d="M7 3v14" stroke="currentColor"/></svg>方案选择 <span class="model-label">/ 新项目</span></div><button class="toolbar-action" type="button" aria-label="演示界面，不提供更多操作">···</button></div><div class="conversation" id="desktop-content"></div></div>
+  <div class="annotation"><span class="annotation-number">1</span><span>表格与图表不再套独立卡片，复制和数据入口退到标题栏与辅助位置。</span></div>
+</section>
+<section class="phone-column">
+  <div class="platform-label"><b>02 / 手机阅读</b><span>完整图表 · 就近反馈</span></div>
+  <div class="phone"><div class="phone-status"><span>9:41</span><span class="status-icons">▴▴▴ ▰</span></div><div class="chat-toolbar"><div class="chat-title">‹ &nbsp; 方案选择</div><span class="model-label">···</span></div><div class="conversation" id="mobile-content"></div><div class="home-indicator"></div></div>
+  <div class="annotation"><span class="annotation-number">2</span><span>少量数据直接适配窄屏，不必左右拖动。</span></div>
+</section>
+</main>
+<footer class="board-footer"><span><strong>本页全部数据均为虚构示例。</strong> 费用为人民币 / 月，评分为演示用自定义评分。</span><span>可体验：选择下一步、模拟填入草稿、复制表格、明暗切换。无网络请求，不发送消息。</span></footer>
+<template id="report-template">
+  <div class="speaker"><span class="spark" aria-hidden="true">✦</span> SmartUI</div>
+  <p class="intro">先说结论：<strong>方案 A 更适合当前阶段。</strong><br class="mobile-hide">它在成本、上线速度与扩展空间之间更均衡。</p>
+  <article class="report">
+    <div class="report-kicker">方案评估 <span>·</span> <span class="sample-tag">虚构示例数据</span></div>
+    <h2 class="report-title">找到更适合的起点</h2>
+    <p class="report-summary">以 10 人团队为假设，对比三个候选方案。先看结论，再按需展开细节。</p>
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">优先考虑</div><div class="metric-number text-value">方案 A <span style="font-size:13px;color:var(--accent)">↗</span></div><div class="metric-note">成本与交付更均衡</div></div>
+      <div class="metric"><div class="metric-label">预计月度成本</div><div class="metric-number">¥1,280</div><div class="metric-note">三个方案中最低</div></div>
+      <div class="metric"><div class="metric-label">示例综合评分</div><div class="metric-number">92 <small>/ 100</small></div><div class="metric-note">仅用于展示效果</div></div>
+    </div>
+    <section class="report-section">
+      <div class="section-heading"><h3>方案对比 <span class="meta">3 个方案</span></h3><button class="quiet-action copy-table" type="button"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="5" y="5" width="8" height="9" rx="1.5" stroke="currentColor"/><path d="M10.5 3H4a1 1 0 0 0-1 1v6.5" stroke="currentColor"/></svg><span>复制表格</span></button></div>
+      <table aria-label="虚构方案比较"><thead><tr><th>方案</th><th class="numeric">月度成本</th><th class="numeric">上线周期</th><th class="numeric">综合评分</th></tr></thead><tbody>
+        <tr><td><strong style="font-weight:550">方案 A</strong><span class="recommend">推荐</span></td><td class="numeric">¥1,280</td><td class="numeric">2 周</td><td class="numeric"><span class="score"><span class="score-track"><i style="width:92%"></i></span>92</span></td></tr>
+        <tr><td>方案 B</td><td class="numeric">¥1,680</td><td class="numeric">3 周</td><td class="numeric"><span class="score"><span class="score-track"><i style="width:86%"></i></span>86</span></td></tr>
+        <tr><td>方案 C</td><td class="numeric">¥2,480</td><td class="numeric">4 周</td><td class="numeric"><span class="score"><span class="score-track"><i style="width:81%"></i></span>81</span></td></tr>
+      </tbody></table>
+    </section>
+    <section class="report-section">
+      <div class="section-heading"><h3>月度成本</h3><span class="chart-unit">人民币 / 月</span></div>
+      <div role="img" aria-label="虚构成本图：方案 A 每月 1280 元，方案 B 1680 元，方案 C 2480 元。">
+        <div class="chart-layout"><div class="chart-axis"><span>3,000</span><span>1,500</span><span>0</span></div><div class="chart-plot"><div class="grid-line" style="top:0"></div><div class="grid-line" style="top:50%"></div><div class="bars"><div class="bar" style="--height:42.6667%"><span class="bar-value">1,280</span></div><div class="bar" style="--height:56%"><span class="bar-value">1,680</span></div><div class="bar" style="--height:82.6667%"><span class="bar-value">2,480</span></div></div></div></div><div class="chart-categories"><span>方案 A</span><span>方案 B</span><span>方案 C</span></div>
+      </div>
+      <div class="chart-foot"><span>从零起点比较，避免夸大差异</span><details><summary>查看数据</summary><table aria-label="虚构成本原始数据"><tbody><tr><td>方案 A</td><td class="numeric">¥1,280</td></tr><tr><td>方案 B</td><td class="numeric">¥1,680</td></tr><tr><td>方案 C</td><td class="numeric">¥2,480</td></tr></tbody></table></details></div>
+    </section>
+    <section class="next-step">
+      <div class="section-heading" style="margin-bottom:0"><h3>下一步想怎么推进？</h3></div><p class="step-caption">选择一个方向，先填入草稿，再由你决定是否发送。</p>
+      <div class="option-group" role="group" aria-label="选择下一步"><button type="button" class="option" aria-pressed="true">细化方案 A</button><button type="button" class="option" aria-pressed="false">调整预算</button><button type="button" class="option" aria-pressed="false">再看其他方案</button></div>
+      <div class="fill-row"><button class="fill-button" type="button">填入草稿 <span aria-hidden="true">↗</span></button><span class="feedback" role="status" aria-live="polite">仅本页演示，不会发送消息</span></div>
+    </section>
+    <footer class="report-footer"><span>请勿填写密码或其他凭据</span><details><summary>更多</summary><p class="more-info">这是独立视觉概念页，不是 DSH 实际会话。选择与草稿只保存在本页内存中，刷新即重置。不会调用插件或模型，也不支持发送。</p></details></footer>
+  </article>
+  <div class="composer"><textarea aria-label="本地演示草稿" placeholder="回复或补充你的想法…"></textarea><div class="composer-tools"><span aria-hidden="true">＋</span><span class="send-placeholder" aria-label="仅演示，不支持发送">↑</span></div></div>
+  <p class="composer-note">本地视觉 Demo · 草稿不会进入真实对话</p>
+</template>
+<script>
+const template = document.getElementById('report-template');
+for (const id of ['desktop-content', 'mobile-content']) {
+  const root = document.getElementById(id);
+  root.append(template.content.cloneNode(true));
+  const options = Array.from(root.querySelectorAll('.option'));
+  const feedback = root.querySelector('.feedback');
+  const draft = root.querySelector('textarea');
+  for (const option of options) option.addEventListener('click', () => {
+    for (const item of options) item.setAttribute('aria-pressed', String(item === option));
+    feedback.textContent = '仅本页演示，不会发送消息';
+    feedback.classList.remove('is-success');
+  });
+  const fill = () => {
+    const selected = options.find(option => option.getAttribute('aria-pressed') === 'true');
+    const reply = `关于「下一步想怎么推进？」，我选择：${selected.textContent}。`;
+    draft.value = draft.value ? `${draft.value}\n${reply}` : reply;
+    feedback.textContent = '✓ 已填入草稿，尚未发送';
+    feedback.classList.add('is-success');
+  };
+  root.querySelector('.fill-button').addEventListener('click', fill);
+  root.querySelector('.copy-table').addEventListener('click', async event => {
+    const label = event.currentTarget.querySelector('span');
+    const text = '方案\t月度成本（元）\t上线周期（周）\t综合评分\n方案 A\t1280\t2\t92\n方案 B\t1680\t3\t86\n方案 C\t2480\t4\t81\n全部为虚构示例数据';
+    try { if (!navigator.clipboard?.writeText) throw new Error('unavailable'); await navigator.clipboard.writeText(text); label.textContent = '已复制'; }
+    catch { label.textContent = '请手动选择表格复制'; }
+  });
+  if (id === 'mobile-content') fill();
+}
+const themeButton = document.getElementById('theme-toggle');
+function updateThemeLabel() { themeButton.textContent = document.documentElement.dataset.theme === 'dark' ? '切换浅色预览 ◑' : '切换深色预览 ◐'; }
+themeButton.addEventListener('click', () => { document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; updateThemeLabel(); });
+updateThemeLabel();
+</script>
+</body>
+</html>
