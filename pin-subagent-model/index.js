@@ -119,7 +119,15 @@ function apply(ctx, config) {
 	}
 	const presetSkipped = new Set();
 	ctx.effect(() => {
+		// Stays true only while this decoration is mounted. A wrapper installed
+		// after us may have captured this function and keep delegating to it, so
+		// dispose has to neutralize the closure itself instead of relying on the
+		// service property swap: a stale closure would otherwise keep re-pinning
+		// delegations with the configuration this mount was created with, and
+		// after a re-enable the older pin would overwrite the newer one.
+		let active = true;
 		const wrapper = function pinnedStartActivation(spec) {
+			if (!active) return startActivation.call(this, spec);
 			const pin = readPin(config);
 			if (pin === void 0 || !pin.providers.has(spec?.provider)) return startActivation.call(this, spec);
 			const provider = typeof service.getProvider === "function" ? service.getProvider(spec.provider) : void 0;
@@ -138,6 +146,9 @@ function apply(ctx, config) {
 		// with a setter may store the value elsewhere instead.
 		const createdOwn = Object.hasOwn(service, "startActivation");
 		return () => {
+			// Invalidate this closure first so any delegating wrapper that still
+			// references it immediately falls back to the undecorated method.
+			active = false;
 			// Never overwrite a wrapper someone else installed after us: restoring
 			// our original would silently break that chain.
 			if (service.startActivation?.[PATCH_MARKER] !== true) {

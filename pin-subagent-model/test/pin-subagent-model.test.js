@@ -264,6 +264,48 @@ test("does not overwrite a wrapper installed after this plugin", () => {
 	assert.match(ctx.warnings.at(-1), /replaced after decoration/);
 });
 
+test("pins delegations forwarded by a later wrapper", async () => {
+	const service = recordingService({ spawn: SPAWN });
+	plugin.apply(fakeCtx(service), PIN);
+	const pinned = service.startActivation;
+	service.startActivation = function laterDelegate(spec) {
+		return pinned.call(service, spec);
+	};
+	await service.startActivation({ provider: "spawn", request: { agentOptions: { provider: "cpa", model: "gpt-6.1-sol" } } });
+	assert.equal(service.seen[0].request.agentOptions.model, "cline-pass/deepseek-v4.1-flash");
+});
+
+test("neutralizes its closure when a later wrapper still delegates to it", async () => {
+	const service = recordingService({ spawn: SPAWN });
+	const ctx = fakeCtx(service);
+	plugin.apply(ctx, PIN);
+	const pinned = service.startActivation;
+	const later = function laterDelegate(spec) {
+		return pinned.call(service, spec);
+	};
+	service.startActivation = later;
+	ctx.disposeAll();
+	assert.match(ctx.warnings.at(-1), /replaced after decoration/);
+	const spec = { provider: "spawn", request: { agentOptions: { provider: "cpa", model: "gpt-6.1-sol" } } };
+	await service.startActivation(spec);
+	assert.equal(service.seen[0], spec, "the disposed closure must pass the spec through unpinned");
+	assert.equal(service.startActivation, later);
+});
+
+test("re-enabling after a delegated dispose lets the new configuration win", async () => {
+	const service = recordingService({ spawn: SPAWN });
+	const first = fakeCtx(service);
+	plugin.apply(first, { provider: "cpa", model: "gpt-6-luna", reasoningEffort: "low" });
+	const stale = service.startActivation;
+	service.startActivation = function laterDelegate(spec) {
+		return stale.call(service, spec);
+	};
+	first.disposeAll();
+	plugin.apply(fakeCtx(service), { provider: "cpa", model: "cline-pass/deepseek-v4.1-flash", reasoningEffort: "max" });
+	await service.startActivation({ provider: "spawn", request: {} });
+	assert.deepEqual(service.seen[0].request.agentOptions, { provider: "cpa", model: "cline-pass/deepseek-v4.1-flash", reasoningEffort: "max" });
+});
+
 test("fails fast on a non-writable startActivation", () => {
 	const service = recordingService({ spawn: SPAWN });
 	Object.defineProperty(service, "startActivation", { value: service.startActivation, writable: false, configurable: true });
