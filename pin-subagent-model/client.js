@@ -470,12 +470,16 @@ window.__ModuleLoader__.load({
 			const [dirty, setDirty] = React.useState(false);
 			const [status, setStatus] = React.useState(null);
 			const [roster, setRoster] = React.useState({ status: "loading", presets: [] });
-			const synced = React.useRef(snapshot.revision);
+			// Keep the value and revision the draft was based on together. A later
+			// Host snapshot must not silently rebase an already edited draft.
+			const baseline = React.useRef({ value: accepted, revision: snapshot.revision });
+			const saving = React.useRef(false);
 			React.useEffect(() => {
-				if (dirty || synced.current === snapshot.revision) return;
-				synced.current = snapshot.revision;
+				if (dirty || snapshot.status !== "ready" || snapshot.revision === undefined
+					|| baseline.current.revision === snapshot.revision) return;
+				baseline.current = { value: accepted, revision: snapshot.revision };
 				setDraft(accepted);
-			}, [accepted, dirty, snapshot.revision]);
+			}, [accepted, dirty, snapshot.status, snapshot.revision]);
 			React.useEffect(() => {
 				let cancelled = false;
 				let pending;
@@ -504,32 +508,45 @@ window.__ModuleLoader__.load({
 				setStatus(null);
 			}
 			function reset() {
+				baseline.current = { value: accepted, revision: snapshot.revision };
 				setDraft(accepted);
 				setDirty(false);
-				synced.current = snapshot.revision;
 				setStatus(null);
 			}
 			async function save() {
-				if (!writable) return;
+				if (!writable || saving.current || baseline.current.revision === undefined) return;
 				const problem = validateDraft(draft, options);
 				if (problem !== null) {
 					setStatus({ kind: "invalid", key: problem });
 					return;
 				}
-				const ops = buildOps(draft, accepted);
+				const ops = buildOps(draft, baseline.current.value);
 				if (ops.length === 0) {
 					setStatus({ kind: "unchanged" });
 					return;
 				}
+				saving.current = true;
 				setStatus({ kind: "saving" });
 				try {
-					const acceptedWrite = await form.mutate(ops, snapshot.revision);
+					const acceptedWrite = await form.mutate(ops, baseline.current.revision);
 					if (acceptedWrite) {
+						// ConfigForm normally publishes the accepted snapshot before it
+						// resolves. If another queued write superseded it, keep the old
+						// fence rather than inventing a revision for the next edit.
+						const current = form.getSnapshot();
+						if (current.status === "ready" && current.revision !== undefined
+							&& current.revision !== baseline.current.revision) {
+							const value = draftFromConfig(current.value);
+							baseline.current = { value, revision: current.revision };
+							setDraft(value);
+						}
 						setDirty(false);
 						setStatus({ kind: "saved" });
 					} else setStatus({ kind: "refused" });
 				} catch {
 					setStatus({ kind: "error" });
+				} finally {
+					saving.current = false;
 				}
 			}
 			if (snapshot.status !== "ready") {

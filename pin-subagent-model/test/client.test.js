@@ -443,6 +443,203 @@ test("saves edited fields with the revision read before editing, and keeps the d
 	}
 });
 
+/** Render the real row page across updates with persistent hooks and effects. */
+function rowHarness(form) {
+	const { plugin, React } = loadClient();
+	const row = registrationOf(fakeCtxAfterApply(plugin), "plugins.row.config");
+	const originals = {
+		useState: React.useState,
+		useRef: React.useRef,
+		useEffect: React.useEffect,
+		useSyncExternalStore: React.useSyncExternalStore
+	};
+	const states = [];
+	const refs = [];
+	const effects = [];
+	let stateCursor = 0;
+	let refCursor = 0;
+	let effectCursor = 0;
+	let pendingEffects = [];
+	let changed = false;
+	React.useState = (initial) => {
+		const index = stateCursor++;
+		if (!(index in states)) states[index] = typeof initial === "function" ? initial() : initial;
+		return [states[index], (next) => {
+			const value = typeof next === "function" ? next(states[index]) : next;
+			if (!Object.is(value, states[index])) changed = true;
+			states[index] = value;
+		}];
+	};
+	React.useRef = (initial) => {
+		const index = refCursor++;
+		if (!(index in refs)) refs[index] = { current: initial };
+		return refs[index];
+	};
+	React.useEffect = (effect, deps) => {
+		const index = effectCursor++;
+		const previous = effects[index];
+		if (previous === undefined || deps.some((dep, i) => !Object.is(dep, previous.deps[i]))) {
+			pendingEffects.push(() => {
+				previous?.cleanup?.();
+				effects[index] = { deps, cleanup: effect() };
+			});
+		}
+	};
+	React.useSyncExternalStore = (_subscribe, getSnapshot) => getSnapshot();
+	const listPresets = async () => ({ presets: [{ id: "standard" }, { id: "minimal" }] });
+	function render() {
+		let page;
+		let passes = 0;
+		do {
+			assert.ok(++passes < 20, "effects must settle");
+			changed = false;
+			stateCursor = refCursor = effectCursor = 0;
+			pendingEffects = [];
+			const entry = row.component({ view: "page", t: (key) => key, configForm: form, listPresets });
+			page = entry.type(entry.props);
+			for (const effect of pendingEffects) effect();
+		} while (changed);
+		return page;
+	}
+	return {
+		render,
+		field(name) { return descendants(render()).find((node) => node?.props?.["data-field"] === name); },
+		button(label) { return descendants(render()).find((node) => node?.type === "button" && node.children[0] === label); },
+		status() { return descendants(render()).find((node) => node?.props?.["data-status"])?.props["data-status"]; },
+		dispose() {
+			for (const effect of effects) effect?.cleanup?.();
+			Object.assign(React, originals);
+		}
+	};
+}
+
+/** A CAS form that publishes its accepted snapshot before resolving, like the Host. */
+function casForm(value, revision = 7) {
+	const form = fakeForm({ value, revision });
+	form.mutate = async (ops, expectedRevision) => {
+		form.writes.push({ ops: JSON.parse(JSON.stringify(ops)), expectedRevision });
+		if (expectedRevision !== form.snapshot.revision) return false;
+		const next = { ...form.snapshot.value };
+		for (const op of ops) {
+			if (op.op === "unset") delete next[op.path[0]];
+			else next[op.path[0]] = op.value;
+		}
+		form.snapshot = { ...form.snapshot, value: next, revision: form.snapshot.revision + 1 };
+		return true;
+	};
+	return form;
+}
+
+const tick = () => new Promise((resolve) => setImmediate(resolve));
+
+test("concurrent settings edits keep the original revision and untouched fields", async () => {
+	for (const concurrent of [
+		{ reasoningEffort: "high", agentPreset: "minimal" },
+		{ model: "other-editor" }
+	]) {
+		const form = casForm({ provider: "cpa", model: "m", reasoningEffort: "low", agentPreset: "standard" });
+		const page = rowHarness(form);
+		try {
+			page.field("model").props.onChange({ currentTarget: { value: "my-edit" } });
+			page.render();
+			form.snapshot = { ...form.snapshot, value: { ...form.snapshot.value, ...concurrent }, revision: 8 };
+			page.button("settings.save").props.onClick();
+			await tick();
+			assert.deepEqual(form.writes, [{ ops: [{ op: "set", path: ["model"], value: "my-edit" }], expectedRevision: 7 }]);
+			assert.equal(page.status(), "refused");
+			assert.equal(page.field("model").props.value, "my-edit", "a conflict must keep the draft");
+			page.button("settings.reset").props.onClick();
+			for (const field of ["provider", "model", "reasoningEffort", "agentPreset"]) {
+				assert.equal(page.field(field).props.value, form.snapshot.value[field]);
+			}
+			page.field("model").props.onChange({ currentTarget: { value: "after-reset" } });
+			page.button("settings.save").props.onClick();
+			await tick();
+			assert.equal(form.writes[1].expectedRevision, 8, "discard adopts the current Host revision");
+			assert.equal(page.status(), "saved");
+		} finally {
+			page.dispose();
+		}
+	}
+});
+
+test("settings save, clear and unchanged operations use the accepted baseline", async () => {
+	const form = casForm({ provider: "cpa", model: "m", reasoningEffort: "low", agentPreset: "standard" });
+	const page = rowHarness(form);
+	try {
+		page.field("model").props.onChange({ currentTarget: { value: "temporary" } });
+		page.field("model").props.onChange({ currentTarget: { value: "m" } });
+		page.button("settings.save").props.onClick();
+		assert.equal(form.writes.length, 0);
+		assert.equal(page.status(), "unchanged");
+		page.field("reasoningEffort").props.onChange({ currentTarget: { value: "" } });
+		page.button("settings.save").props.onClick();
+		await tick();
+		assert.deepEqual(form.writes, [{ ops: [{ op: "unset", path: ["reasoningEffort"] }], expectedRevision: 7 }]);
+		assert.equal(page.status(), "saved");
+		page.field("model").props.onChange({ currentTarget: { value: "next" } });
+		page.button("settings.save").props.onClick();
+		await tick();
+		assert.deepEqual(form.writes[1], { ops: [{ op: "set", path: ["model"], value: "next" }], expectedRevision: 8 });
+	} finally {
+		page.dispose();
+	}
+});
+
+test("clean settings adopt a ready Host snapshot and later revisions", async () => {
+	const form = casForm({});
+	form.snapshot = { status: "loading", value: undefined, writable: false, revision: undefined };
+	const page = rowHarness(form);
+	try {
+		assert.equal(textOf(page.render()), "settings.loading");
+		assert.equal(form.writes.length, 0);
+		form.snapshot = { status: "ready", value: { provider: "cpa", model: "m", reasoningEffort: "low" }, writable: true, revision: 7 };
+		assert.equal(page.field("model").props.value, "m");
+		form.snapshot = { ...form.snapshot, value: { ...form.snapshot.value, model: "new-host-model" }, revision: 8 };
+		assert.equal(page.field("model").props.value, "new-host-model");
+		page.field("model").props.onChange({ currentTarget: { value: "local" } });
+		page.button("settings.save").props.onClick();
+		await tick();
+		assert.deepEqual(form.writes, [{ ops: [{ op: "set", path: ["model"], value: "local" }], expectedRevision: 8 }]);
+	} finally {
+		page.dispose();
+	}
+});
+
+test("settings loading, readonly and pending or failed saves never add writes", async () => {
+	const form = casForm({ provider: "cpa", model: "m" });
+	let finish;
+	form.mutate = (ops, expectedRevision) => {
+		form.writes.push({ ops, expectedRevision });
+		return new Promise((_resolve, reject) => { finish = reject; });
+	};
+	const page = rowHarness(form);
+	try {
+		page.field("model").props.onChange({ currentTarget: { value: "draft" } });
+		const save = page.button("settings.save");
+		save.props.onClick();
+		save.props.onClick();
+		assert.equal(form.writes.length, 1, "a second click before rerender must not queue another write");
+		assert.equal(page.status(), "saving");
+		assert.equal(page.button("settings.save").props.disabled, true);
+		finish(new Error("offline"));
+		await tick();
+		assert.equal(page.status(), "error");
+		assert.equal(page.field("model").props.value, "draft");
+		form.snapshot = { ...form.snapshot, writable: false };
+		const readonlySave = page.button("settings.save");
+		assert.equal(readonlySave.props.disabled, true);
+		readonlySave.props.onClick();
+		for (const status of ["loading", "unavailable"]) {
+			form.snapshot = { ...form.snapshot, status };
+			assert.equal(textOf(page.render()), status === "loading" ? "settings.loading" : "settings.unavailable");
+		}
+		assert.equal(form.writes.length, 1);
+	} finally {
+		page.dispose();
+	}
+});
+
 /** Apply the plugin to a fresh fake context and return it. */
 function fakeCtxAfterApply(plugin) {
 	const ctx = fakeCtx();
