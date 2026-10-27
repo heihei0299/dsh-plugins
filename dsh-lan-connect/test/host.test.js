@@ -7,6 +7,7 @@ function fixture(options = {}) {
   const listeners = new Map();
   const cleanup = [];
   const messages = [];
+  const logs = [];
   const calls = [];
   const port = options.port ?? 50020;
   const ctx = {
@@ -29,11 +30,14 @@ function fixture(options = {}) {
         return options.authUrl ?? url.href;
       }
     }),
-    logger: { info: value => messages.push(value), warn: value => messages.push(value) },
+    logger: {
+      info(value) { logs.push({ level: 'info', message: value }); messages.push(value); },
+      warn(value) { logs.push({ level: 'warn', message: value }); messages.push(value); }
+    },
     effect(fn) { const dispose = fn(); cleanup.push(dispose); return dispose; },
     on(name, fn) { listeners.set(name, fn); cleanup.push(() => listeners.delete(name)); }
   };
-  return { ctx, routes, listeners, calls, messages, dispose() { while (cleanup.length) cleanup.pop()(); } };
+  return { ctx, routes, listeners, calls, logs, messages, dispose() { while (cleanup.length) cleanup.pop()(); } };
 }
 
 function invoke(handler, method = 'GET', url = '/lan', headers = {}) {
@@ -193,18 +197,134 @@ test('an unavailable bootstrap skips only its own row instead of failing index r
 
 test('registers before the listener binds and resolves the URL on first page render', () => {
   const env = fixture();
-  const origin = env.ctx.webServer.getOrigin;
+  const webServer = env.ctx.webServer;
   env.ctx.webServer = Object.freeze({
-    ...env.ctx.webServer,
+    ...webServer,
+    port: undefined,
     getOrigin: () => { throw new Error('webserver: origin read before the listener bound a port'); }
   });
   apply(env.ctx);
   assert.equal(env.routes.has('/lan'), true);
+  assert.deepEqual(env.logs.map(log => log.level), ['info']);
   assert.match(env.messages.at(-1), /listener was not bound yet/);
-  env.ctx.webServer = Object.freeze({ ...env.ctx.webServer, getOrigin: origin });
+  assert.doesNotMatch(env.messages.join('\n'), /origin read before the listener bound a port/);
+  const unboundTable = [];
+  env.listeners.get('webserver/index-inject')(unboundTable);
+  assert.deepEqual(unboundTable, []);
+  assert.equal(env.messages.length, 1, 'the startup condition is not re-logged on every render');
+  env.ctx.webServer = webServer;
   const table = [];
   env.listeners.get('webserver/index-inject')(table);
   assert.equal(table[0].value.entryUrl, 'http://192.168.1.62:50020/lan');
   env.dispose();
   assert.equal(env.routes.has('/lan'), false);
+});
+
+test('the Host fallback getAdvertisedUrl failure stays listener-not-ready only while the port is unbound', () => {
+  const env = fixture();
+  // The installed Host advertises `publicUrl`, or `webServer.getOrigin()` as
+  // the fallback; before the listener binds the port is still undefined.
+  env.ctx.webServer = Object.freeze({ ...env.ctx.webServer, port: undefined });
+  env.ctx.webApp = Object.freeze({
+    getAdvertisedUrl() { throw new Error('webserver: origin read before the listener bound a port'); }
+  });
+  apply(env.ctx);
+  assert.equal(env.routes.has('/lan'), true);
+  assert.deepEqual(env.logs.map(log => log.level), ['info']);
+  assert.match(env.messages.join('\n'), /listener was not bound yet/);
+  assert.doesNotMatch(env.messages.join('\n'), /origin read before the listener bound a port/);
+  env.dispose();
+});
+
+test('a bound listener whose origin has no URL form warns instead of claiming it is unbound', () => {
+  const env = fixture();
+  env.ctx.webServer = Object.freeze({
+    ...env.ctx.webServer,
+    getOrigin: () => { throw new Error('webserver: bind address "fe80::1%eth0" carries an interface zone id, which no URL can express'); }
+  });
+  apply(env.ctx);
+  assert.equal(env.routes.has('/lan'), true);
+  assert.deepEqual(env.logs.map(log => log.level), ['warn']);
+  const text = env.messages.join('\n');
+  assert.match(text, /listener is bound, but its origin or advertised root is unavailable/);
+  assert.doesNotMatch(text, /listener was not bound yet|interface zone id|fe80|\/lan answers 503/);
+  // A separately configured public root may still permit sign-in even when
+  // the listener's local origin cannot be expressed as a URL.
+  assert.equal(invoke(env.routes.get('/lan').handler).status, 303);
+  const table = [];
+  env.listeners.get('webserver/index-inject')(table);
+  assert.deepEqual(table, []);
+  assert.equal(env.messages.length, 1, 'the bound-origin warning is emitted once');
+  env.dispose();
+});
+
+test('a throwing getAdvertisedUrl on a bound listener is not classified as unbound', () => {
+  const env = fixture();
+  env.ctx.webApp = Object.freeze({
+    getAdvertisedUrl() { throw new Error('provider failed for https://user:password@example.test/?token=fixture'); }
+  });
+  apply(env.ctx);
+  assert.equal(env.routes.has('/lan'), true);
+  assert.deepEqual(env.logs.map(log => log.level), ['warn']);
+  const text = env.messages.join('\n');
+  assert.match(text, /listener is bound, but its origin or advertised root is unavailable/);
+  assert.doesNotMatch(text, /listener was not bound yet|password|example\.test|token=fixture/);
+  env.dispose();
+});
+
+test('an invalid advertised root is diagnosed as invalid, not as an unbound listener, without echoing it', () => {
+  for (const root of ['file:///tmp/', 'https://user:password@example.test/', 'https://example.test/?token=old', 'https://example.test/#fragment', 'https://example.test/ui', 'not a url']) {
+    const env = fixture({ root });
+    apply(env.ctx);
+    assert.equal(env.routes.has('/lan'), true);
+    const text = env.messages.join('\n');
+    assert.deepEqual(env.logs.map(log => log.level), ['warn']);
+    assert.match(text, /advertised Web root is invalid/);
+    assert.doesNotMatch(text, /listener was not bound yet/);
+    for (const leaked of ['file://', 'example.test', 'password', 'token=old', '/tmp/']) {
+      assert.equal(text.includes(leaked), false, `the diagnostic must not echo ${leaked}`);
+    }
+    const response = invoke(createEntryHandler(env.ctx));
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.location, undefined);
+    assert.equal(env.messages.length, 1, 'the startup diagnostic is emitted once');
+    const table = [];
+    env.listeners.get('webserver/index-inject')(table);
+    assert.deepEqual(table, []);
+    assert.equal(env.messages.length, 1, 'a repeated page-render failure is not re-logged');
+    assertPrivate(response);
+    env.dispose();
+  }
+});
+
+test('an invalid advertised root is not masked by the normal unbound-listener startup order', () => {
+  const env = fixture({ root: 'https://user:password@example.test/' });
+  env.ctx.webServer = Object.freeze({
+    ...env.ctx.webServer,
+    port: undefined,
+    getOrigin: () => { throw new Error('webserver: origin read before the listener bound a port'); }
+  });
+  apply(env.ctx);
+  assert.equal(env.routes.has('/lan'), true);
+  assert.deepEqual(env.logs.map(log => log.level), ['warn']);
+  assert.match(env.messages.join('\n'), /advertised Web root is invalid/);
+  assert.doesNotMatch(env.messages.join('\n'), /listener was not bound yet|password|example\.test|origin read before/);
+  env.dispose();
+});
+
+test('connectionInfo names only the fixed, classified cause', () => {
+  const invalid = fixture({ root: 'https://example.test/ui' });
+  assert.throws(() => connectionInfo(invalid.ctx, {}), { message: 'dsh-lan-connect: the advertised Web root must be a credential-free HTTP(S) directory URL' });
+  const unboundPort = fixture();
+  unboundPort.ctx.webServer = Object.freeze({ ...unboundPort.ctx.webServer, port: undefined });
+  assert.throws(() => connectionInfo(unboundPort.ctx, {}), { message: 'dsh-lan-connect: Web listener is not ready' });
+  const boundOrigin = fixture();
+  boundOrigin.ctx.webServer = Object.freeze({
+    ...boundOrigin.ctx.webServer,
+    getOrigin: () => { throw new Error('webserver: origin read before the listener bound a port'); }
+  });
+  assert.throws(() => connectionInfo(boundOrigin.ctx, {}), { message: 'dsh-lan-connect: the Web listener is bound, but its origin or advertised Web root is unavailable' });
+  const boundAdvertised = fixture();
+  boundAdvertised.ctx.webApp = Object.freeze({ getAdvertisedUrl() { throw new Error('provider secret'); } });
+  assert.throws(() => connectionInfo(boundAdvertised.ctx, {}), { message: 'dsh-lan-connect: the Web listener is bound, but its origin or advertised Web root is unavailable' });
 });
