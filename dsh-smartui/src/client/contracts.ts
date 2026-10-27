@@ -1,7 +1,9 @@
 import type { ComponentType } from 'react';
 import type { SmartUISettings } from '../shared/types.js';
 /** Narrow structural boundary from the installed DSH 0.2.1-rc.2 public declarations.
- * No runtime imports of internal Harness Client packages. See docs/compatibility.md. */
+ * No runtime imports of internal Harness Client packages: the plugin only relies on the host React
+ * module plus the public slots, session props, locale, theme and config-form objects declared by DSH.
+ * Upgrade work must re-check those declarations instead of assuming this file is a host SDK. */
 export type Disposer = () => void;
 export interface InsertionSpan { start: number; end: number; draftRev: number }
 export interface InputActions {

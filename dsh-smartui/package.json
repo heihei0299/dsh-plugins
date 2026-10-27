@@ -13,7 +13,7 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./assets/icon.svg"
   },
-  "files": ["dist/", "cordis.patch.yml", "locale/*.json", "assets/icon.svg", "README.md", "LICENSE"],
+  "files": ["dist/", "cordis.patch.yml", "locale/*.json", "assets/icon.svg", "examples/*.json", "README.md", "LICENSE"],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": {
