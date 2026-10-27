@@ -58,6 +58,15 @@ export function formatActionReply(sourceCallId: string, block: FormBlock | Choic
   return text;
 }
 export function cellText(value: Cell): string { return value === null ? '—' : String(value); }
+/** Spreadsheet apps evaluate text starting with =, +, - or @ (even after whitespace) as a formula. */
+const FORMULA_PREFIX = /^\s*[=+\-@]/;
+/** Neutralize formula-leading text only; typed numbers, booleans and null are data, never formulas. */
+export function spreadsheetSafeText(text: string): string { return FORMULA_PREFIX.test(text) ? `'${text}` : text; }
+/** Clipboard cell text shared by TSV and CSV: protection applies to strings, typed values keep their form. */
+export function spreadsheetSafeCell(value: Cell): string {
+  const text = cellText(value);
+  return typeof value === 'string' ? spreadsheetSafeText(text) : text;
+}
 export function compareCells(a: Cell, b: Cell): number {
   if (a === b) return 0;
   if (a === null) return 1;
@@ -65,10 +74,8 @@ export function compareCells(a: Cell, b: Cell): number {
   return typeof a === 'number' && typeof b === 'number' ? a - b : cellText(a).localeCompare(cellText(b));
 }
 export function tableText(columns: readonly string[], rows: readonly Cell[][]): string {
-  // TSV is also pasted into spreadsheets: neutralize formula prefixes, including after whitespace.
-  const cell = (value: string) => {
-    const text = value.replaceAll('\t', ' ').replaceAll('\r', ' ').replaceAll('\n', ' ');
-    return /^\s*[=+\-@]/.test(text) ? `'${text}` : text;
-  };
-  return [columns.map(cell), ...rows.map(row => row.map(value => cell(cellText(value))))].map(row => row.join('\t')).join('\n');
+  // TSV is also pasted into spreadsheets: flatten line breaks, then apply the shared text-only protection.
+  const flatten = (text: string) => text.replaceAll('\t', ' ').replaceAll('\r', ' ').replaceAll('\n', ' ');
+  const cell = (value: Cell) => spreadsheetSafeCell(typeof value === 'string' ? flatten(value) : value);
+  return [columns.map(column => spreadsheetSafeText(flatten(column))), ...rows.map(row => row.map(cell))].map(row => row.join('\t')).join('\n');
 }

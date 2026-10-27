@@ -23,6 +23,31 @@ test('CSV includes headings, quotes multiline cells and neutralizes text formula
     assert.ok(exportTable(['Header'], [[`${prefix}payload`]], 'csv').includes(`"'${prefix}payload"`));
   }
 });
+test('TSV and CSV share text-only formula protection and keep typed values unchanged', () => {
+  const columns = ['-2', '=unsafe', ' @cmd'];
+  const rows: Cell[][] = [
+    [-2, 0, -1.5],
+    ['-2', '-71', '=SUM(A1)'],
+    ['line\tbreak', 'line\nbreak', '@cmd'],
+    [false, true, null],
+  ];
+  const tsv = exportTable(columns, rows, 'tsv');
+  const csv = exportTable(columns, rows, 'csv');
+  assert.deepEqual(tsv.split('\n'), [
+    "'-2\t'=unsafe\t' @cmd",
+    '-2\t0\t-1.5',
+    "'-2\t'-71\t'=SUM(A1)",
+    "line break\tline break\t'@cmd",
+    'false\ttrue\t—',
+  ]);
+  assert.deepEqual(csv.split('\r\n'), [
+    '"\'-2","\'=unsafe","\' @cmd"',
+    '"-2","0","-1.5"',
+    '"\'-2","\'-71","\'=SUM(A1)"',
+    '"line\tbreak","line\nbreak","\'@cmd"',
+    '"false","true","—"',
+  ]);
+});
 test('exports use only the filtered view and current sort, including empty results', () => {
   const rows: Cell[][] = [['show', 2], ['hide', 100], ['show', 1]];
   const visible = visibleTableRows(rows, 'show', { column: 1, direction: 1 });

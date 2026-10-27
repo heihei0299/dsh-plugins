@@ -1,4 +1,4 @@
-import { cellText, compareCells, tableText } from './actions.js';
+import { cellText, compareCells, spreadsheetSafeCell, tableText } from './actions.js';
 import type { Cell } from './types.js';
 
 export type TableFormat = 'tsv' | 'csv' | 'markdown';
@@ -15,12 +15,7 @@ export function visibleTableRows(rows: readonly Cell[][], query: string, sort: T
 export function exportTable(columns: readonly string[], rows: readonly Cell[][], format: TableFormat): string {
   if (format === 'tsv') return tableText(columns, rows);
   if (format === 'csv') {
-    const cell = (value: Cell) => {
-      const raw = cellText(value);
-      // Text (including headings) must not become a spreadsheet formula. Typed numbers stay numbers.
-      const safe = typeof value === 'string' && /^\s*[=+\-@]/.test(raw) ? `'${raw}` : raw;
-      return `"${safe.replaceAll('"', '""')}"`;
-    };
+    const cell = (value: Cell) => `"${spreadsheetSafeCell(value).replaceAll('"', '""')}"`;
     return [columns, ...rows].map(row => row.map(cell).join(',')).join('\r\n');
   }
   const cell = (value: Cell) => cellText(value).replaceAll('\\', '\\\\').replaceAll('&', '&amp;')

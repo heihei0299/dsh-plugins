@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createAction, formatActionReply, validateForm, compareCells, tableText } from '../src/shared/actions.js';
+import { createAction, formatActionReply, validateForm, compareCells, spreadsheetSafeCell, spreadsheetSafeText, tableText } from '../src/shared/actions.js';
 import en from '../locale/en.json' with { type: 'json' };
 import zh from '../locale/zh.json' with { type: 'json' };
 const translator = (dict: Record<string, string>) => (key: string, values?: Record<string, string | number>) => {
@@ -68,6 +68,11 @@ test('locked, missing, stale and oversized insertions fail without fallback writ
 });
 test('table numeric sorting and clipboard export are deterministic and spreadsheet-safe', () => {
   assert.ok(compareCells(2, 10) < 0); assert.ok(compareCells(null, 10) > 0);
+  assert.equal(spreadsheetSafeText(' =SUM(A1)'), "' =SUM(A1)");
+  assert.equal(spreadsheetSafeText('-71'), "'-71");
+  assert.equal(spreadsheetSafeCell(-71), '-71');
+  assert.equal(spreadsheetSafeCell(false), 'false');
+  assert.equal(spreadsheetSafeCell(null), '—');
   const text = tableText(['=header'], [['=SUM(A1)', '\t@unsafe', 'normal\ntext', -2, false, null]]);
-  assert.equal(text, "'=header\n'=SUM(A1)\t' @unsafe\tnormal text\t'-2\tfalse\t—");
+  assert.equal(text, "'=header\n'=SUM(A1)\t' @unsafe\tnormal text\t-2\tfalse\t—");
 });
