@@ -1,7 +1,8 @@
 # dsh-plugin-pin-subagent-model
 
-Pin every delegated child Agent to one LLM route and, optionally, one Agent
-preset, independent of the parent Agent's current route and composition.
+Pin delegated child Agents on the configured subagent backends to one LLM route
+and/or one Agent preset, independent of the parent Agent's current selection.
+A preset is pinned only for backends that support independent composition.
 `provider`, `model`, `reasoningEffort`, and `agentPreset` are editable from the
 plugin manager page in the WebUI as well as from the profile patch. The same
 package also adds a read-only model chip to the composer's model row in a
@@ -43,22 +44,19 @@ that resolves child Agent options and composition — and rewrites
 
 ## Install
 
-```bash
-# Link the checkout into the profile (offline: pnpm must not reach a registry)
-dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/pin-subagent-model --offline
-```
-
-The bundle now depends on `@deepseek-ai/schemastery` for its Host `Config`
-schema, so the checkout needs its dependency tree before the Host half can
-load:
+The Host `Config` schema depends on `@deepseek-ai/schemastery`. From the
+repository root, prepare this checkout's dependencies before linking it into the
+existing profile:
 
 ```bash
-cd /home/shial/Project/dsh-plugins/pin-subagent-model
-pnpm install --offline   # omit --offline if the local store lacks the package
+cd pin-subagent-model
+pnpm install --offline   # omit --offline only if registry access is allowed and needed
+dsh plugin --profile web add "link:$PWD" --offline
 ```
 
-The same local path can be chosen from the WebUI plugin manager. Installation
-and every local build/test require explicit authorization.
+The same directory can be chosen from the WebUI plugin manager. Offline
+installation cannot supply dependencies missing from the local store; installation
+changes the selected profile and should be performed only when authorized.
 
 > **Upgrading from the Host-only 0.2.x build:** the running dsh caches a
 > package's client metadata (including a negative "not a client" verdict) per
@@ -78,11 +76,11 @@ After installation the bundle shows up in **设置 → 插件** with its localiz
 title, description and icon, together with an enable/disable switch:
 
 - **关闭**: the loader entry is disabled (written as `disabled: true` in the
-  profile's `cordis.patch.yml`); `subagents.startActivation` is restored and
-  children inherit routes and presets again. The composer chip and the row
-  configuration page belong to the same entry; if the running client has not
-  reloaded the package's client metadata, the one-time reload above still
-  applies.
+  profile's `cordis.patch.yml`), and this plugin stops pinning new activations.
+  It restores its decorated method when it still owns the top-level property;
+  a later decorator is left in place. The original request, inheritance rules,
+  and any other decorators still apply. The chip and configuration page belong
+  to the same entry; stale client metadata may still require the reload above.
 - **开启**: the decoration is applied on the next reload; no DSH restart is
   needed when the profile uses `patchReload: live`. If the client half was never
   discovered by the running process, the one-time restart above still applies.
@@ -108,7 +106,7 @@ override to the profile's `cordis.patch.yml` (`~/.dsh/profiles/web/`):
 | --- | --- | --- | --- | --- |
 | `provider` | volatile | pair with `model` | `""` | LLM provider id for children; both empty leaves the route inherited |
 | `model` | volatile | pair with `provider` | `""` | model id for children; both empty leaves the route inherited |
-| `reasoningEffort` | volatile | no | inherit / adapter default | pin the adapter effort as well |
+| `reasoningEffort` | volatile | no | `""` (inherit / adapter default) | pin the adapter effort as well |
 | `agentPreset` | volatile | no | `""` (inherit) | Agent preset every independent child mounts; empty keeps joining the parent's preset |
 | `providers` | ordinary | no | `['spawn', 'fork']` | subagent backends to pin |
 | `onConflict` | ordinary | no | `'override'` | `'override'` rewrites a differing explicit route or preset request and logs a warning; `'reject'` throws instead |
@@ -125,9 +123,18 @@ or the WebUI — takes effect on the next delegation.
 `true` and that do not inherit parent context. The in-process `spawn` backend
 supports it; `fork` (`agentPreset: false`, `inheritsParentContext: true`) keeps
 inheriting the parent preset and logs one warning per backend. Route pinning
-still applies to fork. Any activation that reaches `startActivation` — the
-`subagent` tool, `subagent_fork`, and `workflow` children — is subject to the
-same pin, exactly like the route.
+still applies to fork. Activations that reach `startActivation` and match the
+configured `providers` — including the `subagent` tool, `subagent_fork`, and
+`workflow` children in the target DSH version — are subject to the pin.
+Backends outside that list pass through unchanged.
+
+`onConflict` must be exactly `override` or `reject`; an invalid value fails at
+load or when the configuration is read for an activation. A different explicit
+provider/model or supported preset is a conflict. A different effort alone is
+not: if an effort is pinned, it replaces the request's effort without a
+separate conflict warning. The startup and conflict logs can contain the
+configured provider, model, effort, preset, and backend names: do not put
+credentials in these fields.
 
 ## WebUI configuration page
 
@@ -144,19 +151,26 @@ configured id that is no longer declared stays visible and marked. The two
 ordinary fields (`providers`, `onConflict`) stay in the profile patch and are
 not writable from the page.
 
-Save stages the draft and submits only changed fields as one revision-fenced
-ConfigForm mutation. Clearing a field unsets it, restoring the schema default
-(empty string = inherit). A refused write keeps the draft and reports the
-conflict; `provider` and `model` must be filled or cleared together. Writes
-persist through the profile's Cordis patch, so the YAML file and the page edit
-the same values; a home patch or command-line overlay that takes precedence
-makes the form refuse the write.
+The page keeps an editable draft and its original value/revision together.
+Saving submits only changed fields as one ConfigForm mutation fenced to that
+baseline revision; it does not silently rebase a dirty draft when another
+editor changes the Host snapshot. A refused or failed write retains the draft;
+use **Discard changes** to adopt the current snapshot before editing again.
+Clearing a field unsets it, restoring the schema default (empty string =
+inherit), and `provider` and `model` must be filled or cleared together. A
+currently configured but undeclared preset remains visible as an option; its
+presence does not prove that the next child can mount it.
+
+Accepted writes persist through the profile's Cordis patch, so the YAML file
+and the page edit the same values; a home patch or command-line overlay that
+takes precedence makes the form refuse the write.
 
 Because the fields are volatile, the loader commits an accepted write into the
 running references without remounting the entry. The plugin reads the live
 references on every activation, so a saved preset or route is used by the next
-delegation without a dsh restart or page reload. The page is unavailable while
-the row is disabled or the profile does not accept settings writes.
+delegation without a dsh restart or page reload. The page shows unavailable
+when the row or settings service is unavailable; a ready but read-only profile
+shows the form with its controls disabled.
 
 ### Relationship to the official preset selection
 
@@ -199,9 +213,10 @@ The display decision is deliberately narrow:
 2. The durable `subagent` projection identity must exist. Its `seq` is the
    child's own descriptor position after the projection's fork-seed reset.
 3. The client reads the current `SessionEventWindow` through
-   `sessions.binding(sessionId).eventSource` and takes the **latest**
-   `request/header` whose `seq` is greater than `identity.seq`. That
-   `header.config` is the route the child actually sent.
+   `sessions.binding(sessionId).eventSource` and takes the **latest valid**
+   `request/header` whose `seq` is greater than `identity.seq` and whose
+   `header.config` has nonempty provider and model. A later malformed header
+   does not erase an earlier valid one in the retained window.
 4. Only then does it render the compact model name and, when the request
    carried one, the effort. Missing identity, a missing window, or no own
    request header renders nothing.
@@ -255,15 +270,12 @@ different requested preset logs
 For the chip, open a child session and look at the composer's model row. The
 chip appears beside the model seat once that child's own `request/header` is in
 the loaded window; a root session never shows it and keeps the native model
-selector unchanged. Verification covers the pure-JS Node unit suite and the
-existing local Chrome CDP session at a 390x844 viewport (not a physical phone):
-the chip appeared in the composer, no chip appeared in the header, the parent
-breadcrumb was activated by touch, and the test child was reopened from the
-native catalog. The parent session retained its native model picker; neither
-session had horizontal page overflow or slot errors. The main conversation was
-verified; the embedded panel was not separately exercised. The original LAN GUI
-URL returns 401 anonymously, and authentication was not bypassed. Reload or
-restart as described in **Install** before judging the running page.
+selector unchanged. A previous local Chrome CDP check at 390x844 (not a physical
+phone) observed the chip in the composer, no header chip, the parent breadcrumb,
+and the native model picker; it covered the main conversation, not the embedded
+panel. That historical check does not establish the state of a currently
+running GUI. Reload or restart as described in **Install** before judging a
+newly installed version; verify live delegation and configuration separately.
 
 For the configuration page, after the one-time client restart: open the
 Plugins page, open this bundle, open the `pin-subagent-model` row, click 配置,
@@ -286,9 +298,12 @@ on the next child.
 - The plugin decorates an instance method of the shared `subagents` service.
   That is the only seam that both runs before child-option and composition
   resolution and needs no preset edit. The decorator carries a non-enumerable
-  marker: a second mount throws instead of stacking wrappers, and dispose
-  restores the original property only while this decorator is still on top.
-  If another plugin has replaced it, dispose warns and leaves that chain alone.
+  marker: a second direct mount throws instead of stacking wrappers. Dispose
+  first makes this mount's closure pass through, even if a later wrapper captured
+  it; it restores the original property only while the top-level method still
+  carries this plugin's marker. If an unmarked later wrapper replaced it, dispose
+  warns and leaves that chain alone. Decorators that reuse the marker cannot be
+  distinguished by this check.
 - The settings allowlist still advertises selectable models to the Agent.
   Combine with a single-entry allowlist (or `enabled: false`) if explicit
   choices should disappear from the tool schema entirely.

@@ -1,6 +1,6 @@
 # DSH Mobile
 
-给现有 DSH Web GUI 加一层**只在移动端生效**的布局与触控优化。桌面端一行 CSS 都不会命中。
+给现有 DSH Web GUI 加一层**默认只在移动端生效**的布局与触控优化。默认配置（`mode: auto`）下，宽度大于 720px 且不是粗指针的桌面不会启用移动布局；设置行仍保留自己的样式。把 `mode` 设为 `on` 时桌面也会启用移动布局，这是配置语义。
 
 不是独立 App、不替换会话/输入框/审批、不改已安装的 DSH 核心、不启动第二个 Web 服务。
 
@@ -27,11 +27,16 @@ DSH 的 Web 客户端是桌面优先的。在 390×844 的实测数据：
 
 作为 bundle 装入现有 profile，之后在 **设置 → 插件** 里开关，不手改 profile：
 
+从仓库根目录进入插件目录，先准备依赖和构建产物，再链接当前目录：
+
 ```bash
-dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --offline
+cd dsh-mobile
+pnpm install
+pnpm run build
+dsh plugin --profile web add "link:$PWD" --offline
 ```
 
-首次安装（或换 bundle 版本）后需要重启 dsh；此后开关只重载 entry，刷新页面即可。
+首次安装或更换 bundle 版本时，是否需要重启取决于当前已加载的客户端元数据与依赖图；如插件管理器提示需要重启，请重启现有 dsh 并刷新页面。六项 volatile 设置保存后无需重启。
 
 ## 设置
 
@@ -42,11 +47,11 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 | `mode` | `auto` | `auto` 在「宽度 ≤720px 或粗指针」时启用；`on` 始终；`off` 完全关闭 |
 | `drawerNavigation` | `true` | 竖轨改为抽屉 + 浮动开关按钮 |
 | `comfortableTargets` | `true` | 输入区、底部统计详情与消息操作按钮的触摸区域升到 44px |
-| `swipeNavigation` | `true` | 右滑开抽屉、左滑收起；纵向拖动、输入框、横滑容器、表格与已打开的宿主弹层都不触发 |
+| `swipeNavigation` | `true` | 右滑开抽屉、左滑收起；纵向拖动、输入框、横滑容器、表格与其他已打开的宿主弹层不触发，抽屉自身除外 |
 | `rowActionsOnTouch` | `true` | 让宿主默认只在 `:hover` 出现的会话行 / 工作区行操作常驻显示，并扩大省略号命中区 |
 | `quietComposerFocus` | `true` | 进入或切换会话时不再由宿主的程序化聚焦弹出软键盘；真实点按输入区后照常聚焦 |
 
-`off` 是**硬关闭**：根属性、样式表、viewport meta、监听器全部撤销，回到原生布局。首次加载 Host 设置之前不应用任何规则，避免半套布局。
+`auto` 是默认值，也是“只在移动端”的唯一含义；`on` 会在宽屏/桌面强制启用移动布局（配置语义，不是缺陷）。`off` 是**硬关闭**：移动布局的根属性、样式表、viewport meta 与监听器撤销，回到原生布局；已发起的历史分页不会因此取消。配置快照未 ready（loading / unavailable）时不应用任何规则，避免半套布局；如果第一次快照已经 ready 且满足条件，会立即激活，不保证首帧仍是宿主原生布局。
 
 ## 触屏交互（自 dsh-web 移植）
 
@@ -56,16 +61,16 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 
 | 效果 | 实现 | 关键取舍 |
 |---|---|---|
-| 横滑开关抽屉 | 触摸结束时判定：水平位移 ≥60px 且 ≥1.5 倍垂直位移 | 在 release 时才探测「是否在横滑容器内」，避免每次点按/滚动都触发布局计算；多指、取消、已打开弹层一律不响应 |
+| 横滑开关抽屉 | 触摸结束时判定：水平位移 ≥60px 且 ≥1.5 倍垂直位移 | 在 release 时才探测「是否在横滑容器内」，避免每次点按/滚动都触发布局计算；多指、取消及其他已打开弹层不响应，宿主抽屉自身除外 |
 | 会话行 / 工作区行操作可达 | 插件激活期间让宿主的行操作条常驻，并用伪元素把按钮命中区向外扩 12×8（实测 16px 图标 → 40×32） | 宿主的行操作只在 `:hover` 出现，手机上因此完全不可达；用选择器特异性获胜，不引入 `!important`，也不改变行高 |
-| 会话打开不弹键盘 | 拦截 `HTMLElement.prototype.focus`：输入区编辑面在没有 3 秒内真实点按的情况下拒绝聚焦 | 只在移动层激活期间生效，退出时按函数身份还原；其他插件后装的补丁不会被移除 |
+| 会话打开不弹键盘 | 拦截 `HTMLElement.prototype.focus`：输入区编辑面在没有 3 秒内落在输入卡片上的 `pointerdown` 时拒绝聚焦 | 只在移动层激活期间生效，退出时按函数身份还原；其他插件后装的补丁不会被移除，且本次卸载后旧闭包立即失活 |
 
 **本插件新增：顶部下拉加载更早**
 
 宿主的「加载更早」只有一个约 25px 高的按钮；手机读长会话时手指已经在顶部，再往下拉却没有反应。移动层激活后，在 Chat 视图的会话滚动区顶部继续下拉 ≥48px，就按公开的 `SessionFace.loadOlder()` 取一页，不必精确点到按钮：
 
 - 只认 Chat 视图：滚动区里没有 `[data-chat-flow]`（轨迹视图、会话检查器）时不响应。
-- 一次手势最多一页；`hasMore === false`、`loadingOlder === true` 或窗口尚未 `open` 时不发请求。
+- 一次手势最多一页；只有窗口 `open`、`hasMore` 为真、`loadingOlder` 为假且没有未完成请求时才发。下拉距离只在滚动区已到顶部（`scrollTop ≈ 0`）后开始累计，先向上滚到顶部的行程不计入 48px。
 - 不合成点击、不按按钮文案找控件；宿主原生的分页按钮、游标和手动翻页保持原样。
 - prepend 后用宿主自己的 `[data-chat-anchor-key]` 行测量位移并同步 `scrollTop`，读者视线不跳；锚点行找不到时才退回 `scrollHeight` 差值。实测 390×844 下拉一页：内容 2905→14341px、`scrollTop` 0→11435.5px，锚点行仍停在 47.5px。
 - 手势起于输入框、可编辑区或输入卡片（`data-composer-seat`）时不响应；多指、`touchcancel` 与普通滚动都不触发。从原生分页按钮上起手下拉同样有效（纯点按没有位移，不会误触发）。
@@ -79,17 +84,17 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 ## 边界与已知限制
 
 - **依赖宿主 DOM 地标**，不依赖哈希类名。地标集中在源码的 `src/client/landmarks.ts`；构建断言只检查插件产物是否使用这些选择器，宿主是否仍提供对应结构须通过下述活体探针检查。地标缺失时相关样式可能不命中，不能假定所有布局均保持正常。
-- **顶部下拉分页依赖宿主的 Chat 滚动区与锚点行**：`[data-conversation-scroll]`、`[data-chat-flow]` 与 `[data-chat-anchor-key]`。宿主改名或改结构时下拉不再命中；锚点行缺失时只按 `scrollHeight` 差值补偿，滚动区自身的折叠/展开动画可能让该差值不精确。该行为没有独立开关，随移动层一起启停；宿主「加载更早」按钮的手动行为不受影响。
+- **顶部下拉分页依赖宿主的 Chat 滚动区与锚点行**：`[data-conversation-scroll]`、`[data-chat-flow]` 与 `[data-chat-anchor-key]`。宿主改名或改结构时下拉不再命中；锚点行缺失时只按 `scrollHeight` 差值补偿，滚动区自身的折叠/展开动画可能让该差值不精确。该行为没有独立开关，随移动层一起启停；宿主「加载更早」按钮的手动行为不受影响。卸载只移除触摸监听并清空手势，**不取消已经发起的 `loadOlder()`**：请求返回后若滚动区仍在、读者未移动且主视图未切换，仍会修正 `scrollTop`；被拒绝的 Promise 不由插件捕获，也没有自动重试。
 - **设置面板依赖宿主的设置对话框标记**：`[data-shortcut-modal="settings"]`、它下面的 `nav` / 内容两级子节点，以及分区 slot `[data-slot="settings.section"]`。列表行头按 `li > div:first-child` 结构匹配，不依赖提供商文案或哈希类名；宿主改名或改结构时对应规则可能不命中，构建断言不能发现宿主变化。设置页不额外补偿软键盘，沿用宿主 options 滚动容器。
 - **抽屉状态是宿主自己的**。插件只调用公开的 `ctx.layout.toggleSidebar()`，并读宿主写在帧上的 `data-sidebar-collapsed`，不另存一份状态。
 - **抽屉使用宿主的滑动时长与缓动**，遮罩按相同时长淡出，退出完成前仍拦截触摸；关闭过程中的重复遮罩点击不会重新打开抽屉。开关抽屉及不影响启用状态的窗口缩放，不重装样式、viewport 或键盘监听。
 - **抽屉具有模态焦点管理**：进入时聚焦内部控件，Tab 在抽屉内循环，Esc 关闭，退出时恢复焦点；宿主菜单/弹窗优先处理自己的键盘与焦点。会话主视图或全局面板成功切换后收起，不因展开分组或无关列表更新收起；没有对话头部的全局面板保留底角导航按钮，避免收起后失去入口。
 - **键盘补偿保留页面缩放**：页面放大时不把可视视口缩小误认成键盘；视口事件按帧合并，仅补偿值变化时写入。输入框的 16px 规则覆盖实际 contenteditable 编辑器，宽表格允许双指缩放。
 - **View 标签（对话/轨迹）不放大**。实测把它们升到 44px 会让头部从 76px 涨到 95px——用 19px 常驻阅读空间换很少点的两个标签，不划算。
-- **状态徽标折叠成图标 + 数字**。宿主的「3 个子智能体」「1 个后台任务」各占约 100px，插件在自己的插槽条目里渲染机器人/层叠图标与计数（运行中小圆点，≥10 显示 `9+`），点击在**该图标正下方**展开锚定浮层，子智能体可跳转。
+- **状态徽标折叠成图标 + 数字**。宿主的「3 个子智能体」「1 个后台任务」各占约 100px，插件在自己的插槽条目里渲染机器人/层叠图标与计数（运行中小圆点，≥10 显示 `9+`），点击在**该图标下方**展开锚定浮层，子智能体可跳转。
   - 浮层是 `popover="manual"` 元素，由浏览器放在**顶层（top layer）**：头部 `overflow:hidden` 与 `container-type:inline-size` 都裁不到它；默认距图标 8px、距屏幕边缘至少 12px，右缘跟随图标，宽 ≤360px、高 ≤440px，空间不足时只在「上方确实更宽裕」才上翻，其余情况列表独立滚动。
-  - **不是底部面板、不是模态**：没有全屏遮罩、没有 `::backdrop`、没有整页变暗，`aria-modal="false"`；浮层外的页面照常可点。行内名称完整换行，状态与进度各占一行；后台任务为只读状态条目，不伪装成可点击按钮。
-  - 关闭方式：右上 32px 关闭按钮（44px 命中区）、再点同一个图标收起、点另一个图标直接切换、点浮层外、Esc、焦点移出、切换会话或插件关闭；关闭后焦点回到触发图标。打开时焦点进入关闭按钮，Tab 可进入列表做键盘滚动。
+  - **不是底部面板、不是模态**：没有全屏遮罩、没有 `::backdrop`、没有整页变暗，`aria-modal="false"`；浮层外的页面照常可点，也没有焦点陷阱，Tab 可以离开面板。行内名称完整换行，状态与进度各占一行；后台任务为只读状态条目，不伪装成可点击按钮，也没有宿主的“终止任务”等菜单动作。
+  - 关闭方式：右上 32px 关闭按钮（44px 命中区）、再点同一个图标收起、点另一个图标直接切换、点浮层外、Esc、焦点移出、切换会话或插件关闭；关闭时若焦点仍在面板内且触发图标仍在文档中，焦点回到该图标。打开时焦点进入关闭按钮，Tab 可进入列表做键盘滚动。
   - 数据分别来自 `sessions.list` 的 `subagentCatalog` 投影与 `ctx.jobs` 的任务名册；后台任务名册需要 `watchRows` 订阅。子智能体运行状态优先；停止后只有宿主 `subagentTiming.lastTurnCompleted` 明确为真才显示“已完成”，其余显示“未运行”，不会把中断或未知状态当成成功。
   - 子智能体跳转使用显式注入的 `uiWorkspace.openSession`；Cordis 对未声明的服务会抛错，不能用可选链跳过依赖声明。
   - **宿主徽标只在同类替代徽标渲染时才隐藏**：插件把覆盖的类别写在插槽的 `data-dsh-mobile-badges` 上，样式据此隐藏对应宿主控件；投影读不到时该类别不隐藏，回退到宿主原控件而不是什么都不显示。
@@ -100,10 +105,10 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-mobile --o
 - **抽屉宽度取 `min(86vw, 320px)`**，不使用宿主拖拽出的宽度偏好。
 - **横滑判定在触摸结束时进行**，阈值是 60px 水平位移且至少 1.5 倍于垂直位移；多指接触、`touchcancel`、起点在输入框/插件自身控件上、终点处于横滑容器内，或当前有宿主弹层时都不触发。横滑容器在 release 时才用计算样式 + `scrollWidth` 判定（提前判定会让每次点按都触发布局计算）；判定依据是容器当前确实可横滑，不可横滑的容器不会吞掉手势。
   - 宿主在窄屏把**侧栏列本身**渲染成 `popover` 元素（`pI_x6G_sidebarCol` 带 `popover` 属性）。因此「有弹层就不响应」的判定必须排除抽屉自身，否则抽屉一打开、左滑收起就会被自己挡住——这一点是在活体校验里发现的，不是推测。
-- **行操作常驻按结构定位**：`[data-slot="sidebar"] [data-row-key] > span:last-child`。宿主的行把操作条作为**最后一个子 span**，其第一个按钮就是省略号菜单；宿主若在行尾追加新的 span，这条规则会指向错误元素，需要按届时结构更新地标。隐藏宿主徽标与这里无关，两者互不影响。
+- **行操作常驻按结构定位**：`[data-slot="sidebar"] [data-row-key] > span:last-child:has(> button)`。宿主的行把操作条作为**最后一个子 span**，其第一个按钮就是省略号菜单；没有按钮的空白行不命中这条规则。宿主若在行尾追加新的 span，这条规则会指向错误元素，需要按届时结构更新地标。隐藏宿主徽标与这里无关，两者互不影响。
 - **行操作常驻会占掉标题宽度**：手机抽屉宽 320px 时标题会在原基础上再短约 20px（与宿主机上悬停时的布局一致），换来的是重命名 / fork / 归档在触屏上可达。
-- **聚焦拦截是全局 prototype 补丁**：只在移动层激活期间安装，退出时按函数身份还原；3 秒窗口从「点按输入卡片」开始计时，因此点按发送按钮后的重新聚焦、以及点按卡片空白处聚焦编辑器都照常工作。副作用是：其他插件在手机上对编辑器发起的自动聚焦（例如把草稿填回输入框）同样会被拦下，用户需要先点一下输入框。
-- **不改**右侧面板策略、PWA/安装、手势导航、主题色；除状态徽标外不替换宿主槽位内容。
+- **聚焦拦截是全局 prototype 补丁**：只在移动层激活期间安装，退出时按函数身份还原；3 秒窗口从「点按输入卡片」开始计时，因此点按发送按钮后的重新聚焦、以及点按卡片空白处聚焦编辑器都照常工作。补丁只校验这个时间窗，**不校验 `event.isTrusted`**：它证明的是“最近有一次落在输入卡片上的 `pointerdown`”，不是“存在真实用户手势”，脚本派发的事件同样能满足。卸载时会先把本次闭包的 `active` 置为 false 再移除监听，所以其他插件捕获的旧闭包即使继续调用也不再拦截；若原型上的 `focus` 已被别人改写，则保留别人的补丁。副作用是：其他插件在手机上对编辑器发起的自动聚焦（例如把草稿填回输入框）同样会被拦下，用户需要先点一下输入框。
+- **不改**右侧面板策略、PWA/安装、浏览器历史或系统返回/前进手势、主题色；插件的横滑只控制抽屉，除状态徽标外不替换宿主槽位内容。
 - iOS 旧版本对 `interactive-widget` 无支持，靠 `visualViewport` 内边距兜底；软键盘行为最终仍需真机确认。
 
 ## 开发
@@ -115,10 +120,10 @@ pnpm install
 pnpm run typecheck
 pnpm run build           # dist/host/index.js + dist/client.js
 pnpm test                # pretest 会先构建；回归用例串行
-pnpm run verify:bundle   # 产物检查：惰性 factory、仅宿主 React、样式表地标引用、注册与清理
+pnpm run verify:bundle   # 产物检查：惰性 factory、仅宿主 React、样式表地标引用且无 url()/@import、4 个插槽 / 2 份字典 / 根属性的注册与清理
 ```
 
-默认门禁是 typecheck、build、Node 测试和 bundle 校验，全部离线、不启动浏览器；干净检出可直接 `pnpm test`（`pretest` 先构建 `dist`）。**`verify:bundle` 只是产物自检**：它检查构建出的样式表是否仍引用 `landmarks.ts` 的每个选择器，产物体内没有宿主 DOM，因此不能证明宿主升级后地标仍存在。宿主活体地标由可选探针的 `--verify` 验收，两者不可互相替代。
+默认门禁是 typecheck、build、Node 测试和 bundle 校验，全部离线、不启动浏览器；在依赖已准备好的干净检出中可直接 `pnpm test`（`pretest` 先构建 `dist`）。**`verify:bundle` 只是产物自检**：它检查构建出的样式表是否仍引用 `landmarks.ts` 里 `HOST_LANDMARKS` 的每个选择器；只记录、不要求命中的 `VIEW_TABS` 与 `COLLAPSED_ATTRIBUTE` 不在该列表。产物体内没有宿主 DOM，因此不能证明宿主升级后地标仍存在。宿主活体地标由可选探针的 `--verify` 验收，两者不可互相替代。
 
 可选活体检查不属于默认门禁：触摸回归需要本地 Playwright 与 Chromium，用 `DSH_MOBILE_PLAYWRIGHT_MODULE`（模块绝对路径）和 `DSH_MOBILE_BROWSER_EXECUTABLE`（浏览器绝对路径）启用；页面探针需要已运行的 Chrome CDP。两者都应在验证记录中单独标明执行或未执行，不能把 Node 测试当作真机/GUI 验收。
 
@@ -139,16 +144,18 @@ node scripts/browser-probe.mjs http://127.0.0.1:9222 --viewport 390x844 --touch 
 
 产物是 DSH Host ESM + `window.__ModuleLoader__` 惰性 Client factory；React 从宿主模块表取。Client 不运行时 import 任何 DSH Client 内部包。
 
-所有构建、测试与安装都需要针对当前任务单独授权。
+普通本地检查按当前任务与仓库规则选择；安装插件或修改正在运行的环境需先确认目标和相应授权。
 
-## 活体验证记录（2026-10-28）
+## 活体验证记录（2026-10-28，历史）
+
+以下是各自记录时点的历史结果，不是本次复跑结果；本次（2026-10-28）README 同步按当前源码与规格逐条核对，并运行了 24 项针对性单测（`tests/history-autoload.test.ts`、`tests/focus-guard.test.ts`、`tests/status-source.test.ts`），没有重跑构建、完整测试门禁、安装或浏览器探针。
 
 在隔离实例（`DSH_HOME=/tmp/dsh-mobile-probe`，`dsh plugin add link:…/dsh-mobile`，端口 50144，不连接任何用户会话）上，用 Chrome CDP 以 **390×844 / mobile / touch** 运行真实插件产物：
 
 | 检查 | 方法 | 结果 |
 |---|---|---|
 | 激活 | `Emulation.setDeviceMetricsOverride` + `setTouchEmulationEnabled`，读根属性与样式表 | `data-dsh-mobile=drawer`、两块样式表在、`grid-template-columns: 0px 390px 0px`、`frame` 高 844 |
-| 横滑开关抽屉 | `Input.dispatchTouchEvent` 真实触摸：右滑 300px / 左滑 240px / 纵向拖动 / 35px 轻推 | 右滑展开、左滑（从抽屉内起手）收起、纵向与轻推均不动作 |
+| 横滑开关抽屉 | Chrome CDP `Input.dispatchTouchEvent` 注入触摸事件（非物理触摸）：右滑 300px / 左滑 240px / 纵向拖动 / 35px 轻推 | 右滑展开、左滑（从抽屉内起手）收起、纵向与轻推均不动作 |
 | 会话打开不弹键盘 | 先 `editor.focus()` 再真实点按输入卡片后 `editor.focus()` | 未点按时拒绝（`activeElement` 不是编辑面），点按后允许 |
 | 行操作可达 | 打开抽屉测量工作区行 | 操作条 `display:flex`、按钮 `position:relative`、`::after` 命中区外扩 12×8；空白会话行不含按钮，规则正确地不匹配 |
 | 硬关闭 | `mode=off` 后重载 | 根属性、移动样式表、抽屉按钮、键盘 inset 变量全部撤销，`meta[viewport]` 复原为 `width=device-width, initial-scale=1`，程序化聚焦恢复、横滑不再响应 |

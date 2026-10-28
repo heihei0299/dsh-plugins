@@ -4,7 +4,7 @@
 
 包版本为 `0.1.3`，文档协议为 `schemaVersion: 1`，两者不是同一个版本标识。**本 README 与源码是分发后的契约来源**：v1 协议、交互边界和验证基线都收敛在下方章节，不依赖仓库外的本地笔记。
 
-> 仓库策略只提交源码和 README。本地工作副本中的 `docs/`、`HANDOFF.md`、`pnpm-lock.yaml` 等设计/验证笔记与安装产物不进入 git，也不随包分发，因此不作为契约或验收依据；需要长期保留的结论已并入本 README。
+> 仓库跟踪源码、测试、配置和 README，以及独立视觉演示 `docs/visual-demo.html`；该 Demo 不加载插件 bundle、不参与构建、不在 `files` 中，也不是实装或验收依据。`docs/` 下其余说明与截图、`HANDOFF.md`、`pnpm-lock.yaml` 等本地笔记和安装产物不进入 git，也不随包分发，不作为契约或验收依据；需要长期保留的结论已并入本 README。
 
 ## 本轮改造：参考 GenUI 的本地交互看板
 
@@ -15,7 +15,7 @@
 - 表格新增跨列本地搜索、匹配行数、TSV / CSV / Markdown 复制导出。导出包含表头和**筛选后当前顺序**的数据；CSV/TSV 对文本（含列头）中和常见公式前缀，真实数值保持原值；剪贴板不可用时仍可手动复制。
 - 新会话提供“创建看板”建议，仍然只填草稿，不自动发送。
 
-**有意保留的边界：**继续使用 `render_smart_ui` 与 `meta.smartui`、Turn 级对话行、v1 严格校验及 64 KiB / 20 区块预算（group 也计数），兼容原有五类文档。不是 GenUI 协议的兼容实现：不解析正文 `dsh-ui` 围栏，不接管聊天 DOM，不引入自动发送、常驻面板、Computed 表达式、外部图表引擎或本地持久化未发送输入。切页保留不等于刷新恢复。
+**有意保留的边界：**继续使用 `render_smart_ui` 与 `meta.smartui`、Turn 级对话行、v1 严格校验及 64 KiB / 20 区块预算（group 也计数），兼容原有五类叶节点文档（card / table / chart / form / choices）。不是 GenUI 协议的兼容实现：不解析正文 `dsh-ui` 围栏，不接管聊天 DOM，不引入自动发送、常驻面板、Computed 表达式、外部图表引擎或本地持久化未发送输入。切页保留不等于刷新恢复。
 
 完整示例：[虚构数据看板](<examples/dashboard.json>)。调用方式为 `render_smart_ui({document: …})`，其中 `document` 为示例 JSON 的完整内容。
 
@@ -84,7 +84,7 @@ interface SmartUIDocument {
 
 工具参数 schema 描述允许的字段；部分长度、数量、引用关系及 JSON 安全边界由运行时校验落实，不应只检查参数声明而跳过 `validateDocument`。
 
-### 九类区块
+### 八类叶节点与 group
 
 全部节点都有必需的 `id`、`type` 及可选 `title`；未声明字段一律拒绝。
 
@@ -146,7 +146,7 @@ interface SmartUIDocument {
 - 先筛选再排序；表头在升序 / 降序 / 未排序的筛选结果顺序间循环。不修改原始记录。比较双方都是 number 时按数字比较，否则按展示文本比较；null 在升序时靠后，降序会随方向翻转。纯数值列右对齐，但没有货币、百分比、千分位文本的数值推断。
 - 匹配数量与总行数可见，原始空表与筛选零匹配使用不同提示。
 - 复制格式为 TSV（默认）、CSV、Markdown；都包含表头及**当前筛选结果的当前顺序**，不是隐藏的全部原始行，也不下载文件。
-- TSV 和 CSV 的公式防护共享同一判定：只有文本（字符串单元格与列头）在含前导空白的 `=` / `+` / `-` / `@` 前缀前加单引号，真实 number / boolean / null 保持原值，负数和 `-1.5` 这类数值不会被当成公式转义。TSV 另将单元格内的制表符与换行替换为空格；CSV 正确引用引号和换行；Markdown 转义反斜杠、管道和 HTML 字符并把换行折叠为 `<br>`。防护不保证第三方表格软件的全部解释行为。
+- TSV 和 CSV 的公式防护共享同一判定：只有文本（字符串单元格与列头）在可带前导空白的 `=` / `+` / `-` / `@` 前缀前加单引号，真实 number / boolean / null 保持原值，负数和 `-1.5` 这类数值不会被当成公式转义。TSV 另将单元格内的制表符与换行替换为空格；CSV 用双引号包裹每个单元格（含列头）、内部引号加倍、行间用 `\r\n`，数值仍按数字字面量输出（例如 `"-1.5"`，不加单引号前缀）；TSV/CSV 中的 null 显示为 `—`。Markdown 转义反斜杠、管道和 HTML 字符并把换行折叠为 `<br>`，面向渲染，不做公式防护。防护不保证第三方表格软件的全部解释行为。
 - 剪贴板 API 缺失或拒绝时提供可选择的文本供手动复制，不绕过 HTTP 环境或浏览器权限。
 - 图表仅支持 SVG bar/line，坐标轴含零点；多系列折线用虚线辅助区分，完整数据仍能在表格中查看。不异步加载 ECharts 或远程资源。
 
@@ -159,12 +159,14 @@ interface SmartUIDocument {
 | `@deepseek-ai/dsh-tools` | `defineTool`、canonical output、`presentationMeta`、effect-owned register |
 | `@deepseek-ai/dsh-system-prompt` | 新增可撤销 section；不替换 assembly |
 | `tool.call.toolview` | 仅注册 `render_smart_ui` key；只显示摘要与文本回退 |
-| `uiConversation.events.register` | 注册 `smartui-document` Conversation Definition，只读成功结果里的 `meta.smartui` |
+| `uiConversation.events.register` | 注册 `smartui-document` Conversation Definition，只读成功结果里的 `meta.smartui`；当前 matcher 不校验工具名，只有工具展示 slot 绑定 `render_smart_ui` |
 | `conversation.chat.node` | 仅新增 `smartui-document` key；`groupTree: 'turn'` 使其留在过程折叠之外 |
 | Session 标准 props | `sessionId`、`useInput`、`inputActions.captureInsertion/insertText` |
 | `ctx.locale` / `ctx.theme` | 双语 namespace 注册及订阅；`overrideTokens` 只覆盖 alias token，明暗配对并可还原 |
 | `ctx.configForms` / `settings.general.item` | 读写 Host `dsh-smartui` entry 的 volatile 配置；本插件自有设置行 |
 | `conversation.input.dock` | 仅空会话（`session.blank`）且草稿为空时的快捷建议 |
+
+Client 样式表不属于任何 Surface：`apply` 开始时由 `src/client/install-styles.ts` 装一份带 `data-plugin-css="@local/dsh-smartui/ui.css"` 的 `<style>`，按 document 引用计数（lease）保留；最后一个持有者释放才移除，已存在的同标识标签会被接管并刷新文本，不会重复插入。当前正常路径只有插件 `apply` 一个持有者，所以插件卸载会移除标签；如果同时存在别的租约，标签保留到最后一个 lease 释放，这是计数语义，不是“卸载必然删除”。
 
 默认保留原生聊天布局、消息流、Lexical 编辑器、权限审批、工作区和工具轨迹。不替换 root、sidebar、conversation.chat.flow 或其他工具的 renderer，只新增自己的 Chat 行 kind；不依赖宿主 DOM、私有类名、全局样式选择器或组件源码。
 
@@ -196,12 +198,15 @@ pnpm run verify:bundle    # 检查惰性 factory、宿主 React、资源与清�
 
 构建产物是 DSH Host 模块和 `window.__ModuleLoader__` 惰性 Client factory。React 从宿主模块表获取，不能用 Vite 静态页或第二个 React 应用代替安装验证。运行时依赖在包清单中声明为 peer；离线环境需预先准备对应版本。
 
-`package.json` 的 `files` 覆盖 `dist/`、`cordis.patch.yml`、`locale/*.json`、`assets/icon.svg`、`examples/*.json`、README 与 LICENSE，因此 README 链接的示例会随包分发；未列出的本地笔记（`docs/`、`HANDOFF.md`、`pnpm-lock.yaml`）不进入包内容。
+`package.json` 的 `files` 覆盖 `dist/`、`cordis.patch.yml`、`locale/*.json`、`assets/icon.svg`、`examples/*.json`、README 与 LICENSE，因此 README 链接的示例会随包分发；未列出的本地笔记（`docs/` 下除已跟踪 Demo 外的说明、`HANDOFF.md`、`pnpm-lock.yaml`）不进入包内容，已跟踪的 `docs/visual-demo.html` 也不在 `files`。
+
+已跟踪的 `docs/visual-demo.html` 是独立单文件视觉演示：用 `?theme=dark` 选择初始明暗，页面内脚本把 `<template>` 克隆到桌面/移动两个面板并提供本地选项、草稿、复制与切主题交互；选择和草稿只存在本页内存、刷新即重置。它不加载插件 bundle、不调用工具或模型、不参与构建，也不在 `files`，既不是运行时组件，也不是验收依据。
 
 获安装授权后，可在现有 DSH 插件管理器选择本地 bundle，或使用同样经过版本检查与 profile 写锁的官方 CLI：
 
 ```bash
-dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --offline
+# 从已构建的 dsh-smartui 目录执行
+dsh plugin --profile web add "link:$PWD" --offline
 ```
 
 `link:` 使用已准备好的工作区与依赖；离线安装不从注册表补齐缺失包。不手改 profile 的依赖清单或 patch，也不启动另一个服务器。
@@ -213,7 +218,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --
 `dist/` 是生成产物、不入库，因此“源码已修复”和“交付对象已修复”是两件事。安装/打包入口分两类，不能互相代替：
 
 - **本地引用（`link:`，同类 `file:` 亦然）**：profile 指向本工作副本，加载的就是当前 `dist/`。本机 pnpm 10.28.0 的隔离试验中，对本地目录依赖执行 `pnpm install --offline` 既不运行 `prepare` 也不运行 `prepack`（`link:` 装成指向源目录的符号链接），而 pnpm 10 默认也会阻止依赖的构建脚本；没有任何环节替你先构建。安装或更新前在仓库根目录执行统一入口 `node scripts/verify-plugins.mjs dsh-smartui`（先构建、再测试、再 bundle 校验），并确认验证对象就是本目录的 `dist/`，不要从另一个旧目录交付。
-- **tarball 打包（`pnpm pack` 等）**：`prepack` 按“先构建再验证”执行 `pnpm run build` → 读取真实 `dist/client.js` 的 TSV/CSV 行为测试（`node --test tests/bundle-table-export.test.mjs`）→ `pnpm run verify:bundle`；任一步失败就中止打包，因此进入 tarball 的 `dist/` 必然由同一次打包构建并通过行为与契约检查（`files` 包含 `dist/`）。pnpm 会把 `prepack` 从包内清单中移除，所以它只覆盖打包路径，不是本地引用安装的保证；打包与产物核对应在隔离临时目录内完成。
+- **tarball 打包（`pnpm pack` 等）**：`prepack` 按“先构建再验证”执行 `pnpm run build` → 读取真实 `dist/client.js` 的 TSV/CSV 行为测试（`node --test tests/bundle-table-export.test.mjs`）→ `pnpm run verify:bundle`；正常执行该 lifecycle 时，任一步失败就中止打包，进入 tarball 的 `dist/` 由同一次打包构建并通过行为与契约检查（`files` 包含 `dist/`）。pnpm 会把 `prepack` 从包内清单中移除，所以它只覆盖打包路径，不是本地引用安装的保证；若打包时跳过 lifecycle（例如 `--ignore-scripts`），这道门禁不执行，此时不能仅凭 tarball 内容断言它已受检。打包与产物核对应在隔离临时目录内完成。
 - 两条路径的通过结果都只说明本地或打包产物与当前源码一致（回归见 `tests/bundle-table-export.test.mjs`），不等于正在运行的 GUI 已刷新到该产物。
 
 ### 设置
@@ -249,19 +254,21 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --
 
 ## 验证与限制
 
-测试包括协议与大小限制、metadata 重放、状态/错误降级、动作校验、选区保护、主题清理、语言资源平衡、表格导出（含 TSV/CSV 公式防护一致性与数值保留）和真实组件的静态 HTML 输出/XSS 检查。静态 HTML 测试只是单元测试，不是运行中 DSH 的视觉验收。
+测试包括协议与大小限制、metadata 重放、状态/错误降级、动作校验、选区保护、主题清理、语言资源平衡、表格导出（含 TSV/CSV 公式防护一致性与数值保留）、真实组件的静态 HTML 输出/XSS 检查、协议样例一致性、样式表单例、图表刻度，以及 README 链接与示例随包检查。静态 HTML 测试只是单元测试，不是运行中 DSH 的视觉验收。
 
 验证分为五层，结论不能跨层推断：
 
 | 层级 | 已有结果 | 不能据此断言 |
 |---|---|---|
-| 静态/单元测试 | 协议、动作、草稿门禁、metadata 恢复、Host 工具、主题 disposer、表格导出、语言资源与组件静态输出 | 当前浏览器已加载并显示插件 |
+| 静态/单元测试 | 协议、动作、草稿门禁、metadata 恢复、Host 工具、主题 disposer、表格导出、语言资源、组件静态输出、协议样例一致性、样式表单例、分发链接与图表刻度 | 当前浏览器已加载并显示插件 |
 | 构建/bundle 契约 | `pnpm run build` 与 `pnpm run verify:bundle`；产物为 Host ESM 和带正确包 ID 的惰性 Client factory，外部模块仅为宿主 React，资源路径存在，注册与清理成对 | 已登录 DSH 中的真实交互 |
 | 交付产物行为 | 2026-10-28：读取真实 `dist/client.js` 的 TSV/CSV 复制回归；旧产物在 TSV 负数断言失败，重建后的目录产物与 `pnpm pack` 产出的 tarball 均通过（数值/公式前缀文本/空值两种格式覆盖） | 正在运行的 GUI 已加载该产物；也代替不了下面的隔离 Chromium 与安装层 |
 | 隔离 Chromium | 使用真实组件配模拟宿主服务与主题值：筛选、带表头的可见 CSV 复制、切页保留输入、键盘焦点、显式填草稿、手动复制回退；明暗 × 320/390/1000px 六组无页面级横向溢出；长 delta 与强制颜色下 bar/ring 可辨识 | 在线 DSH 页面或全部原生交互兼容性 |
 | 安装与服务 | 2026-10-24 曾用官方 CLI 把当前工作区链接安装到 `web` profile 并重启既有服务；确认新进程 running、Host 模块可导入 | 已登录浏览器已刷新；同日的原 GUI 地址仍返回 HTTP 401（认证门禁） |
 
 历史运行记录只说明各自记录时点的结果，不能直接沿用为当前源码的验证结论；应以当前执行的 typecheck、串行测试、build 与 bundle 校验日志为准。
+
+本次（2026-10-28）README 同步按当前源码与已跟踪测试核对，并运行 `tests/distribution.test.ts`（3 项通过，覆盖 README 相对链接、示例随包与源码注释边界）；未重跑 typecheck、build、完整测试、bundle 校验、安装或浏览器验收。
 
 **明确未验证项：**
 
@@ -273,7 +280,7 @@ dsh plugin --profile web add link:/home/shial/Project/dsh-plugins/dsh-smartui --
 
 ## English summary
 
-DSH SmartUI adds a reversible ChatGPT-inspired appearance and safe declarative cards, locally filterable/exportable tables, bar/line charts, forms, choices, metrics, progress and callouts to native DSH conversations. One-level groups arrange leaves in rows, columns or tabs; mounted tab panels retain local input. The v1 document shape, strict validation, resource budgets, block fields, grouping rules, draft-insertion gates, export semantics, host-interface baseline and verification baseline are specified in the sections above. It does not replace the conversation engine, editor, model connection or approvals. `render_smart_ui` stores its versioned document in tool-result metadata and keeps a text fallback. Actions only insert reviewable text into the scoped native draft; users send it themselves. No generated HTML, scripts or arbitrary commands execute. Draft selections are not overwritten. Installation/restart need task authorization; local verification follows repository guidance. Record authenticated browser acceptance separately from unit and bundle checks. Only source, README and the listed packaged resources are tracked or shipped; untracked local notes under `docs/` and `HANDOFF.md` are not part of the contract.
+DSH SmartUI adds a reversible ChatGPT-inspired appearance and safe declarative cards, locally filterable/exportable tables, bar/line charts, forms, choices, metrics, progress and callouts to native DSH conversations. One-level groups arrange leaves in rows, columns or tabs; mounted tab panels retain local input. The v1 document shape, strict validation, resource budgets, block fields, grouping rules, draft-insertion gates, export semantics, host-interface baseline and verification baseline are specified in the sections above. It does not replace the conversation engine, editor, model connection or approvals. `render_smart_ui` stores its versioned document in tool-result metadata and keeps a text fallback. Actions only insert reviewable text into the scoped native draft; users send it themselves. No generated HTML, scripts or arbitrary commands execute. Draft selections are not overwritten. Installation/restart need task authorization; local verification follows repository guidance. Record authenticated browser acceptance separately from unit and bundle checks. The repository also tracks a standalone `docs/visual-demo.html` concept preview, which is not shipped in the plugin package or evidence of runtime behaviour. Untracked local Markdown notes under `docs/` and `HANDOFF.md` are not part of the contract.
 
 ## License
 
