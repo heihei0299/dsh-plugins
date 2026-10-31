@@ -93,7 +93,7 @@ interface SmartUIDocument {
 
 ### 兼容基线与运行边界
 
-以 DSH `0.2.1-rc.2` 的已安装公开声明为基线，`engines.dsh` 精确声明该版本，不承诺其他版本。Client 不在运行时 import 任何 DSH Client 内部包，只用宿主 React 和下列公开对象；这些边界是本插件的最小结构类型，不是完整宿主 SDK，升级时须重新对照实际声明与集成测试。
+以 DSH `0.2.1-rc.2` 的公开声明为结构基线，`engines.dsh` 仅接受 `0.2.1-rc.2` 和 `0.2.1-rc.5`。版本门禁与自动化检查不代替目标实例的 GUI 活体验收。Client 不在运行时 import 任何 DSH Client 内部包，只用宿主 React 和下列公开对象；这些边界是本插件的最小结构类型，不是完整宿主 SDK，升级时须重新对照实际声明与集成测试。
 
 - Host 使用 `@deepseek-ai/dsh-tools` 注册工具及 `presentationMeta`，通过 `@deepseek-ai/dsh-system-prompt` 添加可撤销提示词。
 - Client 的 `tool.call.toolview` 仅绑定 `render_smart_ui`；`uiConversation.events.register` 从成功结果的 `meta.smartui` 投影 Chat 行。当前 matcher **不校验工具名**，`conversation.chat.node` 只注册自己的 `smartui-document`。
@@ -102,7 +102,7 @@ interface SmartUIDocument {
 
 ## 开发与安装
 
-需要 Node ≥22、DSH `0.2.1-rc.2`（`engines` 精确声明）与 pnpm，不做全局安装。依赖安装、写入 profile 与服务重启须有相应任务授权。
+需要 Node ≥22、DSH `0.2.1-rc.2` 或 `0.2.1-rc.5`（`engines` 仅声明这两个版本）与 pnpm，不做全局安装。依赖安装、写入 profile 与服务重启须有相应任务授权。
 
 ```bash
 # 在插件目录执行
@@ -110,10 +110,11 @@ pnpm install
 pnpm run typecheck
 pnpm run build            # 生成 dist/host/index.js 和 dist/client.js
 pnpm test                 # Node 测试串行运行，含读取真实 dist/client.js 的导出回归
+DSH_TEST_RUNTIME_ROOT=/path/to/dsh node --test tests/runtime-integration.test.mjs  # 原生 Host 集成
 pnpm run verify:bundle    # 惰性 factory、宿主 React、资源与清理契约
 ```
 
-先构建再运行测试和 bundle 校验：`tests/bundle-table-export.test.mjs` 读取实际 `dist/client.js`，源码单测不能证明交付产物已更新。仓库根目录的 `node scripts/verify-plugins.mjs dsh-smartui` 依次执行这些门禁并覆盖 `dist/`；运行时 peer 依赖须预先准备。浏览器和实际 DSH 验收是单独的可选检查。
+先构建再运行测试和 bundle 校验：`tests/bundle-table-export.test.mjs` 读取实际 `dist/client.js`，源码单测不能证明交付产物已更新。原生 Host 集成测试需设置 `DSH_TEST_RUNTIME_ROOT`，在内存中使用目标 DSH 的 Cordis、工具注册表和 system-prompt；没有该变量时跳过，不等于 GUI 验收。仓库根目录的 `node scripts/verify-plugins.mjs dsh-smartui` 依次执行这些门禁并覆盖 `dist/`；运行时 peer 依赖须预先准备。浏览器和实际 DSH 验收是单独的可选检查。
 
 示例与构建产物随包分发；本地笔记和独立视觉 Demo 不在包的 `files` 内。确认安装授权后，可在现有插件管理器选择本地 bundle，或运行：
 

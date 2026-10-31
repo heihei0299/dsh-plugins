@@ -6,9 +6,10 @@
  * installable package whose `package.json` declares `dsh.bundle.patch`, so the
  * WebUI plugin manager can list it, enable or disable it, and remove it without
  * anyone hand-editing a `file://` patch entry. This script checks that
- * mechanically against the same fields the DSH plugin manager reads
- * (`readPluginMeta`, `bundlePatchPaths`, `evaluatePluginCompatibility`), so a
- * plugin that would be unsupported or disabled in the WebUI fails here first.
+ * mechanically against metadata fields the DSH plugin manager reads
+ * (`readPluginMeta`, `bundlePatchPaths`). It verifies that a version requirement
+ * exists, but does not evaluate the requirement against a running DSH; use
+ * `check-compat.mjs` with the target runtime for that separate check.
  *
  * Dependency-free on purpose: it must run on a bare checkout, before any
  * install or build is authorized.

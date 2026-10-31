@@ -1,6 +1,6 @@
 # dsh-plugins
 
-DeepSeek Harness（DSH）插件集合。五个插件可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22，目标 DSH 版本为 `0.2.1-rc.2`。
+DeepSeek Harness（DSH）插件集合。五个插件可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22；版本门禁仅接受 DSH `0.2.1-rc.2` 和 `0.2.1-rc.5`。版本门禁和自动化测试不代替目标实例的活体验收。
 
 ## 插件
 
@@ -46,11 +46,13 @@ dsh plugin --profile web add "link:$PWD/dsh-mobile" --offline
 依赖准备好后，从仓库根目录执行：
 
 ```bash
-node scripts/check-bundles.mjs                 # 只检查 bundle 元数据
+node scripts/check-bundles.mjs                 # 只检查 bundle 元数据，不评估目标版本
+node scripts/check-compat.mjs --contracts-only --dsh /path/to/dsh  # 版本门禁与所列宿主契约
+DSH_TEST_RUNTIME_ROOT=/path/to/dsh node --test scripts/compat-profile.test.mjs  # 隔离 profile 装载层
 node scripts/verify-plugins.mjs dsh-mobile     # 可指定一个或多个插件；省略则检查全部
 ```
 
-完整门禁会构建所选插件并覆盖其 `dist/`；若 GUI 通过 `link:` 使用该工作区，后续刷新可能加载新产物。按各插件 README 可执行更窄的测试。单测与 bundle 检查不能代替已登录 GUI、真实设备或 LAN 端到端验收。
+兼容性检查的退出码为 0（通过且与本地基线一致）、2（通过但基线缺失或版本不同）、1（失败）。默认会跑各插件单测；`--contracts-only` 跳过单测。默认单测或完整门禁可能触发构建并覆盖所选插件的 `dist/`；若 GUI 通过 `link:` 使用该工作区，后续刷新可能加载新产物。按各插件 README 可执行更窄的测试。版本门禁、静态契约与单测不能代替已登录 GUI、真实设备或 LAN 端到端验收。
 
 `docs/*.md` 与 lockfile 按仓库约定保留在本地、不纳入 Git；可分发契约写在各插件 README。[SmartUI 视觉概念稿](<dsh-smartui/docs/visual-demo.html>)是已跟踪的独立演示，不随插件包分发，也不是运行时验收。构建或发布应保留所用 lockfile、版本和验证记录。
 

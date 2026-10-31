@@ -37,13 +37,13 @@ bundle 层只注册 entry，预算属于 profile 配置：
 
 ## 安装
 
-从仓库根目录执行（要求 Node `>=22`，`engines.dsh: 0.2.1-rc.2`，插件管理器按此判兼容）：
+从仓库根目录执行（要求 Node `>=22`，`engines.dsh` 仅接受 `0.2.1-rc.2` 或 `0.2.1-rc.5`；插件管理器按此判定版本门禁，不代表活体分页已验收）：
 
 ```bash
 dsh plugin --profile web add "link:$PWD/dsh-history-budget" --offline
 ```
 
-无依赖、无构建产物，`link:` 安装后重载 entry 即可。首次加入 profile 仍可能需要重启一次 dsh，让新的 bundle 层参与组装，以插件管理器结果为准。插件依赖网关「每次调用重新解析 receiver」的分发方式和 `sessionController` 暴露的 `follow` / `page` 方法名，在 DSH `0.2.1-rc.2` 上验证过（历史记录，本轮未重跑宿主兼容验证）。
+无依赖、无构建产物，`link:` 安装后重载 entry 即可。首次加入 profile 仍可能需要重启一次 dsh，让新的 bundle 层参与组装，以插件管理器结果为准。插件依赖网关「每次调用重新解析 receiver」的分发方式和 `sessionController` 暴露的 `follow` / `page` 方法名；版本检查与下方原生集成测试分别核对这些契约和内存中的分发路径，不能代替真实会话验收。
 
 ## 限制
 
@@ -58,7 +58,10 @@ dsh plugin --profile web add "link:$PWD/dsh-history-budget" --offline
 
 ```bash
 cd dsh-history-budget
-node --test --test-concurrency=1     # 29 项：裁剪算术、页面形状、幂等、恢复、bundle 契约（含「本包不提供客户端半边」）
+node --test --test-concurrency=1     # 单测；未配置 runtime 时原生集成测试跳过
+DSH_TEST_RUNTIME_ROOT=/path/to/dsh node --test --test-concurrency=1 test/native.test.js
 ```
+
+原生集成测试在内存中使用目标 DSH 的 Cordis、Typert 和 gateway，验证包装后的网关分发及卸载；SessionController 是采用真实方法体和协议标记的替身，历史数据由 fixture 提供，因此不是真实会话端到端测试。
 
 可选活体验证（不属常规门禁，本轮未重跑）：临时 `DSH_HOME` + 复制会话 + 独立端口，用 `--patch` 只把本插件装进 web profile，浏览器侧用 CDP 记录 `WebSocket` 消息字节与 `/api/session/page` 的 `decodedBodySize`。

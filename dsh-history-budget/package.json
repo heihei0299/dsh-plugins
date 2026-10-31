@@ -36,7 +36,7 @@
   "license": "MIT",
   "engines": {
     "node": ">=22",
-    "dsh": "0.2.1-rc.2"
+    "dsh": "0.2.1-rc.2 || 0.2.1-rc.5"
   },
   "scripts": {
     "test": "node --test --test-concurrency=1"

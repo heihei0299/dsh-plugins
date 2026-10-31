@@ -1,6 +1,6 @@
 # dsh-plugin-pin-subagent-model
 
-Pin delegated children on selected backends to an LLM route and/or independent Agent preset. The build-free bundle also provides a WebUI configuration page and a read-only chip showing the child's actual model request. It targets DSH `0.2.1-rc.2` and Node ≥22; Host peers are `@deepseek-ai/cordis ~4.0.5` and `@deepseek-ai/schemastery ~3.18.5`.
+Pin delegated children on selected backends to an LLM route and/or independent Agent preset. The build-free bundle also provides a WebUI configuration page and a read-only chip showing the child's actual model request. Its DSH version gate accepts only `0.2.1-rc.2` and `0.2.1-rc.5`, with Node ≥22; Host peers are `@deepseek-ai/cordis ~4.0.5` and `@deepseek-ai/schemastery ~3.18.5`.
 
 ## Install
 
@@ -59,10 +59,10 @@ From the plugin directory:
 node --test --test-concurrency=1
 # Optional: replace with the actual installed DSH root
 DSH_TEST_RUNTIME_ROOT=/path/to/installed/dsh GOMAXPROCS=2 \
-  node --test --test-concurrency=1 test/native.test.js
+  node --test --test-concurrency=1 test/native.test.js test/preset-native.test.js
 ```
 
-The native test is skipped without `DSH_TEST_RUNTIME_ROOT`; it checks the installed Cordis proxy and method shape, not a real child. Verify live delegation, the configuration page and the composer separately in an authenticated GUI. Both halves are plain JavaScript; no build step is required.
+The native tests skip without `DSH_TEST_RUNTIME_ROOT`. They exercise the installed Cordis proxy and real subagent runtime/provider capability gates, including spawn preset injection and fork inheritance; child creation itself uses a recording fixture, not a real child. Verify live delegation, the configuration page and the composer separately in an authenticated GUI. Both halves are plain JavaScript; no build step is required.
 
 ## License
 

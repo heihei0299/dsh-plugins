@@ -19,6 +19,10 @@ class FakeElement {
   isConnected = true;
   scrollTop = 0;
   scrollHeight = 0;
+  clientHeight = 0;
+  /** Computed `overflow-y` this element reports through `getComputedStyle`. */
+  overflowY = 'visible';
+  parentElement: FakeElement | null = null;
   top = 0;
   height = 0;
 
@@ -155,7 +159,30 @@ function browser(world: ReturnType<typeof createWorld>): () => void {
     document: world.document,
     Element: FakeElement,
     HTMLElement: FakeElement,
+    getComputedStyle: (element: FakeElement) => ({ overflowY: element.overflowY }),
   });
+}
+
+/**
+ * A card inside the transcript with its own box: `region` carries the
+ * overflow style and `inner` sits two levels below it, so the walk from the
+ * touch target has to climb past a plain wrapper first.
+ */
+function nestedRegion(
+  world: ReturnType<typeof createWorld>,
+  options: { overflowY?: string; content?: number; box?: number } = {},
+) {
+  const region = new FakeElement();
+  const wrapper = new FakeElement();
+  const inner = new FakeElement();
+  region.parentElement = world.scroller;
+  wrapper.parentElement = region;
+  inner.parentElement = wrapper;
+  region.overflowY = options.overflowY ?? 'auto';
+  region.scrollHeight = options.content ?? 1200;
+  region.clientHeight = options.box ?? 300;
+  inner.closestResults.set(CONVERSATION_SCROLL, world.scroller);
+  return { region, wrapper, inner };
 }
 
 test('downward travel accumulates and upward movement cannot trigger a page', () => {
@@ -184,6 +211,81 @@ test('a pull past the threshold at the head loads one page and keeps the reading
 
   assert.equal(world.loads, 1);
   assert.equal(world.scroller.scrollTop, 2000, 'the prepended height is added to scrollTop');
+});
+
+test('a drag inside a card that scrolls on its own never pages history', async (t) => {
+  const world = createWorld();
+  const restore = browser(world);
+  const dispose = installHistoryAutoload(world.ctx);
+  t.after(() => { dispose(); restore(); });
+  world.scroller.scrollTop = 0;
+  world.scroller.scrollHeight = 1000;
+  const card = nestedRegion(world);
+
+  // Dragging a table downward inside the card: the transcript stays pinned at
+  // its head, so the movement must not be read as a pull.
+  world.document.fire('touchstart', start(300, card.inner));
+  world.document.fire('touchmove', move(360, card.inner));
+  world.document.fire('touchmove', move(300 + PULL_LOAD_PX * 2, card.inner));
+  await settle();
+  assert.equal(world.loads, 0, 'the card owns the pan');
+
+  // The same pull that starts on the transcript background still pages.
+  world.document.fire('touchend', end(card.inner));
+  world.document.fire('touchstart', start(300, world.target));
+  world.document.fire('touchmove', move(300 + PULL_LOAD_PX + 8, world.target));
+  await settle();
+  assert.equal(world.loads, 1);
+});
+
+test('a card still owns the pan after reaching its own head', async (t) => {
+  const world = createWorld();
+  const restore = browser(world);
+  const dispose = installHistoryAutoload(world.ctx);
+  t.after(() => { dispose(); restore(); });
+  world.scroller.scrollTop = 0;
+  world.scroller.scrollHeight = 1000;
+  const card = nestedRegion(world);
+  card.region.scrollTop = 0;
+
+  world.document.fire('touchstart', start(300, card.inner));
+  world.document.fire('touchmove', move(320, card.inner));
+  world.document.fire('touchmove', move(300 + PULL_LOAD_PX * 2, card.inner));
+  await settle();
+  assert.equal(world.loads, 0, 'the card at its edge still owns the drag');
+});
+
+test('a card that cannot pan vertically leaves the pull to the transcript', async (t) => {
+  // `overflow-x: auto` computes `overflow-y` to `auto` while the content still
+  // fits; a tall unclipped block and a clipped one are not pannable either.
+  const cases = [
+    { name: 'content fits', overflowY: 'auto', content: 300, box: 300 },
+    { name: 'overflow visible', overflowY: 'visible', content: 1200, box: 300 },
+    { name: 'clipped', overflowY: 'hidden', content: 1200, box: 300 },
+  ];
+
+  for (const sample of cases) {
+    const world = createWorld();
+    const restore = browser(world);
+    const dispose = installHistoryAutoload(world.ctx);
+    try {
+      world.scroller.scrollTop = 0;
+      world.scroller.scrollHeight = 1000;
+      const card = nestedRegion(world, {
+        overflowY: sample.overflowY,
+        content: sample.content,
+        box: sample.box,
+      });
+
+      world.document.fire('touchstart', start(300, card.inner));
+      world.document.fire('touchmove', move(300 + PULL_LOAD_PX + 8, card.inner));
+      await settle();
+      assert.equal(world.loads, 1, `${sample.name}: the pull belongs to the transcript`);
+    } finally {
+      dispose();
+      restore();
+    }
+  }
 });
 
 test('the pull only counts after the finger reaches the head', async (t) => {

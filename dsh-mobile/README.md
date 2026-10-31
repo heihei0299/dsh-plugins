@@ -4,7 +4,7 @@
 
 ## 要求与安装
 
-需要 Node ≥22、DSH `0.2.1-rc.2`（`engines` 精确声明）与 pnpm。按 bundle 装入现有 profile，之后在 **设置 → 插件** 里开关，不手改 profile：
+需要 Node ≥22、DSH `0.2.1-rc.2 || 0.2.1-rc.5`（`engines` 精确声明这两个版本）与 pnpm。该范围只是安装门禁，不代表两个版本都已验收：rc.5 尚未做真机触摸与登录态 GUI 验收。按 bundle 装入现有 profile，之后在 **设置 → 插件** 里开关，不手改 profile：
 
 ```bash
 cd dsh-mobile
@@ -40,6 +40,7 @@ dsh plugin --profile web add "link:$PWD" --offline
 - 不合成点击、不按按钮文案找控件；宿主原生的分页按钮、游标和手动翻页保持原样。
 - prepend 后用宿主自己的 `[data-chat-anchor-key]` 行测量位移并同步 `scrollTop`，锚点行不存在时才退回 `scrollHeight` 差值。
 - 起于输入框、可编辑区或输入卡片（`data-composer-seat`）时不响应；多指、`touchcancel` 与普通滚动都不触发。
+- 起于会话里自带垂直滚动的卡片（表格、代码块等任何计算样式 `overflow-y` 为 `auto` / `scroll` 且内容确实溢出的盒子）时也不响应：这段拖动归该卡片自己，即使它已经滚到自己的边界、浏览器把余量链给外层会话，也不当作下拉分页。判定只看触摸起点到会话滚动区之间的祖先链与计算样式，不识别任何插件类名；内容没溢出的同一盒子（例如只横滑的图表容器）、或 `overflow-y: visible` 的高块仍按外层下拉处理。卡片是否可滚在读到时才判定一次（手指确实位于顶部时），不在每次 `touchstart` 上遍历。
 - 没有独立开关，随移动层一起启停。卸载只移除触摸监听并清空手势，**不取消已发起的 `loadOlder()`**：请求返回后若滚动区仍在、读者未移动且主视图未切换，仍会修正 `scrollTop`；被拒绝的 Promise 不由插件捕获，也没有自动重试。
 
 ## 触屏交互
@@ -63,7 +64,7 @@ dsh plugin --profile web add "link:$PWD" --offline
 
 ## 边界与已知限制
 
-- **依赖宿主 DOM 地标**，不依赖哈希类名；地标集中在 `src/client/landmarks.ts`。构建断言只检查产物是否引用这些选择器，宿主是否仍提供对应结构须靠活体探针；地标缺失时相关样式可能不命中。顶部下拉另依赖 `[data-conversation-scroll]`、`[data-chat-flow]`、`[data-chat-anchor-key]`，滚动区折叠/展开动画可能让 `scrollHeight` 差值不精确。
+- **依赖宿主 DOM 地标**，不依赖哈希类名；地标集中在 `src/client/landmarks.ts`。构建断言只检查产物是否引用这些选择器，宿主是否仍提供对应结构须靠活体探针；地标缺失时相关样式可能不命中。顶部下拉另依赖 `[data-conversation-scroll]`、`[data-chat-flow]`、`[data-chat-anchor-key]`，滚动区折叠/展开动画可能让 `scrollHeight` 差值不精确。从自带垂直滚动的卡片上起手不能分页（须在会话背景上下拉），这是为避免滚动冲突而刻意收窄的范围；判定依赖 `getComputedStyle` 与 `scrollHeight` / `clientHeight`，宿主若把滚动放到自定义滚动容器（不产生原生滚动盒）上，该容器仍会被当成外层下拉。
 - 设置面板依赖 `[data-shortcut-modal="settings"]` 及其 `nav` / 内容两级子节点与 `[data-slot="settings.section"]`，行头按 `li > div:first-child` 匹配，不依赖提供商文案或哈希类名；设置页不额外补偿软键盘，沿用宿主 options 滚动容器。
 - **View 标签（对话/轨迹）保持原大小**：升到 44px 会让头部从 76px 涨到 95px。头部只改横向内边距（20/28px → 12px）与标签行底部 6px；390×844 下头部 90px → 83.5px，改 `min-height` 反而更高。
 - **键盘补偿保留页面缩放**：页面放大时不把可视视口缩小误认成键盘；视口事件按帧合并，仅补偿值变化时写入。输入框 16px 规则覆盖实际 contenteditable 编辑器，宽表格允许双指缩放。iOS 旧版本不支持 `interactive-widget`，靠 `visualViewport` 内边距兜底；软键盘行为最终仍需真机确认。

@@ -25,7 +25,7 @@ test('bundle patch ships no user-facing setting, so enabling it cannot change a 
 test('declares one dsh requirement the plugin manager can check', () => {
   const peers = Object.keys(manifest.peerDependencies ?? {}).filter(name => name === '@deepseek-ai/dsh' || name.startsWith('@deepseek-ai/dsh-'));
   assert.ok(typeof manifest.engines?.dsh === 'string' || peers.length > 0);
-  assert.equal(manifest.engines?.dsh, '0.2.1-rc.2');
+  assert.equal(manifest.engines?.dsh, '0.2.1-rc.2 || 0.2.1-rc.5');
 });
 
 test('declares a web client bundle with the services it injects', () => {

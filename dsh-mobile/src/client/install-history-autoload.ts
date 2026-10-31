@@ -23,6 +23,43 @@ export const PULL_LOAD_PX = 48;
  */
 export const OWNS_TOUCH = '[data-composer-seat],input,textarea,select,[contenteditable="true"]';
 
+/** Computed `overflow-y` values that give a box its own vertical pan. */
+const SCROLLS_VERTICALLY = new Set(['auto', 'scroll', 'overlay']);
+
+/**
+ * Whether a box inside the transcript pans vertically by itself.
+ *
+ * The computed style is required: a tall unclipped block also reports
+ * `scrollHeight > clientHeight`, yet a drag over it still scrolls the
+ * transcript.
+ * @param element - a candidate between the touch target and the transcript.
+ * @returns true when the box is a vertical scroll region with content to pan.
+ */
+function scrollsVertically(element: HTMLElement): boolean {
+  if (!SCROLLS_VERTICALLY.has(getComputedStyle(element).overflowY)) return false;
+  return element.scrollHeight - element.clientHeight > 1;
+}
+
+/**
+ * The innermost box between the touch target and the transcript that scrolls
+ * vertically on its own.
+ *
+ * Cards inside a message (a table, a code block, any bounded region) pan
+ * themselves; a drag over one is that box's pan, not a request for older
+ * history — even while the transcript below is pinned at its head, and even
+ * when the box is already at an edge and the browser chains the rest to the
+ * transcript. Selector-free on purpose: no card class has to be known.
+ * @param target - the element the touch started on.
+ * @param scroller - the conversation scrollport, the walk's outer bound.
+ * @returns the owning box, or null when the pan belongs to the transcript.
+ */
+function nestedScrollRegion(target: Element, scroller: HTMLElement): Element | null {
+  for (let node: Element | null = target; node !== null && node !== scroller; node = node.parentElement) {
+    if (node instanceof HTMLElement && scrollsVertically(node)) return node;
+  }
+  return null;
+}
+
 /**
  * Accumulate downward travel at the head, ignoring upward movement.
  *
@@ -82,8 +119,9 @@ function anchorOffset(scroller: HTMLElement, key: string): number | null {
  * (`SessionFace.loadOlder()`), never by clicking the pager or matching its
  * copy. One pull asks for at most one page, only while the session reports
  * `hasMore` and is not already paging, and the reader's place is retained by
- * following the host's own anchor row across the prepend. The host's manual
- * pager keeps working exactly as before.
+ * following the host's own anchor row across the prepend. A drag that belongs
+ * to a nested scroll region is left alone. The host's manual pager keeps
+ * working exactly as before.
  * @param ctx - the client context; only the main-view session and its history verbs are used.
  * @returns a disposer removing every listener.
  */
@@ -91,10 +129,14 @@ export function installHistoryAutoload(ctx: ClientContext): Disposer {
   /** The touch that may still become a pull-to-page gesture. */
   let gesture: {
     readonly scroller: HTMLElement;
+    /** Where the touch landed, kept to decide who owns the pan. */
+    readonly target: Element;
     readonly id: number;
     lastY: number;
     travel: number;
     consumed: boolean;
+    /** Whether the pan owner has been decided for this gesture. */
+    resolved: boolean;
   } | null = null;
   /** One outstanding page at a time, independent of the session's own busy flag. */
   let busy = false;
@@ -149,7 +191,7 @@ export function installHistoryAutoload(ctx: ClientContext): Disposer {
     // The scrollport is shared by every conversation view; only the Chat
     // transcript pages through this gesture.
     if (!(scroller instanceof HTMLElement) || scroller.querySelector(CHAT_FLOW) === null) return;
-    gesture = { scroller, id: touch.identifier, lastY: touch.clientY, travel: 0, consumed: false };
+    gesture = { scroller, target, id: touch.identifier, lastY: touch.clientY, travel: 0, consumed: false, resolved: false };
   }
 
   function onMove(event: TouchEvent): void {
@@ -168,6 +210,16 @@ export function installHistoryAutoload(ctx: ClientContext): Disposer {
       active.lastY = touch.clientY;
       active.travel = 0;
       return;
+    }
+    if (!active.resolved) {
+      // A pull is only possible at the head, so the walk happens the first time
+      // the finger is actually there rather than on every touch.
+      active.resolved = true;
+      if (nestedScrollRegion(active.target, active.scroller) !== null) {
+        // The card under the finger scrolls itself; history is not this gesture.
+        gesture = null;
+        return;
+      }
     }
     active.travel = pullTravel(active.travel, touch.clientY - active.lastY);
     active.lastY = touch.clientY;
