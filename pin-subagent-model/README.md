@@ -1,6 +1,6 @@
 # dsh-plugin-pin-subagent-model
 
-Pin delegated children on selected backends to an LLM route and/or independent Agent preset. The build-free bundle also provides a WebUI configuration page and a read-only chip showing the child's actual model request. Its DSH version gate accepts only `0.2.1-rc.2` and `0.2.1-rc.5`, with Node ≥22; Host peers are `@deepseek-ai/cordis ~4.0.5` and `@deepseek-ai/schemastery ~3.18.5`.
+Pin delegated children on selected backends to an LLM route and/or independent Agent preset. The build-free bundle also provides a WebUI configuration page and a read-only chip showing the child's actual model request. Its DSH version gate accepts `0.2.1-rc.2`, `0.2.1-rc.5` and `0.2.2-rc.1`, with Node ≥22; Host peers are `@deepseek-ai/cordis ~4.0.5 || ~4.1.0` and `@deepseek-ai/schemastery ~3.18.5 || ~3.19.0`.
 
 ## Install
 

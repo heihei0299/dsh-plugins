@@ -64,7 +64,7 @@ test('the development build exists and every declared package export resolves', 
   assert.equal(manifest.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal(manifest.dsh.client.platform, 'web');
   assert.deepEqual(manifest.dsh.client.inject, ['@deepseek-ai/dsh-client-locale', '@deepseek-ai/dsh-client-ui-settings']);
-  assert.equal(manifest.engines.dsh, '0.2.1-rc.2 || 0.2.1-rc.5');
+  assert.equal(manifest.engines.dsh, '0.2.1-rc.2 || 0.2.1-rc.5 || 0.2.2-rc.1');
   for (const file of ['index.js', 'dist/client.js', 'cordis.patch.yml', 'assets/icon.svg', 'locale/*.json', 'README.md', 'LICENSE']) {
     assert.ok(manifest.files.includes(file), `files must deliver ${file}`);
   }

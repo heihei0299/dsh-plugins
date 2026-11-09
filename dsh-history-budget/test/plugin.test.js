@@ -132,6 +132,25 @@ test("trims history pages and keeps the page value", async () => {
 	assert.equal(result.records.at(-1), records.at(-1));
 });
 
+test("bounds both the current events read and the deprecated page alias", async () => {
+	const records = [record(1), record(2), record(3), record(4)];
+	const pageValue = { records, hasMore: false, cursor: 4 };
+	const { service } = serviceOf({ type: "snapshot", cursor: 4, hasMore: false, records: [] }, pageValue);
+	// A host that exposes both entry points must have both bounded, and the
+	// page value's extra `cursor` must survive the trim.
+	service.events = async () => pageValue;
+	const { ctx } = contextOf(service);
+	apply(ctx, { maxBytes: 500 });
+
+	for (const method of ["events", "page"]) {
+		const result = await service[method]({ beforeSeq: 4 }, undefined);
+		assert.ok(encodedBytes(result) <= 500, `${method} must be bounded`);
+		assert.equal(result.hasMore, true, `${method} must offer the older records`);
+		assert.equal(result.records.at(-1), records.at(-1), `${method} must keep the newest record`);
+		assert.equal(result.cursor, 4, `${method} must keep the page cursor`);
+	}
+});
+
 test("leaves an empty page and a throwing page alone", async () => {
 	const empty = { records: [], hasMore: false };
 	const { service } = serviceOf({ type: "snapshot", cursor: 0, hasMore: false, records: [] }, empty);

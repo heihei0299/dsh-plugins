@@ -9,14 +9,15 @@
  * moves the count, never the size.
  *
  * What it does: this host-only plugin replaces `sessionController.follow` and
- * `sessionController.page` for the life of the mount and hands the client the
+ * the history read (`sessionController.events`, or its deprecated `page` alias)
+ * for the life of the mount and hands the client the
  * newest suffix of `records` that fits `maxBytes` of encoded JSON, with
  * `hasMore: true`. The frame's `cursor`, `header`, `projections` and
  * `assistantStream` are untouched, so the live stream still resumes exactly
  * where it would have. The official client already renders a short opening
  * window: it offers 「加载更早」, and that button pages backwards through
- * `session/page` — the same method this plugin bounds — so no client change is
- * involved.
+ * `session/page` — one of the methods this plugin bounds — so no client change
+ * is involved.
  *
  * The seam: `dsh-api-gateway` resolves the receiver per call
  * (`receiverContext.get(descriptor.service)`) and validates only the
@@ -138,8 +139,12 @@ export function apply(ctx, config) {
 		warn("history-budget: `sessionController.follow` is already wrapped; mount this plugin once");
 		return;
 	}
-	const page = service.page;
-	const hasPage = typeof page === "function";
+	// `events` is the current unary history read; `page` is its deprecated alias
+	// and still the one the Web client calls. Both return the same page value, so
+	// a mount bounds whichever of them the host exposes.
+	const pages = ["events", "page"]
+		.map((key) => [key, service[key]])
+		.filter(([, method]) => typeof method === "function");
 
 	ctx.effect(() => {
 		// Stays true only while this mount owns the property. A wrapper installed
@@ -183,26 +188,34 @@ export function apply(ctx, config) {
 				yield frame;
 			}
 		};
-		// `session/page`'s service result is the page value itself
+		// The history read's service result is the page value itself
 		// (`{ records, hasMore }`); the gateway's `{ ok, value }` envelope is
-		// added after the method returns, so it must not be looked for here.
-		const wrappedPage = async function historyBudgetPage(request, signal) {
-			const result = await page.call(this, request, signal);
-			if (!active || request?.maxBytes !== undefined) return result;
-			if (!result || !Array.isArray(result.records) || result.records.length === 0) return result;
-			const trimmed = trimRecords(result, maxBytes, minRecords);
-			if (trimmed.trimmed === 0) return result;
-			report("history page", trimmed);
-			return trimmed.value;
+		// added after the method returns, so it must not be looked for here. The
+		// page value may carry extra fields the host added (its `cursor`), which
+		// the trimmer keeps by spreading the container.
+		const wrapPage = ([key, method]) => {
+			const wrapped = async function historyBudgetPage(request, signal) {
+				const result = await method.call(this, request, signal);
+				if (!active || request?.maxBytes !== undefined) return result;
+				if (!result || !Array.isArray(result.records) || result.records.length === 0) return result;
+				const trimmed = trimRecords(result, maxBytes, minRecords);
+				if (trimmed.trimmed === 0) return result;
+				report(`history ${key}`, trimmed);
+				return trimmed.value;
+			};
+			return install(service, key, wrapped, method);
 		};
 		const restoreFollow = install(service, "follow", wrappedFollow, follow);
 		if (restoreFollow === undefined) {
 			warn("history-budget: `sessionController.follow` cannot be replaced in place; nothing is bounded");
 			return;
 		}
-		const restorePage = hasPage ? install(service, "page", wrappedPage, page) : undefined;
-		if (hasPage && restorePage === undefined) {
-			warn("history-budget: `sessionController.page` cannot be replaced in place; only the opening frame is bounded");
+		const restores = pages.map(wrapPage);
+		if (pages.length === 0) {
+			warn("history-budget: neither `sessionController.events` nor `sessionController.page` is available; only the opening frame is bounded");
+		}
+		if (restores.includes(undefined)) {
+			warn("history-budget: a history read cannot be replaced in place; that entry point stays unbounded");
 		}
 
 		service[INSTALLED] = true;
@@ -210,7 +223,7 @@ export function apply(ctx, config) {
 		return () => {
 			active = false;
 			restoreFollow();
-			restorePage?.();
+			for (const restore of restores) restore?.();
 			if (service[INSTALLED] === true) {
 				try {
 					Reflect.deleteProperty(service, INSTALLED);

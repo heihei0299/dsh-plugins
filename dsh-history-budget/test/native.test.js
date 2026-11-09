@@ -13,16 +13,18 @@
  *
  * What is deliberately NOT real:
  * - the Session log. Reading it needs a real session (disk history, credentials,
- *   or a live Agent), so the fixture's `history` object stands in for
- *   `SessionHistoryController`. The two controller methods under test are the
- *   real `SessionController.prototype.follow` / `.page` bodies, which only
- *   delegate to `this.history.*`; only the delegate is a stub.
+ *   or a live Agent), so the fixture's `history` object stands in for the
+ *   history controller and a `web` object stands in for the web controller. The
+ *   controller methods under test are the real `SessionController.prototype`
+ *   bodies (`follow`, `events`, and the deprecated `page` alias), which only
+ *   delegate to those controllers; only the delegates are stubs.
  * - the Session Controller instance. Constructing a real `SessionController`
  *   demands a dozen live host services and a Session, so the fixture registers
  *   a stand-in Cordis service under the same key and namespace, decorated with
- *   the real protocol's `Remote` markers (`follow` a stream, `page` a unary
- *   read). The first test asserts those declarations still hold in the installed
- *   runtime, so a host that changes them fails here instead of diverging.
+ *   the real protocol's `Remote` markers (`follow` a stream, `events`/`page`
+ *   unary reads). The first test asserts those declarations still hold in the
+ *   installed runtime, so a host that changes them fails here instead of
+ *   diverging.
  * - the Client. Dispatch starts at `TypertGatewayService.stream()` / `.invoke()`,
  *   the in-process entry points the Web transport also uses; no WebSocket is
  *   opened, nothing listens on a port, and no session file is read or written.
@@ -140,7 +142,9 @@ function openingSnapshot() {
  * @returns the page value.
  */
 function historyPageValue() {
-	return { records: historyRecords(), hasMore: false };
+	// `cursor` is the field the host added to the page value; the trimmer must
+	// keep it, because the client pins the next `beforeSeq` from the page it got.
+	return { records: historyRecords(), hasMore: false, cursor: 6 };
 }
 
 /**
@@ -166,51 +170,45 @@ function ownerPeer() {
 }
 
 /**
- * Read the addressed session id the real Controller's Remote markers derive
- * from a request. Copied from the host class so the stand-in service declares
- * the same resource reader.
- * @param request - the history request.
- * @returns the addressed session id.
- */
-function addressedSession(request) {
-	return request.address.kind === "session" ? request.address.sessionId : request.address.childSessionId;
-}
-
-/**
  * Build the stand-in `sessionController` service.
  *
- * Its `follow` and `page` are the real Session Controller bodies (they only
- * delegate to `this.history`), and its Remote markers are written by the real
- * protocol library's `Remote` decorator, so the gateway's SRC resolution sees
- * exactly what it sees for the real class.
+ * Its `follow`, `events` and `page` are the real Session Controller bodies (they
+ * only delegate to the history and web controllers), and its Remote markers are
+ * written by the real protocol library's `Remote` decorator, so the gateway's
+ * SRC resolution sees exactly what it sees for the real class.
  *
  * @param modules - the loaded runtime.
- * @param history - the session-log stand-in the real bodies delegate to.
+ * @param controllers - `{ history, web }` stand-ins the real bodies delegate to.
  * @returns the service class to mount.
  */
-function sessionControllerStandIn({ TypertRemoteService, Remote, SessionController }, history) {
+function sessionControllerStandIn({ TypertRemoteService, Remote, SessionController }, controllers) {
 	const real = SessionController.prototype;
 	class StandInSessionController extends TypertRemoteService {
 		/** @param ctx - owning Cordis Context. */
 		constructor(ctx) {
 			super(ctx, "sessionController", { namespace: "session" });
-			this.history = history;
+			// The real bodies delegate by these field names; a rename in the host
+			// is a seam change and must fail the body assertion below, not here.
+			this.historyController = controllers.history;
+			this.webController = controllers.web;
 		}
 	}
-	for (const method of ["follow", "page"]) {
+	for (const method of ["follow", "events", "page"]) {
 		const descriptor = Object.getOwnPropertyDescriptor(real, method);
 		assert.equal(typeof descriptor?.value, "function", `the real SessionController has no ${method}() body`);
 		Object.defineProperty(StandInSessionController.prototype, method, descriptor);
 	}
 	// A method decorator's initializer writes the marker onto the class
 	// prototype once an instance exists; the host classes run it from their
-	// instance field initializers, and the fixture runs it here.
-	for (const [method, options] of [
-		["follow", { mode: "stream", resources: { session: addressedSession } }],
-		["page", { name: "page", resources: { session: addressedSession } }],
+	// instance field initializers, and the fixture runs it here. Each entry
+	// mirrors the decorator the installed class declares for that method.
+	for (const [method, decorate] of [
+		["follow", (fn, context) => Remote({ mode: "stream" })(fn, context)],
+		["events", (fn, context) => Remote(void 0, context)],
+		["page", (fn, context) => Remote("page")(fn, context)],
 	]) {
 		const initializers = [];
-		Remote(options)(StandInSessionController.prototype[method], {
+		decorate(StandInSessionController.prototype[method], {
 			kind: "method",
 			name: method,
 			static: false,
@@ -224,13 +222,13 @@ function sessionControllerStandIn({ TypertRemoteService, Remote, SessionControll
 
 /**
  * Mount a host with the real gateway in front of the stand-in Controller.
- * @param history - the session-log stand-in.
+ * @param controllers - `{ history, web }` stand-ins the real bodies delegate to.
  * @returns the context, gateway, service, and mounted plugin fibers.
  */
-async function openHost(history) {
+async function openHost(controllers) {
 	const modules = await runtime();
 	const ctx = new modules.Context();
-	const controller = sessionControllerStandIn(modules, history);
+	const controller = sessionControllerStandIn(modules, controllers);
 	const fibers = [
 		ctx.plugin(modules.TypertRegistry),
 		ctx.plugin(modules.RemoteAccess),
@@ -280,10 +278,11 @@ async function followFrames(gateway, request) {
  * Read one history page through the real gateway dispatcher.
  * @param gateway - the gateway service.
  * @param request - the page request body.
- * @returns the business result of `session/page`.
+ * @param method - `events` (current) or `page` (deprecated alias).
+ * @returns the business result of that read.
  */
-function historyPage(gateway, request) {
-	return gateway.invoke({ namespace: "session", method: "page", args: { request }, peer: ownerPeer() });
+function historyPage(gateway, request, method = "page") {
+	return gateway.invoke({ namespace: "session", method, args: { request }, peer: ownerPeer() });
 }
 
 test("the real Session Controller still exposes the two methods this plugin shadows", { skip: SKIP }, async () => {
@@ -291,9 +290,13 @@ test("the real Session Controller still exposes the two methods this plugin shad
 	const follow = Function.prototype.toString.call(SessionController.prototype.follow);
 	const page = Function.prototype.toString.call(SessionController.prototype.page);
 	// The plugin does not rebuild history: it wraps what the controller returns.
-	// That only works while both methods stay pure delegations.
-	assert.match(follow, /this\.history\.follow\(request, signal\)/, "SessionController#follow no longer delegates to its history controller");
-	assert.match(page, /this\.history\.page\(request, signal\)/, "SessionController#page no longer delegates to its history controller");
+	// That only works while both methods stay pure delegations to a controller
+	// this fixture can stand in for. A moved delegate is a seam change: the
+	// fixture must learn the new field, not silently wrap a dead path.
+	assert.match(follow, /this\.webController\.follow\(request, signal\)/, "SessionController#follow no longer delegates to its web controller");
+	const events = Function.prototype.toString.call(SessionController.prototype.events);
+	assert.match(events, /this\.historyController\.events\(request, signal\)/, "SessionController#events no longer delegates to its history controller");
+	assert.match(page, /this\.historyController\.events\(request, signal\)/, "SessionController#page no longer delegates to its history controller");
 
 	const source = Function.prototype.toString.call(SessionController);
 	// The gateway routes `session/*` by the service's binding, so the service key
@@ -302,8 +305,10 @@ test("the real Session Controller still exposes the two methods this plugin shad
 	// `follow` must stay a stream Remote: it is what the client opens with
 	// `session/follow`, and the plugin's override is an async generator.
 	assert.match(source, /_follow_decorators = \[Remote\(\{\s*mode: "stream"/, "SessionController#follow is no longer a stream Remote method");
-	// `page` must stay a unary Remote whose result is the page value itself.
-	assert.match(source, /_page_decorators = \[Remote\(\{[\s\S]{0,160}?resources: \{ session: addressedSession \}/, "SessionController#page no longer declares its session resource");
+	// Both history reads must stay unary Remotes whose result is the page value
+	// itself; a stream mode would reach the plugin's wrapper with another shape.
+	assert.match(source, /_page_decorators = \[Remote\("page"\)\];/, "SessionController#page is no longer a plain unary Remote");
+	assert.match(source, /_events_decorators = \[Remote\];/, "SessionController#events is no longer a plain unary Remote");
 });
 
 test("gateway dispatch reaches the wrapped follow and page on a live Cordis service", { skip: SKIP }, async (t) => {
@@ -312,16 +317,20 @@ test("gateway dispatch reaches the wrapped follow and page on a live Cordis serv
 	const pageValue = historyPageValue();
 	const seen = [];
 	const host = await openHost({
-		follow(request, signal) {
-			seen.push({ request, signal });
-			return (async function* frames() {
-				yield snapshot;
-				yield trailing;
-			})();
+		web: {
+			follow(request, signal) {
+				seen.push({ request, signal });
+				return (async function* frames() {
+					yield snapshot;
+					yield trailing;
+				})();
+			},
 		},
-		async page(request) {
-			seen.push({ request });
-			return pageValue;
+		history: {
+			async events(request) {
+				seen.push({ request });
+				return pageValue;
+			},
 		},
 	});
 	t.after(async () => {
@@ -358,29 +367,41 @@ test("gateway dispatch reaches the wrapped follow and page on a live Cordis serv
 	assert.deepEqual(opening.projections, snapshot.projections);
 	assert.equal(frames[1], trailing, "frames after the opening one must pass through untouched");
 
-	const page = await historyPage(host.gateway, { address: request.address, beforeSeq: 6 });
-	assert.ok(encodedBytes(page) <= budget, "the page must fit the budget");
-	assert.equal(page.hasMore, true, "a trimmed page must offer the older records");
-	assert.equal(page.records.length, 2, "the page must keep the newest turn");
-	assert.equal(page.records.at(-1), pageValue.records.at(-1), "the newest page record must survive");
+	// Both history entry points must be bounded, and the value the host added
+	// (`cursor`) must survive the trim, because the client pins its next
+	// `beforeSeq` from the page it received.
+	for (const method of ["events", "page"]) {
+		const page = await historyPage(host.gateway, { address: request.address, beforeSeq: 6 }, method);
+		assert.ok(encodedBytes(page) <= budget, `session/${method}: the page must fit the budget`);
+		assert.equal(page.hasMore, true, `session/${method}: a trimmed page must offer the older records`);
+		assert.equal(page.records.length, 2, `session/${method}: the page must keep the newest turn`);
+		assert.equal(page.records.at(-1), pageValue.records.at(-1), `session/${method}: the newest page record must survive`);
+		assert.equal(page.cursor, pageValue.cursor, `session/${method}: the page cursor must survive the trim`);
+	}
 
 	// A caller that asks for its own budget is talking to a host that has one.
 	const ownBudget = await followFrames(host.gateway, { ...request, maxBytes: 4096 });
 	assert.equal(ownBudget[0], snapshot, "a request carrying maxBytes must not be bounded twice");
-	const ownBudgetPage = await historyPage(host.gateway, { address: request.address, maxBytes: 4096 });
-	assert.equal(ownBudgetPage, pageValue, "a page carrying maxBytes must not be bounded twice");
+	for (const method of ["events", "page"]) {
+		const ownBudgetPage = await historyPage(host.gateway, { address: request.address, maxBytes: 4096 }, method);
+		assert.equal(ownBudgetPage, pageValue, `session/${method}: a page carrying maxBytes must not be bounded twice`);
+	}
 });
 
 test("disposing the mount restores the real methods for live gateway dispatch", { skip: SKIP }, async (t) => {
 	const snapshot = openingSnapshot();
 	const host = await openHost({
-		follow() {
-			return (async function* frames() {
-				yield snapshot;
-			})();
+		web: {
+			follow() {
+				return (async function* frames() {
+					yield snapshot;
+				})();
+			},
 		},
-		async page() {
-			return historyPageValue();
+		history: {
+			async events() {
+				return historyPageValue();
+			},
 		},
 	});
 	t.after(async () => {

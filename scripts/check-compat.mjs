@@ -312,8 +312,22 @@ export const CONTRACTS = [
 		id: "dsh-history-budget: page 签名",
 		pkg: "@deepseek-ai/dsh-api-session-controller",
 		file: "lib/types/index.d.ts",
-		pattern: /page\(request: SessionPageRequest, signal: AbortSignal\): Promise<SessionPage>;/,
-		why: "插件包装返回页值的 page；签名变化会让历史页不再按字节裁剪"
+		pattern: /page\(request: SessionPageRequest, signal: AbortSignal\): Promise<SessionEventsPage>;/,
+		why: "插件包装返回页值的 page；页值附加字段随版本增加，改签名会重新决定裁剪如何保留它们"
+	},
+	{
+		id: "dsh-history-budget: events 签名",
+		pkg: "@deepseek-ai/dsh-api-session-controller",
+		file: "lib/types/index.d.ts",
+		pattern: /events\(request: SessionPageRequest, signal: AbortSignal\): Promise<SessionEventsPage>;/,
+		why: "当前的历史读入口；插件与 page 一起包装，签名变化会让这一支不再按字节裁剪"
+	},
+	{
+		id: "dsh-history-budget: 页值附加字段",
+		pkg: "@deepseek-ai/dsh-api-session-controller",
+		file: "lib/types/types.d.ts",
+		pattern: /export interface SessionEventsPage extends SessionPage \{\s*readonly cursor: number;/,
+		why: "裁剪只替换 records/hasMore、其余字段靠展开保留；附加字段改形会让裁剪后的页丢掉 cursor"
 	},
 	{
 		id: "dsh-history-budget: 首帧形状",
@@ -356,8 +370,8 @@ export const CONTRACTS = [
 		id: "dsh-lan-connect: webServer.register",
 		pkg: "@deepseek-ai/dsh-host-webserver",
 		file: "lib/types/index.d.ts",
-		pattern: /register\(route: WebRoute\): \(\) => void;/,
-		why: "插件用 register 挂 GET /lan 并靠返回的 disposer 撤销；返回类型变化会让入口在停用后残留"
+		pattern: /register\(route: WebRoute \| WebResourceRoute\): \(\) => void;/,
+		why: "插件用 register 挂 GET /lan（WebRoute 一支）并靠返回的 disposer 撤销；联合或返回类型变化会让入口在停用后残留"
 	},
 	{
 		id: "dsh-lan-connect: exact 路由",
@@ -384,7 +398,7 @@ export const CONTRACTS = [
 		id: "dsh-lan-connect: index-inject 事件",
 		pkg: "@deepseek-ai/dsh-host-webserver",
 		file: "lib/types/index.d.ts",
-		pattern: /'webserver\/index-inject'\(table: IndexInjection\[\]\): void;/,
+		pattern: /'webserver\/index-inject'\(table: IndexInjection\[\], peer: PeerScope\): void;/,
 		why: "插件用该事件把 __DSH_LAN_CONNECT__ 注入 index；事件改名后设置卡片永远读不到数据"
 	},
 	{
@@ -426,7 +440,7 @@ export const CONTRACTS = [
 	{
 		id: "dsh-smartui: tool presentationMeta",
 		pkg: "@deepseek-ai/dsh-tools",
-		file: "lib/types/index.d.ts",
+		file: "lib/types/contracts.d.ts",
 		pattern: /presentationMeta\?\(args: unknown, value: JsonValue\): JsonValue;/,
 		why: "结果里的 meta.smartui 靠 output.presentationMeta 落盘；字段改名会让历史卡片只剩文本降级"
 	},
@@ -434,7 +448,7 @@ export const CONTRACTS = [
 		id: "dsh-smartui: tools.register",
 		pkg: "@deepseek-ai/dsh-tools",
 		file: "lib/types/index.d.ts",
-		pattern: /register\(definition: ToolDefinition\): \(\) => void;/,
+		pattern: /register\(definition: ToolDefinition, options\?: ToolRegistrationOptions\): \(\) => void;/,
 		why: "Host 半边用 ctx.tools.register 注册 render_smart_ui 并靠 disposer 撤销"
 	},
 	{

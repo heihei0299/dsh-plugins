@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-history-budget",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Bound the Web client's opening session frame and older history pages by encoded bytes; the native pager still reaches the trimmed entries",
   "private": true,
   "type": "module",
@@ -36,7 +36,7 @@
   "license": "MIT",
   "engines": {
     "node": ">=22",
-    "dsh": "0.2.1-rc.2 || 0.2.1-rc.5"
+    "dsh": "0.2.1-rc.2 || 0.2.1-rc.5 || 0.2.2-rc.1"
   },
   "scripts": {
     "test": "node --test --test-concurrency=1"

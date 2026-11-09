@@ -1,6 +1,6 @@
 # dsh-plugins
 
-DeepSeek Harness（DSH）插件集合。五个插件可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22；版本门禁仅接受 DSH `0.2.1-rc.2` 和 `0.2.1-rc.5`。版本门禁和自动化测试不代替目标实例的活体验收。
+DeepSeek Harness（DSH）插件集合。五个插件可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22；版本门禁接受 DSH `0.2.1-rc.2`、`0.2.1-rc.5` 和 `0.2.2-rc.1`。版本门禁和自动化测试不代替目标实例的活体验收。
 
 ## 插件
 
@@ -10,9 +10,9 @@ DeepSeek Harness（DSH）插件集合。五个插件可独立装入 profile，�
 | [dsh-mobile](<dsh-mobile/README.md>) | 0.3.0 | 抽屉、触屏操作、状态徽标、下拉加载历史和软键盘适配 | Host + Client |
 | [dsh-smartui](<dsh-smartui/README.md>) | 0.1.3 | 主题与安全声明式卡片、表格、图表、表单及分组 | Host + Client |
 | [dsh-lan-connect](<dsh-lan-connect/README.md>) | 0.1.0 | 同端口 `/lan` 自动登录入口和本地二维码 | 仅 Client |
-| [dsh-history-budget](<dsh-history-budget/README.md>) | 0.2.0 | 按字节软预算裁剪会话首帧与历史页 | 纯 Host，无依赖 |
+| [dsh-history-budget](<dsh-history-budget/README.md>) | 0.2.1 | 按字节软预算裁剪会话首帧与历史页 | 纯 Host，无依赖 |
 
-前四者声明 `@deepseek-ai/cordis ~4.0.5`；各插件的配置、兼容限制和验证命令见对应 README。
+前四者声明 `@deepseek-ai/cordis ~4.0.5 || ~4.1.0`；各插件的配置、兼容限制和验证命令见对应 README。
 
 ## 安装
 

@@ -81,13 +81,13 @@ test('selected runtime accepts only the explicitly declared DSH releases', { ski
   const { evaluatePluginCompatibility } = await runtime();
   for (const [name, folder] of plugins) {
     const manifest = JSON.parse(await readFile(path.join(repo, folder, 'package.json'), 'utf8'));
-    for (const version of ['0.2.1-rc.2', '0.2.1-rc.5']) {
+    for (const version of ['0.2.1-rc.2', '0.2.1-rc.5', '0.2.2-rc.1']) {
       assert.equal(evaluatePluginCompatibility(manifest, {}, version), undefined, `${name}: ${version}`);
     }
-    for (const version of ['0.2.1-rc.3', '0.2.2-alpha.2']) {
+    for (const version of ['0.2.1-rc.3', '0.2.2-alpha.2', '0.2.2-rc.2']) {
       const issue = evaluatePluginCompatibility(manifest, {}, version);
       assert.equal(issue?.exempted, false, `${name}: ${version} must not be implicitly exempted`);
-      assert.equal(issue?.requirements?.['engines.dsh'], '0.2.1-rc.2 || 0.2.1-rc.5', `${name}: ${version}`);
+      assert.equal(issue?.requirements?.['engines.dsh'], '0.2.1-rc.2 || 0.2.1-rc.5 || 0.2.2-rc.1', `${name}: ${version}`);
     }
   }
 });
