@@ -33,19 +33,24 @@ const ReactStub = {
   useEffect: () => {}
 };
 
-test('package exposes the host, client, locale, icon, and bundle patch', () => {
+test('package exposes the dsh-go host, client, locale, icon, and bundle patch', () => {
   assert.equal(packageJson.name, '@local/dsh-mcp-skill-manager');
   assert.equal(packageJson.type, 'module');
   assert.equal(packageJson.engines.dsh, '0.2.2-rc.1');
-  assert.equal(packageJson.exports['.'], './index.js');
+  assert.equal(packageJson.main, './lib/index.js');
+  assert.equal(packageJson.exports['.'], './lib/index.js');
   assert.equal(packageJson.exports['./client'], './dist/client.js');
   assert.equal(packageJson.dsh.bundle.patch, './cordis.patch.yml');
   assert.equal(packageJson.dsh.client.platform, 'web');
   assert.equal(packageJson.dsh.client.immediately, true);
   assert.ok(packageJson.dsh.client.inject.includes('@deepseek-ai/dsh-client-locale'));
   assert.ok(packageJson.dsh.client.inject.includes('@deepseek-ai/dsh-client-ui-settings'));
+  assert.ok(packageJson.files.includes('lib/'));
   assert.ok(packageJson.files.includes('dist/client.js'));
   assert.ok(packageJson.files.includes('cordis.patch.yml'));
+  assert.equal(packageJson.dshGo.v, 1);
+  assert.equal(packageJson.dshGo.icon, 'plugin');
+  assert.equal(packageJson.dshGo.contributes.panels[0].id, 'policy');
 });
 
 test('bundle patch inserts exactly the host plugin', () => {

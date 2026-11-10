@@ -1,6 +1,6 @@
 # @local/dsh-mcp-skill-manager
 
-在 DSH Web 设置里增加 **MCP 与 Skill** 面板：按**项目目录**决定会话可以使用哪些宿主 MCP server 与 skill。没有配置策略的目录保持全部启用，因此插件默认不改变现有行为。
+在 DSH Web 设置和 dsh-go App 里增加 **MCP 与 Skill** 面板：按**项目目录**决定会话可以使用哪些宿主 MCP server 与 skill。没有配置策略的目录保持全部启用，因此插件默认不改变现有行为。Web 与 dsh-go 共用同一份策略文件。
 
 > 只管理**已经存在**的 MCP server 与 skill 的启用状态，不新增、编辑或删除 MCP 定义，不改写 profile 的 `cordis.patch.yml`，也不停止 MCP 进程。
 
@@ -46,6 +46,23 @@
 
 权限沿用原生 Connection：只有已认证的 owner 浏览器会话能读写这三个 `/api/mcp-skill-manager/*` 路由；插件不签发额外凭据，也不监听新端口。
 
+## dsh-go 原生面板
+
+同一个包同时提供 Web 面板和 dsh-go 原生面板。dsh-go 会在会话页签和功能页显示 **MCP 与 Skill** 面板，并在输入框的加号工具里提供一个入口；原生端只渲染声明式视图，策略计算与保存仍在 Host 里完成。
+
+原生面板支持：
+
+- 选择已有项目，或输入绝对路径新增项目；也可把当前会话目录一键加入。
+- 分别切换 MCP server / skill 的“全部”或“选择”，并逐项勾选。
+- 删除项目、移除已失效的 stale 名称、刷新目录扫描。
+- 保存失败时保留原策略并显示提示；保存成功后重新读取目录。
+
+`composer.actions` 的胶囊入口和 `composer.tools` 的加号工具都指向同一个 `policy` 面板。dsh-go 只在具备原生 bridge 的本地引擎里显示这些入口；SSH、relay 等没有 bridge 的 Host 仍只使用 Web 设置面板。
+
+安装方式与 Web 相同，包安装到当前 profile 后由 dsh-go 读取 `dshGo` manifest。修改 `lib/` 下的 Host 代码后需要重启 DSH 引擎；只改 `package.json` 的 `dshGo` 声明时，App 会重新读取 manifest。旧版 App 若不支持 v2 表单组件，面板会退回 v1 视图：仍可选择项目、查看列表和操作，但新增项目需在 Web 面板完成。
+
+本仓库只在 dsh-go 的 SDK checker（`sdk/plugin-kit/bin/check.mjs <plugin> --load`）和单测中验证了原生视图；没有连接真实 Android 设备做端到端验收。
+
 ## 安装（本仓库工作区）
 
 要求 Node.js ≥22、DSH **`0.2.2-rc.1`**，包管理器使用 `pnpm`。插件依赖该版本的 agent 作用域 system prompt、skill 与 tool 限制接口；更早版本未验证，版本门禁会拒绝安装。
@@ -71,7 +88,7 @@ pnpm test
 pnpm run verify:bundle
 ```
 
-测试覆盖策略规范化与最长前缀匹配、配置文件的原子写入与损坏回退、工具限制与 guard、system-prompt 遮蔽、skill stub 的失败关闭、HTTP 路由的鉴权/大小限制、client 状态机和 SSR 渲染。bundle 测试在 `vm` 里执行 `dist/client.js`，不连接真实浏览器。
+测试覆盖策略规范化与最长前缀匹配、配置文件的原子写入与损坏回退、工具限制与 guard、system-prompt 遮蔽、skill stub 的失败关闭、HTTP 路由的鉴权/大小限制、client 状态机和 SSR 渲染、dsh-go manifest / 原生视图 / 面板动作。bundle 测试在 `vm` 里执行 `dist/client.js`，不连接真实浏览器。
 
 ## 已知限制
 
@@ -81,6 +98,8 @@ pnpm run verify:bundle
 - 被 stub 遮蔽的 skill 如果从磁盘删除，而策略仍把它列为禁用，stub 可能作为不可调用的 stale 条目保留到策略变化或 agent 重建；重新启用同名 skill 会撤掉 stub。
 - 目录存在性检查是尽力而为；保存时会对已存在路径做 `realpath` 规范化，但不会创建目录，也不会跟踪之后发生的符号链接变化。
 - 未在真实多用户 DSH 部署上验证跨用户隔离；面板沿用当前 operator 的 Connection 权限，策略文件按当前进程用户写入（`0600`）。
+- dsh-go 原生面板与 Web 面板读取同一个 Host 的目录与 MCP/skill catalog；原生 App 不连接 relay/SSH 时，看不到远端 Host 的目录。
+- dsh-go 的 v1 视图没有表单组件，新增项目只能在 Web 面板完成；已有项目的选择、模式切换和勾选仍可用。
 
 ## License
 

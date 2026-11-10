@@ -1,17 +1,18 @@
 {
   "name": "@local/dsh-mcp-skill-manager",
-  "version": "0.1.0",
-  "description": "Per-project enablement panel for host MCP servers and filesystem skills",
+  "version": "0.2.0",
+  "description": "Per-project MCP and skill policy with a Web settings panel and a dsh-go native panel",
   "private": true,
   "type": "module",
   "license": "MIT",
+  "main": "./lib/index.js",
   "engines": {
     "node": ">=22",
     "dsh": "0.2.2-rc.1"
   },
   "packageManager": "pnpm@10.28.0",
   "exports": {
-    ".": "./index.js",
+    ".": "./lib/index.js",
     "./client": "./dist/client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./assets/icon.svg",
@@ -19,6 +20,7 @@
   },
   "files": [
     "index.js",
+    "lib/",
     "src/host/",
     "src/shared/",
     "dist/client.js",
@@ -38,6 +40,55 @@
       "inject": [
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "dshGo": {
+    "v": 1,
+    "title": {
+      "zh": "MCP 与 Skill",
+      "en": "MCP & Skills"
+    },
+    "icon": "plugin",
+    "contributes": {
+      "composer.actions": [
+        {
+          "id": "open-policy",
+          "label": {
+            "zh": "MCP/技能",
+            "en": "MCP/Skills"
+          },
+          "icon": "plugin",
+          "effect": {
+            "type": "open",
+            "page": "panel:policy"
+          }
+        }
+      ],
+      "composer.tools": [
+        {
+          "id": "open-policy-tool",
+          "label": {
+            "zh": "MCP/技能",
+            "en": "MCP"
+          },
+          "icon": "plugin",
+          "panel": "policy"
+        }
+      ],
+      "panels": [
+        {
+          "id": "policy",
+          "title": {
+            "zh": "MCP 与 Skill",
+            "en": "MCP & Skills"
+          },
+          "icon": "plugin",
+          "placement": [
+            "session.tab",
+            "features"
+          ]
+        }
       ]
     }
   },
