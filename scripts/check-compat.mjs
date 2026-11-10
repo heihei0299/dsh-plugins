@@ -556,6 +556,175 @@ export const CONTRACTS = [
 		file: "lib/types/client/registry.d.ts",
 		pattern: /readonly register: SlotCore\['register'\];/,
 		why: "槽注册入口必须仍是原型方法（代理按调用方 ctx 绑定 effect）；改成实例属性会让停用不再撤销注册"
+	},
+	// mcp-skill-manager：按项目限制宿主 MCP 工具、指令、资源与 skill。
+	{
+		id: "mcp-skill-manager: tools.restrict",
+		pkg: "@deepseek-ai/dsh-tools",
+		file: "lib/types/index.d.ts",
+		pattern: /restrict\(filter: ToolRestriction\): \(\) => void;/,
+		why: "按 server 隐藏宿主 MCP 工具依赖 agent 作用域的 restrict；签名或作用域语义变化会让禁用失效"
+	},
+	{
+		id: "mcp-skill-manager: tools.guard",
+		pkg: "@deepseek-ai/dsh-tools",
+		file: "lib/types/index.d.ts",
+		pattern: /guard\(guard: ToolGuard\): \(\) => void;/,
+		why: "preset 作用域工具无法被 restrict 隐藏，仍要靠 guard 拒绝执行；guard 接口变化会让兜底失效"
+	},
+	{
+		id: "mcp-skill-manager: tools.definitions",
+		pkg: "@deepseek-ai/dsh-tools",
+		file: "lib/types/index.d.ts",
+		pattern: /definitions\(scope\?: ScopeKey, toolSet\?: ResolvedToolSet\): readonly ToolDefinition\[\];/,
+		why: "面板从全局 definitions 推导 MCP server 与工具数；签名变化会让 server 列表不完整"
+	},
+	{
+		id: "mcp-skill-manager: tools/change",
+		pkg: "@deepseek-ai/dsh-tools",
+		file: "lib/types/events.d.ts",
+		pattern: /'tools\/change'\(\): void;/,
+		why: "MCP server 注册/注销后要重新计算限制；事件改名会让面板策略停在旧工具集"
+	},
+	{
+		id: "mcp-skill-manager: skills.register",
+		pkg: "@deepseek-ai/dsh-skill",
+		file: "lib/types/index.d.ts",
+		pattern: /register\(skill: SkillRegistration\): \(\) => void;/,
+		why: "禁用一个 skill 依赖 agent 作用域注册同名非调用 stub；接口变化会让禁用失效"
+	},
+	{
+		id: "mcp-skill-manager: skills.snapshot",
+		pkg: "@deepseek-ai/dsh-skill",
+		file: "lib/types/index.d.ts",
+		pattern: /snapshot\(options\?: SkillViewOptions\): Promise<SkillCatalogSnapshot>;/,
+		why: "面板列举项目 skill、Host 计算要遮蔽的名称都依赖 snapshot；返回值变化会让目录为空或错误"
+	},
+	{
+		id: "mcp-skill-manager: skills/change",
+		pkg: "@deepseek-ai/dsh-skill",
+		file: "lib/types/index.d.ts",
+		pattern: /'skills\/change'\(\): void;/,
+		why: "skill 目录变化后要重建 stub；事件改名会让已禁用 skill 重新暴露"
+	},
+	{
+		id: "mcp-skill-manager: agent.ctx",
+		pkg: "@deepseek-ai/dsh-agent",
+		file: "lib/types/runtime-types.d.ts",
+		pattern: /readonly ctx: Context;/,
+		why: "所有限制、prompt 遮蔽与 skill stub 都注册在 agent.ctx 的作用域；字段消失会让策略只能作用于全局"
+	},
+	{
+		id: "mcp-skill-manager: agent/created",
+		pkg: "@deepseek-ai/dsh-agent",
+		file: "lib/types/runtime-types.d.ts",
+		pattern: /'agent\/created'\(this: Scoped<Agent>, payload: \{/,
+		why: "新 agent 创建时应用项目策略；事件签名变化会让会话绕过策略"
+	},
+	{
+		id: "mcp-skill-manager: agent/pre-step",
+		pkg: "@deepseek-ai/dsh-agent",
+		file: "lib/types/runtime-types.d.ts",
+		pattern: /'agent\/pre-step'\(this: Scoped<Agent>, payload: \{/,
+		why: "每步前刷新 skill stub，避免 tool-skill 读到旧目录；事件变化会让禁用延迟一步"
+	},
+	{
+		id: "mcp-skill-manager: workingDirectory.get",
+		pkg: "@deepseek-ai/dsh-working-directory",
+		file: "lib/types/index.d.ts",
+		pattern: /get\(session: Session\): string;/,
+		why: "项目策略按 agent 的有效工作目录匹配；签名变化会让目录回退到 session header 或进程 cwd"
+	},
+	{
+		id: "mcp-skill-manager: agent-presets.composedPreset",
+		pkg: "@deepseek-ai/dsh-agent-preset-registry",
+		file: "lib/types/index.d.ts",
+		pattern: /composedPreset\(ctx: Context\): string \| undefined;/,
+		why: "面板要按活 agent 的实际 preset 读取 skill 目录；接口变化会让列表退回默认 preset"
+	},
+	{
+		id: "mcp-skill-manager: agent-presets.acquireScope",
+		pkg: "@deepseek-ai/dsh-agent-preset-registry",
+		file: "lib/types/index.d.ts",
+		pattern: /acquireScope\(id\?: string\): Promise<\{\s*key: ScopeKey;\s*\} & AsyncDisposable>;/,
+		why: "不能为读目录创建 agent，只能借 preset 作用域租约；租约形状变化会让 skill 目录无法读取或泄漏"
+	},
+	{
+		id: "mcp-skill-manager: connection.fetchRoute",
+		pkg: "@deepseek-ai/dsh-client-connection",
+		file: "lib/types/rpc.d.ts",
+		pattern: /interface ConnectionFetchRoute \{[\s\S]{0,700}?readonly fetch: \(request: Request\) => Promise<Response>;/,
+		why: "面板的三个策略路由注册在原生 Connection 精确路由上；字段变化会让请求 404 或绕过鉴权语义"
+	},
+	{
+		id: "mcp-skill-manager: connection.fetchRegister",
+		pkg: "@deepseek-ai/dsh-client-connection",
+		file: "lib/types/rpc.d.ts",
+		pattern: /register\(route: ConnectionFetchRoute\): \(\) => Promise<void>;/,
+		why: "Host 用 fetch.register 暴露策略 API；返回类型变化会让停用无法撤销路由"
+	},
+	{
+		id: "mcp-skill-manager: client settings.section",
+		pkg: "@deepseek-ai/dsh-client-ui-settings",
+		file: "lib/types/client/contract/slots.d.ts",
+		pattern: /'settings\.section': \{[\s\S]{0,160}?kind: 'list';/,
+		why: "面板注册为独立设置 section；槽名或 shape 变化会让入口消失"
+	},
+	{
+		id: "mcp-skill-manager: systemPrompt.section",
+		pkg: "@deepseek-ai/dsh-system-prompt",
+		file: "lib/types/index.d.ts",
+		pattern: /section\(section: PromptSection\): \(\) => void;/,
+		why: "禁用 MCP 时用空 section 遮蔽 instructions；接口变化会让 instructions 泄漏给模型"
+	},
+	{
+		id: "mcp-skill-manager: systemPrompt shadowing",
+		pkg: "@deepseek-ai/dsh-system-prompt",
+		file: "lib/types/index.d.ts",
+		pattern: /section shadows a global section with the same name;/,
+		why: "空 mcp:<server> section 必须遮蔽全局同名 section；遮蔽语义变化会让禁用 server 的 instructions 仍可见"
+	},
+	{
+		id: "mcp-skill-manager: loader.entries",
+		pkg: "@deepseek-ai/cordis-plugin-loader",
+		file: "lib/types/config/tree.d.ts",
+		pattern: /entries\(\): Generator<Entry, void, void>;/,
+		why: "面板从 loader 条目读取已配置 MCP server；迭代器消失会让列表退回仅工具推导"
+	},
+	{
+		id: "mcp-skill-manager: loader.entry",
+		pkg: "@deepseek-ai/cordis-plugin-loader",
+		file: "lib/types/config/entry.d.ts",
+		pattern: /options: EntryOptions;[\s\S]{0,500}?get disabled\(\): boolean;/,
+		why: "读取 serverName/transport/config 与禁用状态依赖 Entry.options 和 disabled；形状变化会让发现结果错误"
+	},
+	{
+		id: "mcp-skill-manager: session.event",
+		pkg: "@deepseek-ai/dsh-session",
+		file: "lib/types/index.d.ts",
+		pattern: /'session\/event'\(this: Scoped<Session>, session: Session, event: SessionEvent\): void;/,
+		why: "工作目录切换后要重新应用项目策略；事件签名变化会让会话继续使用旧目录的 MCP/skill"
+	},
+	{
+		id: "mcp-skill-manager: working-directory/change",
+		pkg: "@deepseek-ai/dsh-session",
+		file: "lib/types/known-event-types.js",
+		pattern: /'working-directory\/change'/,
+		why: "监听 session/event 时按这个事件名过滤；改名会让工作目录切换不再触发策略刷新"
+	},
+	{
+		id: "mcp-skill-manager: mcp publicToolName",
+		pkg: "@deepseek-ai/dsh-mcp-client",
+		file: "lib/index.js",
+		pattern: /const joined = `mcp__\$\{serverName\}__\$\{rawName\}`;/,
+		why: "面板与 guard 按 mcp__<server>__<tool> 解析工具；命名变化会让禁用匹配不到工具"
+	},
+	{
+		id: "mcp-skill-manager: mcp serverName schema",
+		pkg: "@deepseek-ai/dsh-mcp-client",
+		file: "lib/index.js",
+		pattern: /serverName: z\.string\(\)\.required\(\)\.pattern\(SERVER_NAME_PATTERN\)/,
+		why: "loader 发现以 serverName 为身份；字段或校验变化会让 server 列表缺项"
 	}
 ];
 

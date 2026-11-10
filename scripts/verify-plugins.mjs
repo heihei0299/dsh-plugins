@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const plugins = ['pin-subagent-model', 'dsh-history-budget', 'dsh-mobile', 'dsh-smartui', 'dsh-lan-connect'];
+const plugins = ['pin-subagent-model', 'dsh-history-budget', 'dsh-mobile', 'dsh-smartui', 'dsh-lan-connect', 'dsh-mcp-skill-manager'];
 
 /** Build a fixed command plan; plugin names are not interpreted as shell input. */
 export function verificationPlan(requested = []) {
@@ -27,8 +27,10 @@ export function verificationPlan(requested = []) {
     // Build explicitly instead of trusting a pretest hook or an existing dist/.
     add(name, 'build', 'pnpm', 'run', 'build');
     add(name, 'test', 'pnpm', 'test');
-    // The LAN test suite already includes its verify:bundle test.
-    if (name !== 'dsh-lan-connect') add(name, 'verify bundle', 'pnpm', 'run', 'verify:bundle');
+    // These suites already include their bundle test.
+    if (name !== 'dsh-lan-connect' && name !== 'dsh-mcp-skill-manager') {
+      add(name, 'verify bundle', 'pnpm', 'run', 'verify:bundle');
+    }
   }
   return plan;
 }

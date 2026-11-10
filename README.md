@@ -1,6 +1,6 @@
 # dsh-plugins
 
-DeepSeek Harness（DSH）插件集合。五个插件可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22；版本门禁接受 DSH `0.2.1-rc.2`、`0.2.1-rc.5` 和 `0.2.2-rc.1`。版本门禁和自动化测试不代替目标实例的活体验收。
+DeepSeek Harness（DSH）插件集合。六个插件可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22；前五个插件的版本门禁接受 DSH `0.2.1-rc.2`、`0.2.1-rc.5` 和 `0.2.2-rc.1`，`dsh-mcp-skill-manager` 只接受 `0.2.2-rc.1`。版本门禁和自动化测试不代替目标实例的活体验收。
 
 ## 插件
 
@@ -10,6 +10,7 @@ DeepSeek Harness（DSH）插件集合。五个插件可独立装入 profile，�
 | [dsh-mobile](<dsh-mobile/README.md>) | 0.3.0 | 抽屉、触屏操作、状态徽标、下拉加载历史和软键盘适配 | Host + Client |
 | [dsh-smartui](<dsh-smartui/README.md>) | 0.1.3 | 主题与安全声明式卡片、表格、图表、表单及分组 | Host + Client |
 | [dsh-lan-connect](<dsh-lan-connect/README.md>) | 0.1.0 | 同端口 `/lan` 自动登录入口和本地二维码 | 仅 Client |
+| [dsh-mcp-skill-manager](<dsh-mcp-skill-manager/README.md>) | 0.1.0 | 按项目目录启用/禁用宿主 MCP 服务器与 skill | Host + Client |
 | [dsh-history-budget](<dsh-history-budget/README.md>) | 0.2.1 | 按字节软预算裁剪会话首帧与历史页 | 纯 Host，无依赖 |
 
 前四者声明 `@deepseek-ai/cordis ~4.0.5 || ~4.1.0`；各插件的配置、兼容限制和验证命令见对应 README。
@@ -24,6 +25,7 @@ DeepSeek Harness（DSH）插件集合。五个插件可独立装入 profile，�
 | `dsh-mobile` | `pnpm --dir dsh-mobile install`，然后 `pnpm --dir dsh-mobile run build` |
 | `dsh-smartui` | `pnpm --dir dsh-smartui install`，然后 `pnpm --dir dsh-smartui run build` |
 | `dsh-lan-connect` | `pnpm --dir dsh-lan-connect install --ignore-scripts`，然后 `pnpm --dir dsh-lan-connect run build` |
+| `dsh-mcp-skill-manager` | `pnpm --dir dsh-mcp-skill-manager install`，然后 `pnpm --dir dsh-mcp-skill-manager run build` |
 | `dsh-history-budget` | 无需准备 |
 
 例如安装 mobile：
@@ -36,6 +38,7 @@ dsh plugin --profile web add "link:$PWD/dsh-mobile" --offline
 
 ## 使用边界
 
+- **项目策略**：`dsh-mcp-skill-manager` 只决定现有 MCP server 与 skill 在某目录的可用性，不停止 MCP 进程、不修改 profile 定义；没有项目策略的目录保持全部启用。宿主级 MCP 工具会被隐藏，preset/agent 作用域注册的工具可能仍对模型可见，但调用会被拒绝。详见[插件 README](<dsh-mcp-skill-manager/README.md>)。
 - **LAN 安全**：网络可达且通过原生 Host/Origin 信任检查的设备可通过匿名 `/lan` 获得 operator 权限，只适用于可信网络。分享链接和二维码不含 token，但 303 登录跳转会携带可复用的进程 token；禁用插件不会撤销已签发的 Cookie。
 - **移动端**：默认 `mode: auto` 在宽度 ≤720px 或粗指针时启用；`mode: on` 可强制应用于桌面。关闭移动层不取消已发起的历史分页。
 - **历史预算**：记录、最少保留数及 turn 对齐可能使帧超出预算；被裁记录仍由原生分页取回。`dsh-mobile` 的下拉分页是独立功能。

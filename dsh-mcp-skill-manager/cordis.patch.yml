@@ -1,0 +1,7 @@
+# Bundle layer contributed by @local/dsh-mcp-skill-manager.
+#
+# Only registers the host half. The browser half is delivered through the
+# package "client" export and the Web settings section it registers.
+- insert:
+    - id: mcp-skill-manager
+      name: '@local/dsh-mcp-skill-manager'
