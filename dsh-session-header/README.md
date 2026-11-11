@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that injects an `x-deepseek-harness-session-id` HTTP header onto **every LLM provider request** the harness sends, carrying the **harness session id of that exact call**.
+A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that puts dsh's own identity on **every LLM provider request** the harness sends — the same three headers `dsh-llm-deepseek` sends: `x-deepseek-harness-session-id` (the harness session id of that exact call), `x-deepseek-harness-user-id` (the harness home's anonymous user id) and `x-deepseek-harness-compact: 1` on compaction calls.
 
 ## Why
 
@@ -15,11 +15,13 @@ This plugin closes that gap with the two official interception points composed t
 
 Context propagation uses `AsyncLocalStorage`: only fetches that happen inside an LLM call's stream are touched; unrelated fetches (web RPC, telemetry, tool traffic) pass through untouched. A header anyone else already set is never overwritten (case-insensitive, per HTTP semantics). Unloading the plugin restores the original `fetch`.
 
-Semantics of the value:
+Semantics of the headers:
 
-- default: `GenerateOptions.sessionId` of the call in flight, with the harness's `session-` branding prefix stripped (a plain UUID is sent) — main-session turns, compaction/title helper calls, and in-process subagent children each report **their own** session id (subagents get their own child session ids);
-- `value` config: a fixed value for every call instead (sent verbatim, no prefix stripping);
-- calls with neither get no header.
+- `x-deepseek-harness-session-id`: `GenerateOptions.sessionId` of the call in flight, **verbatim** — the same string `dsh-llm-deepseek` puts on the wire, `session-` branding included. Main-session turns, compaction/title helper calls and in-process subagent children each report **their own** session id (subagents get their own child session ids).
+- `x-deepseek-harness-user-id`: the bare UUID in `<harness home>/.anonymous-user-id` (`$DSH_HOME` > `~/.dsh`), read once and memoized. `userId` overrides it; if the file is missing or malformed the header is simply not sent (this plugin never mints an id).
+- `x-deepseek-harness-compact: 1`: sent when the call's `GenerateOptions.purpose` is `compaction`.
+- Tool-phase fetches (see `toolEndpoints`) carry only the session header — a tool's gateway call is not an LLM adapter request, so it gets no user-id/compact marker.
+- `header`/`value`: an extra custom header. `header` carries `value` when configured, else the live session id with `session-` stripped. Set `native: false` to send only this one.
 
 ## Install
 
@@ -50,7 +52,9 @@ dsh --profile <name>
     - id: session-header
       name: /absolute/path/to/dsh-session-header/index.js
       config:
+        native: true
         header: x-deepseek-harness-session-id
+        # userId: my-fixed-user-id
         # value: my-fixed-session-id
 ```
 
@@ -62,8 +66,10 @@ dsh --patch ./my-overlay.yml
 
 | field | type | default | meaning |
 | --- | --- | --- | --- |
-| `header` | string | `x-deepseek-harness-session-id` | header name to inject; case-insensitive on the wire |
-| `value` | string | — | fixed value; unset = the harness session id of the call in flight |
+| `native` | boolean | `true` | send the `dsh-llm-deepseek` trio (session id, user id, compaction marker) |
+| `userId` | string | — | `x-deepseek-harness-user-id` override; unset = the harness home's `.anonymous-user-id` |
+| `header` | string | `x-deepseek-harness-session-id` | extra/custom header name for the session id; case-insensitive on the wire |
+| `value` | string | — | fixed value for `header`; unset = the harness session id of the call in flight (prefix stripped) |
 | `toolEndpoints` | string[] | `[]` | URL prefixes matched during tool execution. When non-empty, fetches inside a `tools/execute` waterfall — e.g. a gateway web-search Messages API called from a tool — get the header only when their URL starts with one of these prefixes; third-party tool targets (web_fetch of arbitrary pages, GitHub, MCP servers) stay untouched. Empty (default) keeps the upstream LLM-only injection. |
 | `overwriteHeaders` | string[] | `[]` | Header names this plugin may overwrite when they already carry a value. Everything else keeps the "never overwrite" rule. Some official providers hard-code placeholder values (e.g. `dsh-web-search-deepseek` sends `x-opencode-session: dsh-web-search`), which gateways reject as missing; list the header here (`overwriteHeaders: [x-opencode-session]`) so the live session id replaces that placeholder. Case-insensitive. |
 

@@ -2,9 +2,15 @@
 # Install: dsh plugin --profile <name> add github:homily707/dsh-session-header
 #
 # Configuration:
-#   header           - HTTP header name to inject (default x-deepseek-harness-session-id)
-#   value            - optional fixed value; unset means "the harness session id
-#                      of the call in flight" (calls without one get no header)
+#   native           - on (default): send the same three headers dsh-llm-deepseek
+#                      sends - x-deepseek-harness-session-id, x-deepseek-harness-user-id
+#                      (the harness home's .anonymous-user-id) and
+#                      x-deepseek-harness-compact: 1 on compaction calls
+#   header           - extra/custom HTTP header name carrying the session id
+#                      (default x-deepseek-harness-session-id)
+#   value            - optional fixed value for `header`; unset means "the harness
+#                      session id of the call in flight" (stripped of `session-`)
+#   userId           - optional x-deepseek-harness-user-id override
 #   toolEndpoints    - URL prefixes matched during tool execution; non-empty
 #                      extends injection to gateway fetches inside a
 #                      tools/execute waterfall (see README)
@@ -14,7 +20,9 @@
     - id: session-header
       name: dsh-session-header
       config:
+        native: true
         header: x-deepseek-harness-session-id
+        # userId: my-fixed-user-id
         # value: my-fixed-session-id
         # toolEndpoints:
         #   - https://your-gateway.example.com/

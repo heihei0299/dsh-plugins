@@ -6,6 +6,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { apply, Config } from '../index.js'
 
 /** Record every fetch the plugin (and the code under test) performs. */
@@ -222,7 +225,9 @@ test('llm/stream: still injects unconditionally with the live session id', async
   for await (const chunk of gen) chunks.push(chunk)
   assert.deepEqual(chunks, ['chunk-1', 'chunk-2'])
   assert.equal(recorder.calls.length, 1)
-  assert.equal(recorder.calls[0].headers.get('x-deepseek-harness-session-id'), 'abc')
+  // The native header mirrors dsh-llm-deepseek, which sends the harness id as
+  // it is (branding prefix included).
+  assert.equal(recorder.calls[0].headers.get('x-deepseek-harness-session-id'), 'session-abc')
 })
 
 test('llm/stream: never overwrites a header someone else already set', async (t) => {
@@ -338,3 +343,101 @@ test('tools/execute: case-insensitive overwrite of a placeholder header', async 
   assert.equal(recorder.calls.length, 1)
   assert.equal(recorder.calls[0].headers.get('x-opencode-session'), 'uuid-123')
 })
+
+// --- native replica of the headers dsh-llm-deepseek sends ---
+
+/** Run one llm/stream call through the plugin and return the recorded headers. */
+async function streamOnce(handlers, recorder, options) {
+  async function* inner() {
+    await fetch('https://llm.example.com/v1/chat/completions')
+    yield 'chunk'
+  }
+  for await (const _ of handlers.get('llm/stream')(options, () => inner())) { /* drain */ }
+  return recorder.calls[0].headers
+}
+
+/** Point DSH_HOME at a temp dir holding a specific anonymous user id. */
+function withHarnessHome(t, contents) {
+  const home = mkdtempSync(join(tmpdir(), 'dsh-home-'))
+  if (contents !== undefined) writeFileSync(join(home, '.anonymous-user-id'), contents)
+  const previous = process.env.DSH_HOME
+  process.env.DSH_HOME = home
+  t.after(() => {
+    if (previous === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = previous
+  })
+  return home
+}
+
+test('native: sends the user id from the harness home file', async (t) => {
+  withHarnessHome(t, '11111111-2222-3333-4444-555555555555\n')
+  const { handlers, recorder } = boot(t, {})
+  const headers = await streamOnce(handlers, recorder, { sessionId: 'session-abc' })
+  assert.equal(headers.get('x-deepseek-harness-user-id'), '11111111-2222-3333-4444-555555555555')
+  assert.equal(headers.get('x-deepseek-harness-session-id'), 'session-abc')
+  assert.equal(headers.get('x-deepseek-harness-compact'), null)
+})
+
+test('native: marks compaction calls with x-deepseek-harness-compact', async (t) => {
+  withHarnessHome(t, '11111111-2222-3333-4444-555555555555\n')
+  const { handlers, recorder } = boot(t, {})
+  const headers = await streamOnce(handlers, recorder, {
+    sessionId: 'session-abc',
+    purpose: 'compaction',
+  })
+  assert.equal(headers.get('x-deepseek-harness-compact'), '1')
+})
+
+test('native: leaves the compact marker off for other purposes', async (t) => {
+  withHarnessHome(t, '11111111-2222-3333-4444-555555555555\n')
+  const { handlers, recorder } = boot(t, {})
+  const headers = await streamOnce(handlers, recorder, {
+    sessionId: 'session-abc',
+    purpose: 'session-title',
+  })
+  assert.equal(headers.get('x-deepseek-harness-compact'), null)
+})
+
+test('native: omits the user id when the harness home has none', async (t) => {
+  withHarnessHome(t, undefined)
+  const { handlers, recorder } = boot(t, {})
+  const headers = await streamOnce(handlers, recorder, { sessionId: 'session-abc' })
+  assert.equal(headers.get('x-deepseek-harness-user-id'), null)
+  assert.equal(headers.get('x-deepseek-harness-session-id'), 'session-abc')
+})
+
+test('native: a configured userId wins over the harness home file', async (t) => {
+  withHarnessHome(t, '11111111-2222-3333-4444-555555555555\n')
+  const { handlers, recorder } = boot(t, { userId: 'configured-user' })
+  const headers = await streamOnce(handlers, recorder, { sessionId: 'session-abc' })
+  assert.equal(headers.get('x-deepseek-harness-user-id'), 'configured-user')
+})
+
+test('native: switched off leaves only the configured header', async (t) => {
+  withHarnessHome(t, '11111111-2222-3333-4444-555555555555\n')
+  const { handlers, recorder } = boot(t, { native: false, header: 'x-session-id' })
+  const headers = await streamOnce(handlers, recorder, {
+    sessionId: 'session-abc',
+    purpose: 'compaction',
+  })
+  assert.equal(headers.get('x-session-id'), 'abc')
+  assert.equal(headers.get('x-deepseek-harness-user-id'), null)
+  assert.equal(headers.get('x-deepseek-harness-session-id'), null)
+  assert.equal(headers.get('x-deepseek-harness-compact'), null)
+})
+
+test('native: tool-phase calls carry the session header only', async (t) => {
+  withHarnessHome(t, '11111111-2222-3333-4444-555555555555\n')
+  const { handlers, recorder } = boot(t, {
+    toolEndpoints: ['https://gateway.example.com/'],
+  })
+  const exec = { agent: { id: 'session-uuid-123' } }
+  const next = async () => {
+    await fetch('https://gateway.example.com/messages')
+  }
+  await handlers.get('tools/execute')(exec, next)
+  const headers = recorder.calls[0].headers
+  assert.equal(headers.get('x-deepseek-harness-session-id'), 'uuid-123')
+  assert.equal(headers.get('x-deepseek-harness-user-id'), null)
+})
+

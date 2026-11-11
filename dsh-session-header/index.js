@@ -1,8 +1,11 @@
 /**
- * Inject one HTTP header (default `x-deepseek-harness-session-id`) onto every LLM provider
- * request the harness sends, carrying the harness session id of that exact
- * call — so turns, compaction/title helper calls, and in-process subagent
- * children each report their own session.
+ * Put dsh's own identity on every LLM provider request the harness sends, the
+ * same way `dsh-llm-deepseek` does: `x-deepseek-harness-session-id` (the
+ * session of that exact call — turns, compaction/title helper calls, and
+ * in-process subagent children each report their own), `x-deepseek-harness-user-id`
+ * (the harness home's anonymous user id), and `x-deepseek-harness-compact: 1`
+ * on compaction calls. `header`/`value` can add one custom header instead of,
+ * or in addition to, that trio.
  *
  * The harness has no per-request header seam: `GenerateOptions` carries no
  * headers field, and each adapter builds its own wire headers inside
@@ -19,10 +22,11 @@
  * lands in the store, while unrelated fetches (web RPC, telemetry, tools)
  * see no store and pass through untouched.
  *
- * A fixed value can be configured instead of the live session id (sent
- * verbatim); the live id's `session-` branding prefix is stripped so a plain
- * UUID goes on the wire. Calls with neither a configured value nor a session
- * id get no header. A header anyone else already set is never overwritten
+ * The native trio goes out verbatim, exactly as `dsh-llm-deepseek` sends it
+ * (branding prefix and all). A custom `header` carries a fixed `value` when one
+ * is configured, otherwise the live session id with its `session-` prefix
+ * stripped. Calls with neither get no session header. A header anyone else
+ * already set is never overwritten
  * (`Headers` matching is case-insensitive, the same rule the wire uses).
  * Unloading the plugin restores the original fetch.
  *
@@ -30,6 +34,9 @@
  */
 
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import Schema from '@deepseek-ai/schemastery'
 
 export const name = 'dsh-session-header'
@@ -40,6 +47,19 @@ export const inject = ['llm']
 export const Config = Schema.object({
   /** Header name to inject; HTTP field names are case-insensitive on the wire. */
   header: Schema.string().default('x-deepseek-harness-session-id'),
+  /**
+   * Also send the other two headers `dsh-llm-deepseek` sends on every Messages
+   * request: `x-deepseek-harness-user-id` (the harness home's anonymous user
+   * id) and `x-deepseek-harness-compact: 1` on compaction calls. On (default)
+   * makes the wire headers match the official DeepSeek adapter exactly.
+   */
+  native: Schema.boolean().default(true),
+  /**
+   * Explicit `x-deepseek-harness-user-id` value. Unset means "read the harness
+   * home's `.anonymous-user-id` file" — the same file `dsh-llm-deepseek`
+   * uses; when it is missing or not a UUID the header is simply not sent.
+   */
+  userId: Schema.string(),
   /**
    * Fixed header value. Unset means "use the harness session id of the call
    * in flight" (`GenerateOptions.sessionId`); calls with neither get no header.
@@ -79,10 +99,40 @@ export function apply(ctx, config) {
   // The Schema above already filled the defaults (the harness validates plugin
   // config through it), so these are read once here rather than re-defaulted on
   // every injection.
-  const { header, value: fixedValue, toolEndpoints, overwriteHeaders } = config
-  // Only one question is ever asked of `overwriteHeaders`: may we replace OUR
-  // header? Case-insensitive match, the same rule the wire uses.
-  const mayOverwrite = overwriteHeaders.some((name) => name.toLowerCase() === header.toLowerCase())
+  const {
+    header,
+    value: fixedValue,
+    native,
+    userId: configuredUserId,
+    toolEndpoints,
+    overwriteHeaders,
+  } = config
+  // Only one question is ever asked of `overwriteHeaders`: may we replace a
+  // header that is already there? Case-insensitive match, the same rule the
+  // wire uses.
+  const mayOverwrite = (name) =>
+    overwriteHeaders.some((allowed) => allowed.toLowerCase() === name.toLowerCase())
+
+  // The user id `dsh-llm-deepseek` puts in `x-deepseek-harness-user-id`: a bare
+  // UUID in `<harness home>/.anonymous-user-id` ($DSH_HOME > ~/.dsh), written by
+  // the harness on first use. Read once and memoized; a missing or malformed
+  // file simply means "no user-id header" — this plugin never mints one.
+  const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  let resolvedUserId
+  const resolveUserId = () => {
+    if (configuredUserId !== undefined) return configuredUserId
+    if (resolvedUserId !== undefined) return resolvedUserId
+    const home = process.env.DSH_HOME ?? join(homedir(), '.dsh')
+    let id
+    try {
+      const text = readFileSync(join(home, '.anonymous-user-id'), 'utf8').trim()
+      if (UUID_PATTERN.test(text)) id = text
+    } catch {
+      // absent or unreadable: leave the header off rather than invent an id
+    }
+    resolvedUserId = id
+    return id
+  }
 
   // Pre-compile toolEndpoints into origin-anchored matchers so the whitelist
   // can never match a sibling domain: `https://gateway.example.com` must not
@@ -135,9 +185,33 @@ export function apply(ctx, config) {
   const resolveValue = (id) =>
     fixedValue ?? (id === undefined ? undefined : String(id).replace(/^session-/, ''))
 
+  // The header set for one call, mirroring `dsh-llm-deepseek`: the session id
+  // (or a configured fixed value), plus — on LLM calls only — the user id and
+  // the compaction marker. Deduplicated by name, case-insensitively.
+  const injectionHeaders = (injection) => {
+    const pairs = new Map()
+    const put = (name, value) => {
+      const key = name.toLowerCase()
+      if (!pairs.has(key)) pairs.set(key, [name, value])
+    }
+    // Native headers first: they are what `dsh-llm-deepseek` sends, verbatim
+    // (including the session id's `session-` branding), so an equal-named
+    // `header` does not silently take their place.
+    if (native === true && injection.toolPhase !== true) {
+      const userId = resolveUserId()
+      if (userId !== undefined) put('x-deepseek-harness-user-id', userId)
+      if (injection.sessionId !== undefined) {
+        put('x-deepseek-harness-session-id', String(injection.sessionId))
+      }
+      if (injection.purpose === 'compaction') put('x-deepseek-harness-compact', '1')
+    }
+    if (injection.value !== undefined) put(header, injection.value)
+    return [...pairs.values()]
+  }
+
   const patchedFetch = (input, init) => {
     const injection = als.getStore()
-    if (injection === undefined || injection.value === undefined) {
+    if (injection === undefined) {
       return originalFetch(input, init)
     }
     // Tool-phase scopes carry the whitelist gate; skip fetches that do not
@@ -146,19 +220,28 @@ export function apply(ctx, config) {
     if (injection.toolPhase === true && !urlMatchesEndpoint(input)) {
       return originalFetch(input, init)
     }
+    const pairs = injectionHeaders(injection)
+    if (pairs.length === 0) {
+      return originalFetch(input, init)
+    }
     // Collect headers from both fetch() spellings: a Request object carries
     // its own, and init.headers overrides them per the fetch standard.
     const headers = new Headers(input instanceof Request ? input.headers : undefined)
     if (init?.headers !== undefined) {
       for (const [key, value] of new Headers(init.headers)) headers.set(key, value)
     }
-    // Inject only when absent — unless `overwriteHeaders` lists our header, in
-    // which case the live session id replaces whatever placeholder value
-    // another layer (an official provider) hard-coded.
-    if (headers.has(header) && !mayOverwrite) {
+    // Inject only when absent — unless `overwriteHeaders` lists the name, in
+    // which case the live value replaces whatever placeholder value another
+    // layer (an official provider) hard-coded.
+    let injected = false
+    for (const [name, value] of pairs) {
+      if (headers.has(name) && !mayOverwrite(name)) continue
+      headers.set(name, value)
+      injected = true
+    }
+    if (!injected) {
       return originalFetch(input, init)
     }
-    headers.set(header, injection.value)
     // A bare Request input owns its headers; rebuild it so the original —
     // which may be reused by the caller — keeps arriving providers without us.
     if (input instanceof Request && init === undefined) {
@@ -185,7 +268,11 @@ export function apply(ctx, config) {
   ctx.on('llm/stream', async function* (options, next) {
     const inner = next()
     const iterator = inner[Symbol.asyncIterator]()
-    const scope = { value: resolveValue(options.sessionId) }
+    const scope = {
+      value: resolveValue(options.sessionId),
+      sessionId: options.sessionId,
+      purpose: options.purpose,
+    }
     let exhausted = false
     try {
       while (true) {
