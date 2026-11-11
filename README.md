@@ -1,6 +1,6 @@
 # dsh-plugins
 
-DeepSeek Harness（DSH）插件集合：八个插件可独立装入 profile，不改 DSH 核心、不另起 Web 服务。需 Node ≥22。`pin-subagent-model`、`dsh-mobile`、`dsh-smartui`、`dsh-lan-connect`、`dsh-history-budget` 的版本门禁接受 `0.2.1-rc.2`、`0.2.1-rc.5` 或 `0.2.2-rc.1`，其余三个只接受 `0.2.2-rc.1`。门禁与测试不代替活体验收。
+DeepSeek Harness（DSH）插件集合：九个插件可独立装入 profile，不改 DSH 核心、不另起 Web 服务。需 Node ≥22。`pin-subagent-model`、`dsh-mobile`、`dsh-smartui`、`dsh-lan-connect`、`dsh-history-budget` 的版本门禁接受 `0.2.1-rc.2`、`0.2.1-rc.5` 或 `0.2.2-rc.1`，其余四个只接受 `0.2.2-rc.1`。门禁与测试不代替活体验收。
 
 ## 插件
 
@@ -14,6 +14,7 @@ DeepSeek Harness（DSH）插件集合：八个插件可独立装入 profile，�
 | [dsh-history-budget](<dsh-history-budget/README.md>) | 0.2.1 | 按字节软预算裁剪会话首帧与历史页 | 纯 Host，无依赖 |
 | [dsh-memory](<dsh-memory/README.md>) | 0.1.0 | Codex v2 记忆引擎：后台摘要、`memory_summary.md` 合并与注入 | 纯 Host，无依赖 |
 | [dsh-session-header](<dsh-session-header/README.md>) | 0.2.1 | 复刻 `dsh-llm-deepseek` 的三个身份标头，可扩展到工具阶段白名单网关 | 纯 Host，无构建 |
+| [dsh-i-have-adhd](<dsh-i-have-adhd/README.md>) | 0.1.0 | ADHD 友好输出：行动优先、步骤编号、状态复述、无客套；`/adhd on/off` 按会话切换，子代理默认不套用 | 纯 Host，无依赖 |
 
 前四者声明 `@deepseek-ai/cordis ~4.0.5 || ~4.1.0`；配置、限制与更窄的验证命令见各插件 README。
 
@@ -27,7 +28,7 @@ pnpm --dir <插件> install && pnpm --dir <插件> run build  # 需构建：dsh-
 dsh plugin --profile web add "link:$PWD/<插件>" --offline
 ```
 
-`dsh-history-budget`、`dsh-memory` 无需准备；装后在 **设置 → 插件** 启停，重启与刷新以插件管理器提示为准。
+`dsh-history-budget`、`dsh-memory`、`dsh-i-have-adhd` 无需准备；装后在 **设置 → 插件** 启停，重启与刷新以插件管理器提示为准。
 
 ## 第三方插件
 

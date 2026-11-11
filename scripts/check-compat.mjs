@@ -465,6 +465,42 @@ export const CONTRACTS = [
 		pattern: /section\(section: PromptSection\): \(\) => void;/,
 		why: "插件用可撤销的提示词段教模型调用工具；方法改名会静默丢掉提示词"
 	},
+	// dsh-i-have-adhd 只依赖提示词段、Agent 识别与命令注册这三个稳定缝。
+	{
+		id: "dsh-i-have-adhd: systemPrompt.section",
+		pkg: "@deepseek-ai/dsh-system-prompt",
+		file: "lib/types/index.d.ts",
+		pattern: /section\(section: PromptSection\): \(\) => void;/,
+		why: "插件用可撤销的提示词段承载风格规则；方法改名会让 apply 直接抛错"
+	},
+	{
+		id: "dsh-i-have-adhd: getSectionOrder",
+		pkg: "@deepseek-ai/dsh-system-prompt",
+		file: "lib/types/index.d.ts",
+		pattern: /getSectionOrder\(name: PromptSectionOrderName\): number;/,
+		why: "插件把风格段定位在 persona 之后；API 改名会让 apply 直接抛错"
+	},
+	{
+		id: "dsh-i-have-adhd: AssembleContext.agent",
+		pkg: "@deepseek-ai/dsh-agent",
+		file: "lib/types/runtime-types.d.ts",
+		pattern: /agent\?: Agent;/,
+		why: "插件按当前 Agent 跳过子代理并实现 /adhd off；字段消失会让规则错误地作用于委派报告"
+	},
+	{
+		id: "dsh-i-have-adhd: SessionHeader.origin/delegationDepth",
+		pkg: "@deepseek-ai/dsh-session",
+		file: "lib/types/types.d.ts",
+		pattern: /readonly origin\?: 'subagent';[\s\S]{0,400}?readonly delegationDepth\?: number;/,
+		why: "子代理识别依赖这两个持久字段；改名会让风格规则进入委派报告"
+	},
+	{
+		id: "dsh-i-have-adhd: commands.register",
+		pkg: "@deepseek-ai/dsh-commands",
+		file: "lib/types/index.d.ts",
+		pattern: /register\(definition: CommandDefinition\): \(\) => void;/,
+		why: "插件注册 /adhd on|off|status；签名变化会让会话内切换失效"
+	},
 	{
 		id: "dsh-smartui: uiConversation 服务",
 		pkg: "@deepseek-ai/dsh-client-ui-conversation",

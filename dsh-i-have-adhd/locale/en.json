@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "ADHD output mode",
+    "description": "Shapes every reader-facing reply: action first, numbered steps, restated state, no preamble or closer. /adhd on|off mutes it per session; subagent reports are excluded by default."
+  }
+}

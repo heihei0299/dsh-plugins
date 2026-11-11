@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ADHD output mode">
+  <rect width="64" height="64" rx="16" fill="#111827"/>
+  <path d="M18 16h22a7 7 0 0 1 7 7v16a7 7 0 0 1-7 7H18a7 7 0 0 1-7-7V23a7 7 0 0 1 7-7Z" fill="none" stroke="#f59e0b" stroke-width="3"/>
+  <path d="M20 25h15M20 32h20M20 39h10" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
+  <path d="M47 34l-6 10h4.5l-2 8 8-12h-4.5l3-6Z" fill="#22d3ee"/>
+</svg>

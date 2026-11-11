@@ -1,0 +1,17 @@
+# Bundle layer contributed by dsh-i-have-adhd.
+#
+# One system-prompt section shapes reader-facing replies; /adhd on|off
+# mutes it for the live session. The profile entry is the durable switch:
+#
+#   - id: i-have-adhd
+#     config:
+#       enabled: true      # false keeps the plugin installed but inert
+#       subagents: false   # true also shapes delegated subagent reports
+#
+# Do not mount another plugin that registers a section with the same name.
+- insert:
+    - id: i-have-adhd
+      name: dsh-i-have-adhd
+      config:
+        enabled: true
+        subagents: false

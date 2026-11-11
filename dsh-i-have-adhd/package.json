@@ -1,0 +1,46 @@
+{
+  "name": "dsh-i-have-adhd",
+  "version": "0.1.0",
+  "description": "ADHD-friendly output shaping for DeepSeek Harness: one system-prompt section plus /adhd on|off, action first, numbered steps, no preamble",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./icon": "./assets/icon.svg",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "src/rules.js",
+    "cordis.patch.yml",
+    "assets/icon.svg",
+    "locale/*.json",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "adhd",
+    "output-style",
+    "accessibility",
+    "productivity"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22",
+    "dsh": "0.2.2-rc.1"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  }
+}
