@@ -23,15 +23,19 @@ Semantics of the value:
 
 ## Install
 
-Requires the `dsh` CLI and Node ≥ 22.
+Requires the `dsh` CLI (DSH `0.2.2-rc.1`) and Node ≥ 22.
 
 ### As a bundle (recommended)
 
-```sh
-dsh plugin --profile <name> add github:homily707/dsh-session-header
+From the repository root, prepare the single Host dependency and link the bundle to an existing profile:
+
+```bash
+cd dsh-session-header
+pnpm install --offline   # omit --offline if registry access is allowed and needed
+dsh plugin --profile web add "link:$PWD" --offline
 ```
 
-This package is plain JavaScript with no build scripts, so the pnpm ≥ 10 build allowance is not needed. Verify the layer and boot:
+This package is plain JavaScript with no build scripts, so the pnpm ≥ 10 build allowance is not needed. Its `locale/` and `assets/icon.svg` feed the plugin card in **设置 → 插件**. Verify the layer and boot:
 
 ```sh
 dsh --profile <name> --dump-config   # look for the "# == dsh-session-header" layer

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "LLM session header",
+    "description": "Injects an x-session-id header (name and value configurable) onto every LLM provider request, carrying the harness session id of that exact call; can extend to whitelisted gateway fetches made inside tool execution."
+  }
+}

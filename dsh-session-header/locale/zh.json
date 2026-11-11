@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "LLM 会话标头",
+    "description": "为每个 LLM 供应商请求注入 x-session-id 标头（名称与取值可配置），值为该次调用所属的 harness 会话 id；可按白名单扩展到工具执行期间对网关的请求。"
+  }
+}

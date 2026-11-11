@@ -1,6 +1,6 @@
 # dsh-plugins
 
-DeepSeek Harness（DSH）插件集合。七个插件可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22；除 `dsh-mcp-skill-manager`、`dsh-memory` 外的五个插件，版本门禁接受 DSH `0.2.1-rc.2`、`0.2.1-rc.5` 和 `0.2.2-rc.1`；`dsh-mcp-skill-manager` 与 `dsh-memory` 只接受 `0.2.2-rc.1`。版本门禁和自动化测试不代替目标实例的活体验收。
+DeepSeek Harness（DSH）插件集合。八个插件可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22；除 `dsh-mcp-skill-manager`、`dsh-memory`、`dsh-session-header` 外的五个插件，版本门禁接受 DSH `0.2.1-rc.2`、`0.2.1-rc.5` 和 `0.2.2-rc.1`；`dsh-mcp-skill-manager`、`dsh-memory` 与 `dsh-session-header` 只接受 `0.2.2-rc.1`。版本门禁和自动化测试不代替目标实例的活体验收。
 
 ## 插件
 
@@ -13,6 +13,7 @@ DeepSeek Harness（DSH）插件集合。七个插件可独立装入 profile，�
 | [dsh-mcp-skill-manager](<dsh-mcp-skill-manager/README.md>) | 0.2.0 | 按项目目录启用/禁用宿主 MCP 服务器与 skill，含 Web 设置与 dsh-go 原生面板 | Host + Client + dsh-go |
 | [dsh-history-budget](<dsh-history-budget/README.md>) | 0.2.1 | 按字节软预算裁剪会话首帧与历史页 | 纯 Host，无依赖 |
 | [dsh-memory](<dsh-memory/README.md>) | 0.1.0 | 复刻 Codex v2 记忆引擎：后台会话摘要、全局 `memory_summary.md` 合并与注入 | 纯 Host，无依赖 |
+| [dsh-session-header](<dsh-session-header/README.md>) | 0.2.1 | 为每次 LLM 请求注入会话 id 标头，并可扩展到工具阶段的白名单网关 | 纯 Host，无构建 |
 
 前四者声明 `@deepseek-ai/cordis ~4.0.5 || ~4.1.0`；各插件的配置、兼容限制和验证命令见对应 README。
 
@@ -29,6 +30,7 @@ DeepSeek Harness（DSH）插件集合。七个插件可独立装入 profile，�
 | `dsh-mcp-skill-manager` | `pnpm --dir dsh-mcp-skill-manager install`，然后 `pnpm --dir dsh-mcp-skill-manager run build` |
 | `dsh-history-budget` | 无需准备 |
 | `dsh-memory` | 无需准备 |
+| `dsh-session-header` | `pnpm --dir dsh-session-header install --offline` |
 
 例如安装 mobile：
 
@@ -45,6 +47,7 @@ dsh plugin --profile web add "link:$PWD/dsh-mobile" --offline
 - **移动端**：默认 `mode: auto` 在宽度 ≤720px 或粗指针时启用；`mode: on` 可强制应用于桌面。关闭移动层不取消已发起的历史分页。
 - **历史预算**：记录、最少保留数及 turn 对齐可能使帧超出预算；被裁记录仍由原生分页取回。`dsh-mobile` 的下拉分页是独立功能。
 - **子代理**：预设只适用于支持独立组合的后端；fork 仍继承父预设。固定路由/预设与工具白名单的优先级见插件 README。
+- **会话标头**：`dsh-session-header` 替换进程级 `globalThis.fetch`，只在 `llm/stream` 作用域和白名单内的 `tools/execute` 作用域注入，卸载时还原；默认不覆盖调用方已设置的标头，`toolEndpoints` 为空时第三方工具流量不受影响。
 - **记忆**：`dsh-memory` 在根会话启动后后台读取已持久化会话，默认只处理空闲 ≥6 小时且 ≤10 天的会话；子代理、当前会话和外部上下文会话按配置跳过。摘要在下一次请求注入，合并仍是一次有界模型调用；密钥在落盘/入模前脱敏。详见[插件 README](<dsh-memory/README.md>)。
 
 ## 开发与验证

@@ -775,6 +775,41 @@ export const CONTRACTS = [
 		file: "lib/types/index.d.ts",
 		pattern: /register\(definition: ToolDefinition, options\?: ToolRegistrationOptions\): \(\) => void;/,
 		why: "可选 memory_read/search/list/note 工具用该注册口；签名变化会让工具不可见"
+	},
+	{
+		id: "session-header: llm/stream 瀑布",
+		pkg: "@deepseek-ai/dsh-llm",
+		file: "lib/types/index.d.ts",
+		pattern: /'llm\/stream'\(this: LlmRuntime, options: GenerateOptions/,
+		why: "插件只在该瀑布里开 AsyncLocalStorage 作用域；事件改名或改签会让所有注入静默失效"
+	},
+	{
+		id: "session-header: GenerateOptions.sessionId",
+		pkg: "@deepseek-ai/dsh-llm",
+		file: "lib/types/types.d.ts",
+		pattern: /sessionId\?: Branded<'SessionId'>/,
+		why: "在线值取自该字段；字段消失后 LLM 请求不再带会话 id"
+	},
+	{
+		id: "session-header: tools/execute 瀑布",
+		pkg: "@deepseek-ai/dsh-tools",
+		file: "lib/types/events.d.ts",
+		pattern: /'tools\/execute'\(this: Scoped<ToolsService>, exec: ToolDispatchExecution/,
+		why: "工具阶段的白名单作用域挂在这里；事件改名后网关内的工具请求不再带标头"
+	},
+	{
+		id: "session-header: ToolDispatchExecution.agent",
+		pkg: "@deepseek-ai/dsh-tools",
+		file: "lib/types/contracts.d.ts",
+		pattern: /readonly agent\?: Agent;/,
+		why: "工具阶段用调用方 Agent 取会话；字段消失后该阶段只能跳过"
+	},
+	{
+		id: "session-header: Agent.id",
+		pkg: "@deepseek-ai/dsh-agent",
+		file: "lib/types/types.d.ts",
+		pattern: /export interface Agent \{[^}]*readonly id: SessionId;/,
+		why: "工具阶段的会话 id 来自 Agent.id；改形会让该阶段静默跳过"
 	}
 ];
 
