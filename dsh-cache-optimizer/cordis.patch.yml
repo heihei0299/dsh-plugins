@@ -1,0 +1,24 @@
+# Bundle layer contributed by dsh-cache-optimizer.
+#
+# One Host entry owns every effect: request-side cache optimization, local
+# cache-hit counters, and the /cache-optimizer command surface. All options
+# default to the upstream behaviour, so adding the row changes nothing a user
+# did not opt into.
+- insert:
+    - id: cache-optimizer
+      name: dsh-cache-optimizer
+      config:
+        # Runtime prompt/request optimization; /cache-optimizer enable|disable
+        # switch it for the current process only.
+        enabled: true
+        # Conservative per-session prompt_cache_key fallback for
+        # OpenAI-compatible proxies that set none of their own.
+        openaiCacheKey: true
+        # Request long cache retention (1h/24h) where the provider supports it.
+        cacheRetention: true
+        # Anthropic TTL-order repair for anthropic-messages payloads.
+        anthropicTtlRepair: true
+        # Deterministic tool ordering (off by default, like upstream).
+        toolOrder: false
+        # Footer scope: session (default) | total | process.
+        footerMode: session

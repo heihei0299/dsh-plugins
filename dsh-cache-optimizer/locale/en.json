@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Cache optimizer · prompt cache stats",
+    "description": "Improves provider-side prompt/KV cache hit rates: OpenAI-compatible prompt_cache_key fallback and session affinity, cache retention, Anthropic TTL repair, deterministic tool ordering, local cache-hit counters, and provider compat diagnostics."
+  }
+}

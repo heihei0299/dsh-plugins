@@ -846,6 +846,69 @@ export const CONTRACTS = [
 		file: "lib/types/types.d.ts",
 		pattern: /export interface Agent \{[^}]*readonly id: SessionId;/,
 		why: "工具阶段的会话 id 来自 Agent.id；改形会让该阶段静默跳过"
+	},
+	{
+		id: "cache-optimizer: llm/stream 瀑布",
+		pkg: "@deepseek-ai/dsh-llm",
+		file: "lib/types/index.d.ts",
+		pattern: /'llm\/stream'\(this: LlmRuntime, options: GenerateOptions/,
+		why: "请求作用域（含会话 id 与已派发模型）只在 llm/stream 里可取；事件改名或改形后 fetch 补丁无法归属请求"
+	},
+	{
+		id: "cache-optimizer: llm/stream 返回值",
+		pkg: "@deepseek-ai/dsh-llm",
+		file: "lib/types/index.d.ts",
+		pattern: /next: \(\) => AsyncIterable<StreamChunk>\): AsyncIterable<StreamChunk>/,
+		why: "适配器包装该异步迭代器以维持 AsyncLocalStorage 作用域；返回类型变化会让包装失效或吞块"
+	},
+	{
+		id: "cache-optimizer: session/event",
+		pkg: "@deepseek-ai/dsh-session",
+		file: "lib/types/index.d.ts",
+		pattern: /'session\/event'\(this: Scoped<Session>, session: Session, event: SessionEvent\): void;/,
+		why: "message_end/tool_execution_end/agent_settled 都由 session/event 翻译；改名后统计与刷新不再发生"
+	},
+	{
+		id: "cache-optimizer: assistant/message 用量",
+		pkg: "@deepseek-ai/dsh-session",
+		file: "lib/types/types.d.ts",
+		pattern: /'assistant\/message': \{[\s\S]*?usage\?: TokenUsage;/,
+		why: "缓存命中/写入 token 只在这里按条携带；字段消失后 footer 计数与 stats 全为空"
+	},
+	{
+		id: "cache-optimizer: system-prompt/assemble 瀑布",
+		pkg: "@deepseek-ai/dsh-system-prompt",
+		file: "lib/types/index.d.ts",
+		pattern: /'system-prompt\/assemble'\(this: Scoped<SystemPrompt>, assembly: PromptPresentation/,
+		why: "before_agent_start 的提示词改写挂在这里；瀑布消失后只剩纯请求侧优化"
+	},
+	{
+		id: "cache-optimizer: commands.register",
+		pkg: "@deepseek-ai/dsh-commands",
+		file: "lib/types/index.d.ts",
+		pattern: /register\(definition: CommandDefinition\): \(\) => void;/,
+		why: "/cache-optimizer 经该注册器挂载；改名后整条命令面（doctor/stats/fix/rollback）消失"
+	},
+	{
+		id: "cache-optimizer: settings.describe",
+		pkg: "@deepseek-ai/dsh-settings",
+		file: "lib/types/index.d.ts",
+		pattern: /describe\(options\?: SettingsDescribeOptions\): SettingsDescriptor\[\];/,
+		why: "provider compat 从 live settings 读取；签名变化后 compat 解析退化为空配置"
+	},
+	{
+		id: "cache-optimizer: settings.mutate",
+		pkg: "@deepseek-ai/dsh-settings",
+		file: "lib/types/index.d.ts",
+		pattern: /mutate\(ns: string, ops: readonly SettingsPathOp\[\], expectedRevision\?: number\): Promise<void>;/,
+		why: "fix/rollback 经路径型 settings 写入 profile；改名后修复只能打印手工指导"
+	},
+	{
+		id: "cache-optimizer: ctx.get 非严格读取",
+		pkg: "@deepseek-ai/cordis",
+		file: "lib/types/reflect.d.ts",
+		pattern: /get\(name: string, strict\?: boolean\): any;/,
+		why: "settings/configEditor/userQuestions/commands 都是可选依赖，靠非严格读取探测；语义变化会让可选缝静默失效"
 	}
 ];
 

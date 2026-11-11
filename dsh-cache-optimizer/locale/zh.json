@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "缓存优化器 · 提示缓存统计",
+    "description": "提升供应商侧 Prompt/KV 缓存命中率：OpenAI 兼容代理的 prompt_cache_key 兜底与会话亲和、长缓存保留、Anthropic TTL 顺序修复、确定性工具排序、本地缓存命中计数与供应商兼容性诊断。"
+  }
+}

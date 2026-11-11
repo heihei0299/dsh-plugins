@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const plugins = ['pin-subagent-model', 'dsh-history-budget', 'dsh-mobile', 'dsh-smartui', 'dsh-lan-connect', 'dsh-mcp-skill-manager', 'dsh-memory', 'dsh-session-header', 'dsh-i-have-adhd'];
+const plugins = ['pin-subagent-model', 'dsh-history-budget', 'dsh-mobile', 'dsh-smartui', 'dsh-lan-connect', 'dsh-mcp-skill-manager', 'dsh-memory', 'dsh-session-header', 'dsh-i-have-adhd', 'dsh-cache-optimizer'];
 
 /** Build a fixed command plan; plugin names are not interpreted as shell input. */
 export function verificationPlan(requested = []) {
@@ -23,12 +23,12 @@ export function verificationPlan(requested = []) {
       add(name, 'test', process.execPath, '--test', '--test-concurrency=1');
       continue;
     }
-    if (name === 'dsh-mobile' || name === 'dsh-smartui') add(name, 'typecheck', 'pnpm', 'run', 'typecheck');
+    if (name === 'dsh-mobile' || name === 'dsh-smartui' || name === 'dsh-cache-optimizer') add(name, 'typecheck', 'pnpm', 'run', 'typecheck');
     // Build explicitly instead of trusting a pretest hook or an existing dist/.
     add(name, 'build', 'pnpm', 'run', 'build');
     add(name, 'test', 'pnpm', 'test');
     // These suites already include their bundle test.
-    if (name !== 'dsh-lan-connect' && name !== 'dsh-mcp-skill-manager') {
+    if (name !== 'dsh-lan-connect' && name !== 'dsh-mcp-skill-manager' && name !== 'dsh-cache-optimizer') {
       add(name, 'verify bundle', 'pnpm', 'run', 'verify:bundle');
     }
   }

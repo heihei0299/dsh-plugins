@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cache optimizer">
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#4A90D9"/>
+  <path d="M18 24h28M18 32h20M18 40h12" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="45" cy="40" r="7" fill="none" stroke="#fff" stroke-width="4"/>
+  <path d="M50 45l6 6" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+</svg>

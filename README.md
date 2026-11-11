@@ -1,6 +1,6 @@
 # dsh-plugins
 
-DeepSeek Harness（DSH）插件集合：九个插件可独立装入 profile，不改 DSH 核心、不另起 Web 服务。需 Node ≥22。`pin-subagent-model`、`dsh-mobile`、`dsh-smartui`、`dsh-lan-connect`、`dsh-history-budget` 的版本门禁接受 `0.2.1-rc.2`、`0.2.1-rc.5` 或 `0.2.2-rc.1`，其余四个只接受 `0.2.2-rc.1`。门禁与测试不代替活体验收。
+DeepSeek Harness（DSH）插件集合：十个插件可独立装入 profile，不改 DSH 核心、不另起 Web 服务。需 Node ≥22。`pin-subagent-model`、`dsh-mobile`、`dsh-smartui`、`dsh-lan-connect`、`dsh-history-budget` 的版本门禁接受 `0.2.1-rc.2`、`0.2.1-rc.5` 或 `0.2.2-rc.1`，其余五个只接受 `0.2.2-rc.1`。门禁与测试不代替活体验收。
 
 ## 插件
 
@@ -15,8 +15,9 @@ DeepSeek Harness（DSH）插件集合：九个插件可独立装入 profile，�
 | [dsh-memory](<dsh-memory/README.md>) | 0.1.0 | Codex v2 记忆引擎：后台摘要、`memory_summary.md` 合并与注入 | 纯 Host，无依赖 |
 | [dsh-session-header](<dsh-session-header/README.md>) | 0.2.1 | 复刻 `dsh-llm-deepseek` 的三个身份标头，可扩展到工具阶段白名单网关 | 纯 Host，无构建 |
 | [dsh-i-have-adhd](<dsh-i-have-adhd/README.md>) | 0.1.0 | ADHD 友好输出：行动优先、步骤编号、状态复述、无客套；`/adhd on/off` 按会话切换，子代理默认不套用 | 纯 Host，无依赖 |
+| [dsh-cache-optimizer](<dsh-cache-optimizer/README.md>) | 0.1.0 | 移植 `pi-cache-optimizer`：缓存键兜底、长保留、Anthropic TTL 修复、本地命中统计、compat 诊断与 `fix`/`rollback` | Host，TS 构建 |
 
-前四者声明 `@deepseek-ai/cordis ~4.0.5 || ~4.1.0`；配置、限制与更窄的验证命令见各插件 README。
+`pin-subagent-model`、`dsh-mobile`、`dsh-smartui`、`dsh-lan-connect` 声明 `@deepseek-ai/cordis ~4.0.5 || ~4.1.0`，`dsh-cache-optimizer` 声明 `~4.1.0`；配置、限制与更窄的验证命令见各插件 README。
 
 ## 安装
 
@@ -24,7 +25,7 @@ DeepSeek Harness（DSH）插件集合：九个插件可独立装入 profile，�
 
 ```bash
 pnpm --dir <插件> install --offline                       # 需 Host 依赖：pin-subagent-model、dsh-session-header
-pnpm --dir <插件> install && pnpm --dir <插件> run build  # 需构建：dsh-mobile、dsh-smartui、dsh-lan-connect（--ignore-scripts）、dsh-mcp-skill-manager
+pnpm --dir <插件> install && pnpm --dir <插件> run build  # 需构建：dsh-mobile、dsh-smartui、dsh-lan-connect（--ignore-scripts）、dsh-mcp-skill-manager、dsh-cache-optimizer
 dsh plugin --profile web add "link:$PWD/<插件>" --offline
 ```
 
@@ -49,7 +50,8 @@ dsh plugin --profile web add "link:$PWD/<插件>" --offline
 
 - **LAN**：`/lan` 是匿名入口，通过原生信任检查即获得 operator 权限，仅限可信网络；禁用插件不撤销已签发的 Cookie。
 - **项目策略**：只决定 MCP server 与 skill 在某目录是否可用，不停进程、不改 profile。
-- **进程内改动**：`dsh-session-header` 替换 `globalThis.fetch`（卸载还原），`dsh-history-budget` 包装 `sessionController`；两者都只在各自作用域内生效。
+- **进程内改动**：`dsh-session-header` 替换 `globalThis.fetch`（卸载还原），`dsh-history-budget` 包装 `sessionController`，`dsh-cache-optimizer` 在 `llm/stream` 作用域内改写序列化后的请求体并替换 `globalThis.fetch`（卸载还原）；都只在各自作用域内生效。
+- **缓存优化**：只改请求形状与本地计数，不改 provider 缓存；`fix`/`rollback` 写当前 profile 的 `llm-pi-ai` provider compat，需 profile 可写并显式确认。
 - **子代理**：预设只适用于支持独立组合的后端，fork 继承父预设。
 - **记忆**：默认只处理空闲 ≥6 小时且 ≤10 天的会话；密钥在落盘/入模前脱敏。
 

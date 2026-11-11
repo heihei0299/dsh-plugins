@@ -1,0 +1,61 @@
+{
+  "name": "dsh-cache-optimizer",
+  "version": "0.1.0",
+  "description": "Prompt/KV cache optimizer for DeepSeek Harness: stable prompts, OpenAI-compatible cache keys and session affinity, Anthropic TTL repair, local cache-hit statistics, and provider compat diagnostics",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22",
+    "dsh": "0.2.2-rc.1"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./assets/icon.svg"
+  },
+  "files": [
+    "dist/",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "assets/icon.svg",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "pretest": "pnpm run build",
+    "test": "node scripts/test.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-agent": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-commands": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-config-editor": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-session": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-settings": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-system-prompt": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-user-questions": "0.2.2-rc.1",
+    "@earendil-works/pi-ai": "1.5.0",
+    "@earendil-works/pi-coding-agent": "1.5.0",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "jiti": "^2.7.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1"
+  }
+}
