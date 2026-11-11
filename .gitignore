@@ -1,7 +1,7 @@
 # Only source code and README files are committed: every other document stays
 # untracked, including agent instructions and per-plugin notes.
 *.md
-!README.md
+!README*.md
 # Lockfiles are local install artifacts, not plugin source.
 pnpm-lock.yaml
 node_modules/

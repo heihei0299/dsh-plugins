@@ -4,7 +4,7 @@
 
 ## 要求与安装
 
-需要 Node ≥22、DSH `0.2.1-rc.2 || 0.2.1-rc.5 || 0.2.2-rc.1`（`engines` 精确声明这三个版本）与 pnpm。该范围只是安装门禁，不代表每个版本都已验收：rc.1 只在桌面宽度与 390×844 触屏视口做了冒烟，真机触摸与登录态 GUI 验收仍待补。按 bundle 装入现有 profile，之后在 **设置 → 插件** 里开关，不手改 profile：
+需要 Node ≥22、DSH `0.2.1-rc.2 || 0.2.1-rc.5 || 0.2.2-rc.1`（`engines` 精确声明这三个版本）与 pnpm。该范围只是安装门禁，不代表每个版本都已验收：0.2.2-rc.1 只在桌面宽度与 390×844 触屏视口做了冒烟，并静态核对了该版本客户端包里的落地地标（`data-slot`、`data-composer-dock`、`data-row-key`、`aria-haspopup="tree"`）；真机触摸与登录态 GUI 验收仍待补。按 bundle 装入现有 profile，之后在 **设置 → 插件** 里开关，不手改 profile：
 
 ```bash
 cd dsh-mobile
@@ -60,7 +60,7 @@ dsh plugin --profile web add "link:$PWD" --offline
 - 浮层是 `popover="manual"` 顶层元素，头部 `overflow:hidden` 与 `container-type:inline-size` 裁不到；默认距图标 8px、距屏幕边缘 ≥12px，宽 ≤360px、高 ≤440px，空间不足时只在「上方确实更宽裕」才上翻，其余列表独立滚动。
 - **不是底部面板、不是模态**：无遮罩、无 `::backdrop`、无整页变暗，`aria-modal="false"`，无焦点陷阱，浮层外页面照常可点；行内名称完整换行，后台任务为只读状态条目，不伪装成按钮，也没有宿主的“终止任务”动作。关闭方式：32px 关闭按钮（44px 命中区）、再点同一图标、点另一图标切换、点浮层外、Esc、焦点移出、切换会话或插件关闭；关闭时若焦点仍在面板内且触发图标仍在文档中，焦点回到该图标；打开时焦点进入关闭按钮。
 - 数据来自 `sessions.list` 的 `subagentCatalog` 投影与 `ctx.jobs` 任务名册（名册需要 `watchRows` 订阅）。子智能体运行状态优先；停止后只有宿主 `subagentTiming.lastTurnCompleted` 明确为真才显示“已完成”，其余显示“未运行”，不把中断或未知状态当成成功。跳转用显式注入的 `uiWorkspace.openSession`（Cordis 对未声明服务会抛错，不能用可选链跳过依赖声明）。
-- **安全边界**：宿主徽标只在同类替代徽标渲染时才隐藏，覆盖类别写在插槽的 `data-dsh-mobile-badges` 上；投影读不到时不隐藏，回退到宿主原控件而不是什么都不显示。子智能体徽标按 `aria-haspopup="tree"` 隐藏（已核对 0.2.1-rc.2 的 `CatalogDropdown`），只匹配该插槽下的直接条目；未来同一插槽出现其他树形弹出控件仍可能误匹配。后台任务**没有**可用的稳定宿主标识（普通 `<div>`，按钮只带本地化 `aria-label`，插槽条目 id 未落 DOM），只保留收窄的文案匹配：直属 `button[aria-expanded]` 且文案含“后台任务”或“background job”；宿主改文案或使用未知语言时可能出现两套徽标，同结构同文案的其他控件仍可能被误隐藏。
+- **安全边界**：宿主徽标只在同类替代徽标渲染时才隐藏，覆盖类别写在插槽的 `data-dsh-mobile-badges` 上；投影读不到时不隐藏，回退到宿主原控件而不是什么都不显示。子智能体徽标按 `aria-haspopup="tree"` 隐藏（已核对 0.2.1-rc.2 与 0.2.2-rc.1 的 `CatalogDropdown`），只匹配该插槽下的直接条目；未来同一插槽出现其他树形弹出控件仍可能误匹配。后台任务**没有**可用的稳定宿主标识（普通 `<div>`，按钮只带本地化 `aria-label`，插槽条目 id 未落 DOM），只保留收窄的文案匹配：直属 `button[aria-expanded]` 且文案含“后台任务”或“background job”；宿主改文案或使用未知语言时可能出现两套徽标，同结构同文案的其他控件仍可能被误隐藏。
 
 ## 边界与已知限制
 

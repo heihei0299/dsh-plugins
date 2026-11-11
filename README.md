@@ -13,7 +13,7 @@ DeepSeek Harness（DSH）插件集合。八个插件可独立装入 profile，�
 | [dsh-mcp-skill-manager](<dsh-mcp-skill-manager/README.md>) | 0.2.0 | 按项目目录启用/禁用宿主 MCP 服务器与 skill，含 Web 设置与 dsh-go 原生面板 | Host + Client + dsh-go |
 | [dsh-history-budget](<dsh-history-budget/README.md>) | 0.2.1 | 按字节软预算裁剪会话首帧与历史页 | 纯 Host，无依赖 |
 | [dsh-memory](<dsh-memory/README.md>) | 0.1.0 | 复刻 Codex v2 记忆引擎：后台会话摘要、全局 `memory_summary.md` 合并与注入 | 纯 Host，无依赖 |
-| [dsh-session-header](<dsh-session-header/README.md>) | 0.2.1 | 为每次 LLM 请求注入会话 id 标头，并可扩展到工具阶段的白名单网关 | 纯 Host，无构建 |
+| [dsh-session-header](<dsh-session-header/README.md>) | 0.2.1 | 在每次 LLM 请求上复刻 `dsh-llm-deepseek` 的三个身份标头（会话 id、用户 id、压缩标记），可扩展到工具阶段的白名单网关 | 纯 Host，无构建 |
 
 前四者声明 `@deepseek-ai/cordis ~4.0.5 || ~4.1.0`；各插件的配置、兼容限制和验证命令见对应 README。
 
@@ -47,7 +47,7 @@ dsh plugin --profile web add "link:$PWD/dsh-mobile" --offline
 - **移动端**：默认 `mode: auto` 在宽度 ≤720px 或粗指针时启用；`mode: on` 可强制应用于桌面。关闭移动层不取消已发起的历史分页。
 - **历史预算**：记录、最少保留数及 turn 对齐可能使帧超出预算；被裁记录仍由原生分页取回。`dsh-mobile` 的下拉分页是独立功能。
 - **子代理**：预设只适用于支持独立组合的后端；fork 仍继承父预设。固定路由/预设与工具白名单的优先级见插件 README。
-- **会话标头**：`dsh-session-header` 替换进程级 `globalThis.fetch`，只在 `llm/stream` 作用域和白名单内的 `tools/execute` 作用域注入，卸载时还原；默认不覆盖调用方已设置的标头，`toolEndpoints` 为空时第三方工具流量不受影响。
+- **会话标头**：`dsh-session-header` 替换进程级 `globalThis.fetch`，只在 `llm/stream` 作用域和白名单内的 `tools/execute` 作用域注入，卸载时还原；默认发送与 `dsh-llm-deepseek` 相同的三个标头（`x-deepseek-harness-session-id`、`x-deepseek-harness-user-id` 与压缩调用的 `x-deepseek-harness-compact: 1`），`native: false` 时只发自定义 `header`。不覆盖调用方已设置的标头；用户 id 取自 `<harness home>/.anonymous-user-id`，缺失时不发送；`toolEndpoints` 为空时第三方工具流量不受影响。
 - **记忆**：`dsh-memory` 在根会话启动后后台读取已持久化会话，默认只处理空闲 ≥6 小时且 ≤10 天的会话；子代理、当前会话和外部上下文会话按配置跳过。摘要在下一次请求注入，合并仍是一次有界模型调用；密钥在落盘/入模前脱敏。详见[插件 README](<dsh-memory/README.md>)。
 
 ## 开发与验证
@@ -64,7 +64,7 @@ node scripts/verify-plugins.mjs dsh-memory
 
 兼容性检查的退出码为 0（通过且与本地基线一致）、2（通过但基线缺失或版本不同）、1（失败）。默认会跑各插件单测；`--contracts-only` 跳过单测。默认单测或完整门禁可能触发构建并覆盖所选插件的 `dist/`；若 GUI 通过 `link:` 使用该工作区，后续刷新可能加载新产物。按各插件 README 可执行更窄的测试。版本门禁、静态契约与单测不能代替已登录 GUI、真实设备或 LAN 端到端验收。
 
-`docs/*.md` 与 lockfile 按仓库约定保留在本地、不纳入 Git；可分发契约写在各插件 README。[SmartUI 视觉概念稿](<dsh-smartui/docs/visual-demo.html>)是已跟踪的独立演示，不随插件包分发，也不是运行时验收。构建或发布应保留所用 lockfile、版本和验证记录。
+`docs/*.md` 与 lockfile 按仓库约定保留在本地、不纳入 Git；可分发契约写在各插件 README（`README.md` 与随包分发的 `README.zh.md` 都由 Git 跟踪）。[SmartUI 视觉概念稿](<dsh-smartui/docs/visual-demo.html>)是已跟踪的独立演示，不随插件包分发，也不是运行时验收。构建或发布应保留所用 lockfile、版本和验证记录。
 
 ## 许可
 

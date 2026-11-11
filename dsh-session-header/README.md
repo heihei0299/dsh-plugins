@@ -78,14 +78,15 @@ dsh --patch ./my-overlay.yml
 Point a provider's `baseURL` at a logging gateway (or any endpoint that echoes request headers) and start a session:
 
 ```
-x-deepseek-harness-session-id: ba104306-a748-4052-a6e3-ab60be2e4c1f
+x-deepseek-harness-session-id: session-ba104306-a748-4052-a6e3-ab60be2e4c1f
+x-deepseek-harness-user-id: 95b6af3e-cab9-4d84-8f02-d7c55f56ef65
 ```
 
-Every request of the same conversation carries the same id; a spawned subagent's requests carry the child session id.
+Every request of the same conversation carries the same session id; a spawned subagent's requests carry the child session id, and a compaction call adds `x-deepseek-harness-compact: 1`. A provider that already sets these headers (the official `llm-deepseek` adapter) keeps its own values.
 
 ## Notes
 
-- The `llm-deepseek` adapter already sends its own `x-deepseek-harness-session-id` on every request; this plugin is provider-neutral and intentional about not overwriting existing headers.
+- The `llm-deepseek` adapter already sends the same trio itself, so for that provider this plugin changes nothing — the "never overwrite" rule leaves the adapter's own values in place. Other fetch-based adapters gain the identical identity headers without patching adapter code.
 - `attributionHeaders()` (the harness User-Agent attribution contract) is never touched.
 - Concurrent sessions are handled correctly: the header value is resolved per call through AsyncLocalStorage, not through shared mutable state.
 

@@ -108,7 +108,7 @@ next session: prompt section = read_path_v2 + memory_summary
 
 ## Install
 
-From the repository root:
+Requires Node 22.13+ and DSH `0.2.2-rc.1` (`engines.dsh`; the plugin relies on that release's agent, session-persistence, system-prompt, LLM and tools seams). From the repository root:
 
 ```bash
 dsh plugin --profile web add "link:$PWD/dsh-memory"
