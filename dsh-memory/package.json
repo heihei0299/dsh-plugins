@@ -1,0 +1,45 @@
+{
+  "name": "@local/dsh-memory",
+  "version": "0.1.0",
+  "description": "Host-only port of Codex's latest (v2) two-phase memory engine: background rollout summaries, global memory_summary.md consolidation, prompt injection, and optional memory tools",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./icon": "./assets/icon.svg",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "cordis.patch.yml",
+    "assets/icon.svg",
+    "locale/*.json",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "memory",
+    "codex",
+    "memories"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13",
+    "dsh": "0.2.2-rc.1"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  }
+}

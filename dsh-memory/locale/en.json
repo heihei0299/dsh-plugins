@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Memory",
+    "description": "Codex-style two-phase memory: background rollout summaries, global consolidation, and memory_summary.md injection"
+  },
+  "ui": {}
+}

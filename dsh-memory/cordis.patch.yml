@@ -1,0 +1,37 @@
+# Bundle layer contributed by @local/dsh-memory.
+#
+# Enables Codex's latest (v2) memory engine for this profile. The plugin is
+# host-only: it reads durable DSH session logs, writes a SQLite state DB and a
+# memory workspace under $DSH_HOME/memories_v2, injects memory_summary.md plus
+# the v2 read-path instructions, and optionally exposes memory tools.
+#
+# Defaults mirror Codex's [memories] block. Override any row with an
+# id-targeted config entry; the whole config is replaced, so restate the keys
+# you want to keep.
+- insert:
+    - id: memory
+      name: '@local/dsh-memory'
+      config:
+        enabled: true
+        version: v2
+        generateMemories: true
+        useMemories: true
+        dedicatedTools: false
+        # Codex defaults: only sessions idle for 6h and younger than 10 days.
+        minRolloutIdleHours: 6
+        maxRolloutAgeDays: 10
+        # Two extraction jobs per startup, up to eight in flight.
+        maxRolloutsPerStartup: 2
+        concurrency: 8
+        # 256 summaries retained for consolidation; unused output pruned after 30d.
+        maxRawMemoriesForConsolidation: 256
+        maxUnusedDays: 30
+        # Consolidation job lease/cooldown and failure backoff.
+        jobLeaseSeconds: 3600
+        retryDelaySeconds: 3600
+        phase2CooldownSeconds: 21600
+        # Optional model overrides; omit to use the triggering session's route.
+        # extractModel: ''
+        # consolidationModel: ''
+        # Set true for one info line per completed run.
+        log: false

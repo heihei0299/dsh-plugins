@@ -725,6 +725,56 @@ export const CONTRACTS = [
 		file: "lib/index.js",
 		pattern: /serverName: z\.string\(\)\.required\(\)\.pattern\(SERVER_NAME_PATTERN\)/,
 		why: "loader 发现以 serverName 为身份；字段或校验变化会让 server 列表缺项"
+	},
+	// dsh-memory 读取持久化会话、注入提示词段、调用模型并注册可选工具。
+	{
+		id: "dsh-memory: sessionPersistence.list",
+		pkg: "@deepseek-ai/dsh-session-persistence",
+		file: "lib/types/index.d.ts",
+		pattern: /list\(options\?: SessionPersistenceListOptions\): Promise<readonly SessionPersistenceSnapshot\[\]>;/,
+		why: "阶段 1 从持久化目录选择空闲根会话；方法消失或改形会让记忆生成静默停摆"
+	},
+	{
+		id: "dsh-memory: sessionPersistence.open",
+		pkg: "@deepseek-ai/dsh-session-persistence",
+		file: "lib/types/index.d.ts",
+		pattern: /open\(id: SessionId, access: SessionAccess, options\?: SessionPersistenceOpenOptions\): Promise<SessionHandle>;/,
+		why: "插件用 read 句柄读取会话事件；签名变化会让 rollout 证据读不出来"
+	},
+	{
+		id: "dsh-memory: SessionHandle.read",
+		pkg: "@deepseek-ai/dsh-session-persistence",
+		file: "lib/types/handle.d.ts",
+		pattern: /read\(offset\?: number, length\?: number, options\?: SessionHandleReadOptions\): Promise<SessionHandleReadResult>;/,
+		why: "证据读取依赖 offset/length 切片；改形会让最近事件窗口失效"
+	},
+	{
+		id: "dsh-memory: agent/created",
+		pkg: "@deepseek-ai/dsh-agent",
+		file: "lib/types/runtime-types.d.ts",
+		pattern: /'agent\/created'\(this: Scoped<Agent>, payload: \{/,
+		why: "根会话启动时触发后台管线；事件改名会让插件只在手动调用时工作"
+	},
+	{
+		id: "dsh-memory: systemPrompt.section",
+		pkg: "@deepseek-ai/dsh-system-prompt",
+		file: "lib/types/index.d.ts",
+		pattern: /section\(section: PromptSection\): \(\) => void;/,
+		why: "memory_summary 与 v2 读取指令通过提示词段注入；方法改名会丢掉整条读路径"
+	},
+	{
+		id: "dsh-memory: llm.stream",
+		pkg: "@deepseek-ai/dsh-llm",
+		file: "lib/types/index.d.ts",
+		pattern: /stream\(options: GenerateOptions\): AsyncIterable<StreamChunk>;/,
+		why: "阶段 1/2 直接调用模型；流接口改形会让提取与合并无法开始"
+	},
+	{
+		id: "dsh-memory: tools.register",
+		pkg: "@deepseek-ai/dsh-tools",
+		file: "lib/types/index.d.ts",
+		pattern: /register\(definition: ToolDefinition, options\?: ToolRegistrationOptions\): \(\) => void;/,
+		why: "可选 memory_read/search/list/note 工具用该注册口；签名变化会让工具不可见"
 	}
 ];
 

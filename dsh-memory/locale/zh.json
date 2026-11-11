@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "记忆",
+    "description": "复刻 Codex 的两阶段记忆引擎：后台会话摘要、全局合并与 memory_summary.md 注入"
+  },
+  "ui": {}
+}
