@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that injects an `x-session-id` HTTP header onto **every LLM provider request** the harness sends, carrying the **harness session id of that exact call**.
+A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that injects an `x-deepseek-harness-session-id` HTTP header onto **every LLM provider request** the harness sends, carrying the **harness session id of that exact call**.
 
 ## Why
 
@@ -50,7 +50,7 @@ dsh --profile <name>
     - id: session-header
       name: /absolute/path/to/dsh-session-header/index.js
       config:
-        header: x-session-id
+        header: x-deepseek-harness-session-id
         # value: my-fixed-session-id
 ```
 
@@ -62,7 +62,7 @@ dsh --patch ./my-overlay.yml
 
 | field | type | default | meaning |
 | --- | --- | --- | --- |
-| `header` | string | `x-session-id` | header name to inject; case-insensitive on the wire |
+| `header` | string | `x-deepseek-harness-session-id` | header name to inject; case-insensitive on the wire |
 | `value` | string | — | fixed value; unset = the harness session id of the call in flight |
 | `toolEndpoints` | string[] | `[]` | URL prefixes matched during tool execution. When non-empty, fetches inside a `tools/execute` waterfall — e.g. a gateway web-search Messages API called from a tool — get the header only when their URL starts with one of these prefixes; third-party tool targets (web_fetch of arbitrary pages, GitHub, MCP servers) stay untouched. Empty (default) keeps the upstream LLM-only injection. |
 | `overwriteHeaders` | string[] | `[]` | Header names this plugin may overwrite when they already carry a value. Everything else keeps the "never overwrite" rule. Some official providers hard-code placeholder values (e.g. `dsh-web-search-deepseek` sends `x-opencode-session: dsh-web-search`), which gateways reject as missing; list the header here (`overwriteHeaders: [x-opencode-session]`) so the live session id replaces that placeholder. Case-insensitive. |
@@ -72,7 +72,7 @@ dsh --patch ./my-overlay.yml
 Point a provider's `baseURL` at a logging gateway (or any endpoint that echoes request headers) and start a session:
 
 ```
-x-session-id: ba104306-a748-4052-a6e3-ab60be2e4c1f
+x-deepseek-harness-session-id: ba104306-a748-4052-a6e3-ab60be2e4c1f
 ```
 
 Every request of the same conversation carries the same id; a spawned subagent's requests carry the child session id.

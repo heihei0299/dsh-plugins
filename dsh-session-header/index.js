@@ -1,5 +1,5 @@
 /**
- * Inject one HTTP header (default `x-session-id`) onto every LLM provider
+ * Inject one HTTP header (default `x-deepseek-harness-session-id`) onto every LLM provider
  * request the harness sends, carrying the harness session id of that exact
  * call — so turns, compaction/title helper calls, and in-process subagent
  * children each report their own session.
@@ -39,7 +39,7 @@ export const inject = ['llm']
 
 export const Config = Schema.object({
   /** Header name to inject; HTTP field names are case-insensitive on the wire. */
-  header: Schema.string().default('x-session-id'),
+  header: Schema.string().default('x-deepseek-harness-session-id'),
   /**
    * Fixed header value. Unset means "use the harness session id of the call
    * in flight" (`GenerateOptions.sessionId`); calls with neither get no header.

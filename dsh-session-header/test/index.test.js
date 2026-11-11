@@ -122,7 +122,7 @@ test('tools/execute: no agent session id means no injection even when matched', 
   }
   await handlers.get('tools/execute')(exec, next)
   assert.equal(recorder.calls.length, 1)
-  assert.equal(recorder.calls[0].headers.has('x-session-id'), false)
+  assert.equal(recorder.calls[0].headers.has('x-deepseek-harness-session-id'), false)
 })
 
 test('tools/execute: fixed config.value wins over the agent session id', async (t) => {
@@ -211,7 +211,7 @@ test('llm/stream: overwriteHeaders also applies in the LLM scope', async (t) => 
 // --- llm/stream regression (existing behavior must not change) ---
 
 test('llm/stream: still injects unconditionally with the live session id', async (t) => {
-  const { handlers, recorder } = boot(t, { header: 'x-session-id' })
+  const { handlers, recorder } = boot(t, { header: 'x-deepseek-harness-session-id' })
   async function* inner() {
     await fetch('https://llm.example.com/v1/chat/completions')
     yield 'chunk-1'
@@ -222,19 +222,19 @@ test('llm/stream: still injects unconditionally with the live session id', async
   for await (const chunk of gen) chunks.push(chunk)
   assert.deepEqual(chunks, ['chunk-1', 'chunk-2'])
   assert.equal(recorder.calls.length, 1)
-  assert.equal(recorder.calls[0].headers.get('x-session-id'), 'abc')
+  assert.equal(recorder.calls[0].headers.get('x-deepseek-harness-session-id'), 'abc')
 })
 
 test('llm/stream: never overwrites a header someone else already set', async (t) => {
-  const { handlers, recorder } = boot(t, { header: 'x-session-id' })
+  const { handlers, recorder } = boot(t, { header: 'x-deepseek-harness-session-id' })
   async function* inner() {
-    await fetch('https://llm.example.com/v1/chat', { headers: { 'x-session-id': 'already-set' } })
+    await fetch('https://llm.example.com/v1/chat', { headers: { 'x-deepseek-harness-session-id': 'already-set' } })
     yield 'chunk-1'
   }
   const gen = handlers.get('llm/stream')({ sessionId: 'session-abc' }, () => inner())
   for await (const _ of gen) { /* drain */ }
   assert.equal(recorder.calls.length, 1)
-  assert.equal(recorder.calls[0].headers.get('x-session-id'), 'already-set')
+  assert.equal(recorder.calls[0].headers.get('x-deepseek-harness-session-id'), 'already-set')
 })
 
 test('unloading restores the fetch that was installed before apply', async (t) => {
