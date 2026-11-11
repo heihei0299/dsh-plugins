@@ -1,6 +1,6 @@
 # dsh-plugins
 
-DeepSeek Harness（DSH）插件集合。八个插件可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22；除 `dsh-mcp-skill-manager`、`dsh-memory`、`dsh-session-header` 外的五个插件，版本门禁接受 DSH `0.2.1-rc.2`、`0.2.1-rc.5` 和 `0.2.2-rc.1`；`dsh-mcp-skill-manager`、`dsh-memory` 与 `dsh-session-header` 只接受 `0.2.2-rc.1`。版本门禁和自动化测试不代替目标实例的活体验收。
+DeepSeek Harness（DSH）插件集合。本仓库维护八个插件，均可独立装入 profile，不修改 DSH 核心或启动第二个 Web 服务。要求 Node.js ≥22；除 `dsh-mcp-skill-manager`、`dsh-memory`、`dsh-session-header` 外的五个插件，版本门禁接受 DSH `0.2.1-rc.2`、`0.2.1-rc.5` 和 `0.2.2-rc.1`；`dsh-mcp-skill-manager`、`dsh-memory` 与 `dsh-session-header` 只接受 `0.2.2-rc.1`。版本门禁和自动化测试不代替目标实例的活体验收。
 
 ## 插件
 
@@ -39,6 +39,21 @@ dsh plugin --profile web add "link:$PWD/dsh-mobile" --offline
 ```
 
 安装后可在 WebUI **设置 → 插件**中启停。是否需要重启取决于 profile 和已加载的客户端元数据；按插件管理器提示操作并刷新现有页面。更换客户端包后不要仅凭构建成功断言当前页面已更新。
+
+## 第三方插件
+
+下列插件不由本仓库维护，但已安装在**本机**的 dsh profile 中；上游均在 GitHub，因此这里只给出链接、不复制源码，安装、配置与升级以上游为准（版本为本机安装时的版本）：
+
+| 插件 | 本机版本 | 上游 | 许可 | 作用 |
+| --- | --- | --- | --- | --- |
+| `dshmarket` | 1.73.16 | [dsh-market/dsh-market](https://github.com/dsh-market/dsh-market) · [dshmarket.com](https://dshmarket.com) | MIT | WebUI 内的可视化插件市场 |
+| `dsh-context` | 0.83.1 | [bowenliang123/dsh-context](https://github.com/bowenliang123/dsh-context) | Apache-2.0 | 上下文仪表盘、浏览器与 `/context` 命令 |
+| `dsh-live-compact` | 1.1.5 | [Tranquillitatis-Lab/dsh-live-compact](https://github.com/Tranquillitatis-Lab/dsh-live-compact) | MIT | 任务运行中就地压缩最新 turn，保留前缀 |
+| `dsh-purge-community` | 1.6.86 | [kingcharleslzy-ai/dsh-purge](https://github.com/kingcharleslzy-ai/dsh-purge) | MIT | 状态自检、提示词与规则管理、本机备份与回滚 |
+| `ds-harness-remote` | 0.6.0 | [liguobao/ds-harness-remote](https://github.com/liguobao/ds-harness-remote) | MIT | P2P 端到端加密的远程访问 |
+| `@deepseek-harness-tui/dsh-tui` | 0.16.1 | [ccch1mneyyy/dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) | MIT | 终端界面，装在 `dsh-tui` profile |
+
+本机 web profile 中 `dshmarket`、`dsh-context`、`dsh-live-compact` 处于启用状态，`dsh-purge-community`、`ds-harness-remote` 只安装未启用。`dsh-live-compact@1.1.5` 的 `engines.dsh` 为 `>=0.2.0-rc.2 <0.3.0`，在 `0.2.2-rc.1` 上需 profile `compatibility.json` 里的精确版本豁免；这是本机安装事实，不是对上游兼容性的承诺。
 
 ## 使用边界
 
