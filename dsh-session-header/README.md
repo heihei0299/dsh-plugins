@@ -2,93 +2,54 @@
 
 English | [中文](README.zh.md)
 
-A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that puts dsh's own identity on **every LLM provider request** the harness sends — the same three headers `dsh-llm-deepseek` sends: `x-deepseek-harness-session-id` (the harness session id of that exact call), `x-deepseek-harness-user-id` (the harness home's anonymous user id) and `x-deepseek-harness-compact: 1` on compaction calls.
+把 dsh 自己的身份放到**每个 LLM 供应商请求**上——与 `dsh-llm-deepseek` 发出的三个 header 一致：`x-deepseek-harness-session-id`（该次调用的会话 id）、`x-deepseek-harness-user-id`（harness home 的匿名用户 id），压缩调用再加 `x-deepseek-harness-compact: 1`。
 
-## Why
+harness 没有请求级 header 缝，插件把两个官方拦截点组合起来：`llm/stream` 瀑布标记 LLM 调用并携带 `options.sessionId`，`globalThis.fetch` 补丁负责注入。`AsyncLocalStorage` 只标记某次 LLM 调用流内部的 fetch，无关 fetch 原样通过；别人已设置的 header 不覆盖；卸载时还原原始 `fetch`。
 
-The harness has no per-request header seam — `GenerateOptions` has no headers field and every adapter builds its own wire headers internally. If your model gateway (or an intermediary proxy) keys routing, caching, or auditing on a session header, the harness cannot send one by itself.
+## Header 语义
 
-This plugin closes that gap with the two official interception points composed together:
+- `x-deepseek-harness-session-id`：该次调用的 `GenerateOptions.sessionId`，**原样**发送（含 `session-` 前缀）；主会话、辅助调用与 in-process 子 agent 各自上报自己的 id。
+- `x-deepseek-harness-user-id`：`<harness home>/.anonymous-user-id` 里的 UUID（`$DSH_HOME` > `~/.dsh`），读一次后缓存；`userId` 可覆盖；文件缺失或格式非法时不发（插件从不自己生成 id）。
+- `x-deepseek-harness-compact: 1`：`GenerateOptions.purpose` 为 `compaction` 时发送。
+- 工具阶段（`toolEndpoints`）只带会话 header——工具的网关调用不是 adapter 请求，不带 user-id/compact 标记。
+- `header`/`value`：额外的自定义 header；`header` 有 `value` 时发该值，否则发剥掉 `session-` 的会话 id；`native: false` 时只发这一个。
 
-- the **`llm/stream` waterfall** names the calls that are LLM calls and carries `options.sessionId`;
-- a **`globalThis.fetch` patch** adds the header, so every fetch-based adapter (`llm-deepseek`, `llm-pi-ai`, and any SDK whose transport bottoms out in global fetch) is covered without touching adapter code.
+## 安装
 
-Context propagation uses `AsyncLocalStorage`: only fetches that happen inside an LLM call's stream are touched; unrelated fetches (web RPC, telemetry, tool traffic) pass through untouched. A header anyone else already set is never overwritten (case-insensitive, per HTTP semantics). Unloading the plugin restores the original `fetch`.
-
-Semantics of the headers:
-
-- `x-deepseek-harness-session-id`: `GenerateOptions.sessionId` of the call in flight, **verbatim** — the same string `dsh-llm-deepseek` puts on the wire, `session-` branding included. Main-session turns, compaction/title helper calls and in-process subagent children each report **their own** session id (subagents get their own child session ids).
-- `x-deepseek-harness-user-id`: the bare UUID in `<harness home>/.anonymous-user-id` (`$DSH_HOME` > `~/.dsh`), read once and memoized. `userId` overrides it; if the file is missing or malformed the header is simply not sent (this plugin never mints an id).
-- `x-deepseek-harness-compact: 1`: sent when the call's `GenerateOptions.purpose` is `compaction`.
-- Tool-phase fetches (see `toolEndpoints`) carry only the session header — a tool's gateway call is not an LLM adapter request, so it gets no user-id/compact marker.
-- `header`/`value`: an extra custom header. `header` carries `value` when configured, else the live session id with `session-` stripped. Set `native: false` to send only this one.
-
-## Install
-
-Requires the `dsh` CLI (DSH `0.2.2-rc.1`) and Node ≥ 22.
-
-### As a bundle (recommended)
-
-From the repository root, prepare the single Host dependency and link the bundle to an existing profile:
+需要 `dsh`（DSH `0.2.2-rc.1`）与 Node ≥ 22。从仓库根目录：
 
 ```bash
 cd dsh-session-header
-pnpm install --offline   # omit --offline if registry access is allowed and needed
+pnpm install --offline
 dsh plugin --profile web add "link:$PWD" --offline
 ```
 
-This package is plain JavaScript with no build scripts, so the pnpm ≥ 10 build allowance is not needed. Its `locale/` and `assets/icon.svg` feed the plugin card in **设置 → 插件**. Verify the layer and boot:
+纯 JavaScript、无构建脚本；`locale/` 与 `assets/icon.svg` 供 **设置 → 插件** 的卡片读取。用 `dsh --profile <name> --dump-config` 确认出现 `dsh-session-header` 层。
 
-```sh
-dsh --profile <name> --dump-config   # look for the "# == dsh-session-header" layer
-dsh --profile <name>
-```
-
-### As a `--patch` overlay from a local checkout
+也可作为 `--patch` 覆盖层加载（插件行需要绝对模块路径）：
 
 ```yaml
-# my-overlay.yml — plugin rows need an absolute module path here
 - insert:
     - id: session-header
       name: /absolute/path/to/dsh-session-header/index.js
-      config:
-        native: true
-        header: x-deepseek-harness-session-id
-        # userId: my-fixed-user-id
-        # value: my-fixed-session-id
+      config: { native: true }
 ```
 
-```sh
-dsh --patch ./my-overlay.yml
-```
+## 配置
 
-## Configuration
+| 字段 | 默认 | 含义 |
+| --- | --- | --- |
+| `native` | `true` | 发送 `dsh-llm-deepseek` 的三个 header |
+| `userId` | — | `x-deepseek-harness-user-id` 覆盖值 |
+| `header` | `x-deepseek-harness-session-id` | 额外的自定义 header 名，值为会话 id |
+| `value` | — | `header` 的固定值；不设 = 当前会话 id（剥前缀） |
+| `toolEndpoints` | `[]` | 允许在 `tools/execute` 瀑布内接收会话 header 的 URL 前缀；空 = 只覆盖 LLM 调用 |
+| `overwriteHeaders` | `[]` | 允许覆盖已有值的 header 名（例如 provider 硬编码的占位值） |
 
-| field | type | default | meaning |
-| --- | --- | --- | --- |
-| `native` | boolean | `true` | send the `dsh-llm-deepseek` trio (session id, user id, compaction marker) |
-| `userId` | string | — | `x-deepseek-harness-user-id` override; unset = the harness home's `.anonymous-user-id` |
-| `header` | string | `x-deepseek-harness-session-id` | extra/custom header name for the session id; case-insensitive on the wire |
-| `value` | string | — | fixed value for `header`; unset = the harness session id of the call in flight (prefix stripped) |
-| `toolEndpoints` | string[] | `[]` | URL prefixes matched during tool execution. When non-empty, fetches inside a `tools/execute` waterfall — e.g. a gateway web-search Messages API called from a tool — get the header only when their URL starts with one of these prefixes; third-party tool targets (web_fetch of arbitrary pages, GitHub, MCP servers) stay untouched. Empty (default) keeps the upstream LLM-only injection. |
-| `overwriteHeaders` | string[] | `[]` | Header names this plugin may overwrite when they already carry a value. Everything else keeps the "never overwrite" rule. Some official providers hard-code placeholder values (e.g. `dsh-web-search-deepseek` sends `x-opencode-session: dsh-web-search`), which gateways reject as missing; list the header here (`overwriteHeaders: [x-opencode-session]`) so the live session id replaces that placeholder. Case-insensitive. |
+## 说明
 
-## Verify it
-
-Point a provider's `baseURL` at a logging gateway (or any endpoint that echoes request headers) and start a session:
-
-```
-x-deepseek-harness-session-id: session-ba104306-a748-4052-a6e3-ab60be2e4c1f
-x-deepseek-harness-user-id: 95b6af3e-cab9-4d84-8f02-d7c55f56ef65
-```
-
-Every request of the same conversation carries the same session id; a spawned subagent's requests carry the child session id, and a compaction call adds `x-deepseek-harness-compact: 1`. A provider that already sets these headers (the official `llm-deepseek` adapter) keeps its own values.
-
-## Notes
-
-- The `llm-deepseek` adapter already sends the same trio itself, so for that provider this plugin changes nothing — the "never overwrite" rule leaves the adapter's own values in place. Other fetch-based adapters gain the identical identity headers without patching adapter code.
-- `attributionHeaders()` (the harness User-Agent attribution contract) is never touched.
-- Concurrent sessions are handled correctly: the header value is resolved per call through AsyncLocalStorage, not through shared mutable state.
+- `llm-deepseek` 本身已发送这三个 header；“不覆盖”规则让它保持原样，同时把同样的身份补齐给其他 adapter。
+- 绝不触碰 `attributionHeaders()`；header 值按调用解析，并发会话不共享状态。
 
 ## License
 
