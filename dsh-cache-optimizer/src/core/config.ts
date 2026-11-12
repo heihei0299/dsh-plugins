@@ -1,5 +1,5 @@
 import { type AtomicTargetGuard, atomicCreateTextFileNoReplace, atomicReplaceTextFilePreservingMode, hashText, withModelsJsonTransactionLock } from "./atomic-fs.ts";
-import { LOG_PREFIX, type MutableEnv, asRecord, getErrorCode, isNonEmptyString } from "./common.ts";
+import { LOG_PREFIX, type MutableEnv, asRecord, displayEnvName, getErrorCode, isNonEmptyString } from "./common.ts";
 import { STATE_DIR } from "./paths.ts";
 import { PI_CACHE_RETENTION_ENV, STARTUP_CACHE_RETENTION_ENV, requestLongCacheRetention, restoreCacheRetentionEnv } from "./retention.ts";
 import { type Stats, readFileSync } from "node:fs";
@@ -383,12 +383,12 @@ export function getOptimizerRuntimeModeLines(): string[] {
   lines.push(`• Skill compression: ${!skillCompressionSetting ? "off" : promptRewriteActive ? "on" : "on (inactive: prompt rewrite is off)"}`);
   lines.push(`• Deterministic tool ordering: ${isToolOrderEnabled() ? "on (verified built-in payloads, opt-in)" : "off"}`);
   lines.push(`• OpenAI prompt_cache_key fallback: ${shouldInjectOpenAIPromptCacheKey() ? "on" : "off"}`);
-  lines.push(`• Footer cache stats: on${runtimeOptimizerEnabled ? "" : " (comparison mode)"}`);
+  lines.push(`• Status line cache stats: on${runtimeOptimizerEnabled ? "" : " (comparison mode)"}`);
   lines.push(`• Compat warnings: ${runtimeOptimizerEnabled ? "on" : "off"}`);
-  lines.push(`• ${PI_CACHE_RETENTION_ENV}: ${process.env[PI_CACHE_RETENTION_ENV] ?? "(unset)"}`);
+  lines.push(`• ${displayEnvName(PI_CACHE_RETENTION_ENV)}: ${process.env[PI_CACHE_RETENTION_ENV] ?? "(unset)"}`);
   lines.push(`• Persistent feature overrides: ${Object.keys(persistedCacheOptimizerConfig.features ?? {}).length > 0 ? "configured" : "none"}`);
   if (!runtimeOptimizerEnabled) {
-    lines.push("This is a current-process switch. Run /reload or restart Pi to return to startup behavior.");
+    lines.push("This is a current-process switch. Reload the profile or restart the Harness to return to startup behavior.");
   } else if (!featureEnabled("promptRewrite", NO_PROMPT_REWRITE_ENV, true) || !shouldInjectOpenAIPromptCacheKey()) {
     lines.push("Some features are disabled by persistent configuration or environment variables.");
   }
@@ -405,7 +405,7 @@ export function formatPersistentFeatureConfig(): string {
     ["OpenAI cache key", "openAICacheKey", NO_OPENAI_CACHE_KEY_ENV, true],
     ["Tool ordering", "toolOrder", TOOL_ORDER_ENV, false],
     ["Zero-price cache warming", "zeroPriceWarming", NO_ZERO_PRICE_WARMING_ENV, true],
-    ["Incremental footer refresh", "statsIncremental", STATS_INCREMENTAL_ENV, true],
+    ["Incremental cache-stats refresh", "statsIncremental", STATS_INCREMENTAL_ENV, true],
   ];
   for (const [label, feature, envName, defaultValue] of entries) {
     const hasEnv = process.env[envName] !== undefined || (feature === "openAICacheKey" && process.env[OPENAI_CACHE_KEY_ENV] !== undefined);

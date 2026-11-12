@@ -109,7 +109,7 @@ const PROMPT_CACHE_RETENTION_REASON_TEXT: Record<PromptCacheRetentionGateReason,
   "provider-rejected": "removed: this model rejected the parameter earlier in this process",
   "official-openai": "kept: official OpenAI endpoint",
   "explicit-opt-in": "kept: supportsLongCacheRetention: true is set explicitly",
-  "user-requested-long": "kept: PI_CACHE_RETENTION=long was set before Pi started",
+  "user-requested-long": "kept: DSH_CACHE_RETENTION=long was set before the Harness started",
   "unverified-endpoint": "removed: added only by the optimizer and the endpoint is not known to accept it (set supportsLongCacheRetention: true to opt in)",
 };
 

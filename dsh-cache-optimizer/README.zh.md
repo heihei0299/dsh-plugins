@@ -48,7 +48,8 @@ fetch 都看不到作用域；卸载插件会还原原始 `fetch`。
 
 | 方面 | 这里的行为 |
 | --- | --- |
-| Footer 统计 | Harness 没有 TUI footer 对应物。`ui.setStatus` 把同一字符串按会话记录，并在变化时以 `info` 记日志；完整计数用 `/cache-optimizer stats`。 |
+| Footer 统计 | Harness 没有 TUI footer 对应物。`ui.setStatus` 把同一字符串按会话记录，并在变化时以 `info` 记日志；完整计数用 `/cache-optimizer stats`。命令输出与日志里称它为状态行（status line）。 |
+| 用户可见文案 | 通知、诊断与日志都按本宿主措辞：「Harness 进程」「重新加载 profile 或重启 Harness」「状态行」、`DSH_CACHE_*` 环境变量名。上游注释与磁盘格式（`pi-cache-optimizer-stats.d`、分片 `kind`）保持原拼写，已有状态照常加载。 |
 | 技能清单 | Harness 用紧凑的持久消息渲染技能目录（`- \`name\`: description`），Pi 的 XML 列表压缩无事可做；提示词路径只保留有 section 时的抖动剥离。 |
 | 虚拟模型 | Harness 没有 Pi 0.99 原生虚拟模型与路由协议；相关路径保持休眠。 |
 | 缓存预热 | 没有 `cache_warming_decision` 缝，零价预热报告为不可用，`fix prompt-cache` 会说明 Harness 不消费 Pi 的预热生命期。 |
@@ -61,12 +62,12 @@ fetch 都看不到作用域；卸载插件会还原原始 `fetch`。
 | 命令 | 作用 |
 | --- | --- |
 | `/cache-optimizer` | 有问答 UI 时给交互菜单，否则给出帮助与当前状态。 |
-| `/cache-optimizer enable` / `disable` | 本进程运行时开关；重置本地 footer 计数以便对比。 |
+| `/cache-optimizer enable` / `disable` | 本进程运行时开关；重置本地缓存计数以便对比。 |
 | `/cache-optimizer doctor` | 当前模型/provider/API/base URL/compat、预热资格、低命中诊断。 |
 | `/cache-optimizer compat` | 适用时给出可复制的 compat 建议。 |
 | `/cache-optimizer stats` / `stats all` / `stats contributors` | 当前会话模型 / 当日全部本地模型 / 贡献会话（不含会话 id）。 |
 | `/cache-optimizer reset` | 重置当前 provider/model 的本地计数；不动 provider 缓存。 |
-| `/cache-optimizer config footer-mode total\|session\|process` | 持久化计数范围。 |
+| `/cache-optimizer config footer-mode total\|session\|process` | 持久化状态行报告的计数范围（会话 / 当日 / 本进程）。 |
 | `/cache-optimizer config <feature> on\|off`、`config reset` | 持久化功能开关；`reset` 只清功能覆盖。 |
 | `/cache-optimizer fix` | 预览、确认后修复当前模型缺失的 compat。 |
 | `/cache-optimizer fix prompt-cache` / `prompt-cache-key` / `kimi-base-url` | 定向修复，带备份、收据与自检。 |

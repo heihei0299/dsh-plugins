@@ -361,10 +361,10 @@ export function explainSkillCompressionSkip(prompt: string, opts: BuildSystemPro
     return `only ${visible.length} visible skill(s); compression starts at ${SKILL_COMPRESSION_MIN_COUNT}`;
   }
   if (!prompt.includes("<available_skills>")) {
-    return "the prompt has no skill list (no read tool selected, or another extension replaced it)";
+    return "the prompt has no skill list (no read tool selected, or another plugin replaced it)";
   }
   if (!containsAnyVerbose(prompt, skillListVariants(opts.skills ?? [], skillFileReadTool(opts) ?? "read"))) {
-    return "Pi's skill list format was not recognised; Pi may have changed it (please report this)";
+    return "the skill list format was not recognised; the adapter may have changed it (please report this)";
   }
   return "the compressed list would not be shorter";
 }

@@ -76,7 +76,7 @@ describe("prompt_cache_retention gate", () => {
     assert.equal(userRequestedLongCacheRetention({ wasSet: false }), false);
   });
 
-  test("strips the optimizer-injected field on unverified endpoints without mutating Pi's payload", async () => {
+  test("strips the optimizer-injected field on unverified endpoints without mutating the Harness's payload", async () => {
     const tempAgentDir = await mkdtemp(join(tmpdir(), "pi-cache-policy-"));
     try {
       process.env.PI_CODING_AGENT_DIR = tempAgentDir;

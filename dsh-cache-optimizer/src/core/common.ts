@@ -6,7 +6,12 @@ export type ModelIdentity = Pick<PiModel, "provider" | "id">;
 
 export type UnknownRecord = Record<string, unknown>;
 
-export const LOG_PREFIX = "pi-cache-optimizer";
+export const LOG_PREFIX = "cache-optimizer";
+
+/** The environment name a Harness user sets for an upstream `PI_*` switch. */
+export function displayEnvName(name: string): string {
+  return name.startsWith("PI_") ? `DSH_${name.slice("PI_".length)}` : name;
+}
 
 export function asRecord(value: unknown): UnknownRecord | undefined {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;

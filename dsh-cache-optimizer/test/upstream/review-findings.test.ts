@@ -22,7 +22,7 @@ describe("footer status separation and command completion", () => {
     assert.equal(internals.prefixFooterStatus(undefined), undefined);
   });
 
-  test("formats compact footer stats with one-decimal token hit rate", () => {
+  test("formats compact cache stats with one-decimal token hit rate", () => {
     assert.equal(
       internals.formatCacheStats(
         { label: "OpenAI cache", showCacheWrite: false } as any,
@@ -143,7 +143,7 @@ describe("footer status separation and command completion", () => {
   });
 });
 
-describe("footer stats modes", () => {
+describe("cache stats modes", () => {
   const sessionHash = "0123456789abcdef";
   const model = {
     provider: "proxy",
@@ -441,7 +441,7 @@ describe("footer stats modes", () => {
     }
   });
 
-  test("interactive menu exposes and applies footer mode", async () => {
+  test("interactive menu exposes and applies status scope", async () => {
     const tempAgentDir = await mkdtemp(join(tmpdir(), "pi-cache-footer-menu-test-"));
     const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
     const previousFooterMode = process.env.PI_CACHE_OPTIMIZER_FOOTER_MODE;
@@ -478,7 +478,7 @@ describe("footer stats modes", () => {
           setStatus() {},
           select: async (title: string, options: string[]) => {
             selectCalls.push(title);
-            if (title === "Cache Optimizer") return options.find((option) => option.startsWith("Footer mode"));
+            if (title === "Cache Optimizer") return options.find((option) => option.startsWith("Status scope"));
             return options.find((option) => option.startsWith("process"));
           },
         },
@@ -487,7 +487,7 @@ describe("footer stats modes", () => {
 
       await command.handler("", commandContext);
 
-      assert.deepEqual(selectCalls, ["Cache Optimizer", "Footer cache stats mode"]);
+      assert.deepEqual(selectCalls, ["Cache Optimizer", "Status line scope"]);
       assert.equal(freshModule.__internals_for_tests.readPersistedFooterMode(configPath), "process");
       assert.equal(freshModule.__internals_for_tests.footerStatsMode(), "process");
       assert.match(notifications.at(-1) ?? "", /set to process/);
@@ -501,7 +501,7 @@ describe("footer stats modes", () => {
   });
 });
 
-describe("Pi 0.83 adaptive-thinking compatibility", () => {
+describe("the Harness 0.83 adaptive-thinking compatibility", () => {
   function claudeModel(
     id: string,
     compat: Record<string, unknown> = {},
@@ -546,7 +546,7 @@ describe("Pi 0.83 adaptive-thinking compatibility", () => {
     assert.deepEqual(internals.describeMissingCacheCompatForModel(model), []);
   });
 
-  test("reports missing adaptive compat for Claude Haiku 5.5 (Pi 1.1.0+)", () => {
+  test("reports missing adaptive compat for Claude Haiku 5.5 (the Harness 1.1.0+)", () => {
     for (const id of ["claude-haiku-5-5", "claude-haiku-5.5", "anthropic/claude-haiku-5-5-20261001"]) {
       const model = claudeModel(id);
       assert.equal(internals.isAdaptiveThinkingCompatApplicable(model), true, id);
@@ -714,7 +714,7 @@ describe("explicit compat precedence", () => {
     );
   });
 
-  test("duplicate custom model ids follow Pi's last-definition-wins behavior", () => {
+  test("duplicate custom model ids follow the Harness's last-definition-wins behavior", () => {
     const runtimeModel = {
       provider,
       id: modelId,
@@ -1139,7 +1139,7 @@ describe("modelOverrides JSONC fixes", () => {
     assert.ok(location);
     assert.deepEqual(internals.chooseFixPlacement(original, location, compatKeys, provider), {
       placement: "modelOverride",
-      reason: "an existing modelOverrides entry has Pi's highest precedence — repairing it directly",
+      reason: "an existing modelOverrides entry has the profile's highest precedence — repairing it directly",
     });
 
     const modified = internals.composeFixInsertion(original, location, compatKeys, "modelOverride");
@@ -2219,7 +2219,7 @@ describe("/cache-optimizer fix command", () => {
       await chmod(modelsPath, 0o644);
       confirmations.length = 0;
       notifications.length = 0;
-      menuChoice = "Fix — Auto-fix compat issues (writes models.json or extension config)";
+      menuChoice = "Fix — Auto-fix compat issues (writes models.json or plugin config)";
 
       await command.handler("", commandContext);
       assert.equal(menuPrompts.length, 1);
@@ -2580,7 +2580,7 @@ describe("/cache-optimizer fix command", () => {
     }
   });
 
-  test("models.json transactions serialize across concurrent Pi instances", async () => {
+  test("models.json transactions serialize across concurrent the Harness instances", async () => {
     const tempAgentDir = await mkdtemp(join(tmpdir(), "pi-cache-transaction-lock-test-"));
     const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
     const modelsPath = join(tempAgentDir, "models.json");
@@ -2834,7 +2834,7 @@ describe("/cache-optimizer fix command", () => {
       assert.equal(await readFile(modelsPath, "utf8"), original);
       assert.equal((await stat(modelsPath)).mode & 0o7777, 0o640);
       assert.ok(notifications.some((message) => message.includes("Rollback completed")));
-      assert.ok(notifications.some((message) => /run \/reload/i.test(message)));
+      assert.ok(notifications.some((message) => /reload the profile/i.test(message)));
       const receiptAfterRollback = freshModule.__internals_for_tests.parseModelsJsonFixReceipt(
         JSON.parse(await readFile(receiptPath, "utf8")),
       );
@@ -3293,7 +3293,7 @@ describe("prompt_cache_key model opt-out", () => {
     }
   });
 
-  test("active fix requires confirmation and removes a Pi-provided key after reload", async () => {
+  test("active fix requires confirmation and removes a the Harness-provided key after reload", async () => {
     const tempAgentDir = await mkdtemp(join(tmpdir(), "pi-cache-key-command-test-"));
     const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
     const previousRetention = process.env.PI_CACHE_RETENTION;

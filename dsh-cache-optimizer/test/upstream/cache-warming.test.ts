@@ -24,7 +24,7 @@ function model(overrides: Record<string, unknown> = {}): PiModel {
 }
 
 describe("cache warming diagnostics", () => {
-  test("reads the mode from Pi settings and defaults to streaming", () => {
+  test("reads the mode from the Harness settings and defaults to streaming", () => {
     assert.equal(readCacheWarmingMode(undefined), "unsupported");
     assert.equal(readCacheWarmingMode(() => { throw new Error("boom"); }), "unsupported");
     assert.equal(readCacheWarmingMode(() => ({})), "streaming");
@@ -33,7 +33,7 @@ describe("cache warming diagnostics", () => {
     assert.equal(readCacheWarmingMode(() => ({ cacheWarming: "bogus" })), "streaming");
   });
 
-  test("matches Pi's refresh schedule", () => {
+  test("matches the Harness's refresh schedule", () => {
     assert.equal(cacheWarmingRefreshDelayMs(300_000), 270_000);
     assert.equal(cacheWarmingRefreshDelayMs(3_600_000), 3_240_000);
     assert.equal(cacheWarmingRefreshDelayMs(10_000), undefined);
@@ -82,7 +82,7 @@ describe("cache warming diagnostics", () => {
 describe("zero-price warming override", () => {
   const zero = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 
-  test("turns Pi's unpriced stop into warm for zero-price models", () => {
+  test("turns the Harness's unpriced stop into warm for zero-price models", () => {
     assert.equal(decideZeroPriceWarming({ action: "stop", warmCost: 0, missCost: 0 }, model({ cost: zero })), "warm");
   });
 
@@ -93,7 +93,7 @@ describe("zero-price warming override", () => {
     assert.deepEqual(buildCacheWarmingDiagnosis(m, { mode: "streaming", tier: "long", zeroPriceWarming: true }).issues, ["pricing_missing"]);
   });
 
-  test("respects Pi when the model has prices or Pi already warms", () => {
+  test("respects the Harness when the model has prices or the Harness already warms", () => {
     assert.equal(decideZeroPriceWarming({ action: "stop", warmCost: 0, missCost: 0 }, model()), undefined);
     assert.equal(decideZeroPriceWarming({ action: "stop", warmCost: 0.01, missCost: 0.02 }, model({ cost: zero })), undefined);
     assert.equal(decideZeroPriceWarming({ action: "warm", warmCost: 0, missCost: 0 }, model({ cost: zero })), undefined);
@@ -109,7 +109,7 @@ describe("zero-price warming override", () => {
     assert.deepEqual(off.issues, ["pricing_missing"]);
   });
 
-  test("OpenRouter router models are not free just because Pi shows 0 (Pi 1.2.0 normalises -1 to 0)", () => {
+  test("OpenRouter router models are not free just because the Harness shows 0 (the Harness 1.2.0 normalises -1 to 0)", () => {
     const router = model({ provider: "openrouter", id: "openrouter/auto", api: "openai-completions", baseUrl: "https://openrouter.ai/api/v1", cost: zero, promptCache: { short: 300 } });
     assert.equal(isOpenRouterRouterModel(router), true);
     assert.equal(isZeroPriced(router), false);

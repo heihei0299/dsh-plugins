@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import {
   type ExtensionAPI, type ExtensionContext, type PiSkill
 } from "./pi-compat.ts";
-import { LOG_PREFIX, type PiModel, asRecord, getErrorCode, isNonEmptyString } from "./core/common.ts";
+import { LOG_PREFIX, type PiModel, asRecord, displayEnvName, getErrorCode, isNonEmptyString } from "./core/common.ts";
 import { FIX_RECEIPT_FILE_NAME, FIX_RECEIPT_PATH, MODELS_JSON_PATH, STATE_DIR } from "./core/paths.ts";
 import { type FixSuggestion } from "./core/fix-types.ts";
 import { deepEqualIgnoringKeys, findExistingCompatKeysInJsonc, locateModelOverrideInJsonc, locateProviderCompatInJsonc, parseJsonc, stripJsoncComments, stripJsoncTrailingCommas } from "./core/jsonc.ts";
@@ -52,8 +52,8 @@ function buildAdaptiveThinkingCompatWarningText(key: string, missing: string[]):
   const modelId = slashIdx > 0 ? key.slice(slashIdx + 1) : undefined;
   const modelsJsonPath = getModelsJsonDisplayPath();
   const lines: string[] = [
-    `💡 pi-cache-optimizer: ${key} is an adaptive-generation model but merged compat lacks ${missing.join(" and ")}.`,
-    `Without the required compat, Pi may send legacy thinking or replay thinking blocks incorrectly.`,
+    `💡 cache-optimizer: ${key} is an adaptive-generation model but merged compat lacks ${missing.join(" and ")}.`,
+    `Without the required compat, the adapter may send legacy thinking or replay thinking blocks incorrectly.`,
     `Edit ${modelsJsonPath} -> providers["${providerLabel}"] -> compat (at the same level as baseUrl/api/apiKey/models).`,
     "",
   ];
@@ -572,7 +572,7 @@ export default function (pi: ExtensionAPI) {
       `Action: persist prompt_cache_key mode = omit in ${CONFIG_FILE_PATH}.`,
       "The final request body will omit both prompt_cache_key and promptCacheKey.",
       "This can reduce provider-side prompt-cache reuse for this model; it does not change prompts, credentials, headers, or other models.",
-      "The setting applies after Pi core has built the payload, including when Pi already supplied a key.",
+      "The setting applies after the adapter has built the payload, including when it already supplied a key.",
     ];
   }
   /** In-memory recent usage samples per model key (not persisted, cleared on reload). */
@@ -830,7 +830,7 @@ export default function (pi: ExtensionAPI) {
   function warnBackgroundRefreshOnce(error: unknown): void {
     if (backgroundRefreshWarned) return;
     backgroundRefreshWarned = true;
-    console.warn(`${LOG_PREFIX}: background footer stats refresh failed (further failures are not reported)`, error);
+    console.warn(`${LOG_PREFIX}: background cache stats refresh failed (further failures are not reported)`, error);
   }
 
   /**
@@ -892,8 +892,8 @@ export default function (pi: ExtensionAPI) {
     if (statsVerifyMismatches < 2 || statsVerifyWarned) return;
     statsVerifyWarned = true;
     console.warn(
-      `${LOG_PREFIX}: footer stats: ${mismatched.length} shard file(s) changed while their identity (inode, size, timestamps) did not; ` +
-      `this filesystem hides changes from the incremental refresh. Set ${STATS_INCREMENTAL_ENV}=0 and please report it.`,
+      `${LOG_PREFIX}: cache stats: ${mismatched.length} shard file(s) changed while their identity (inode, size, timestamps) did not; ` +
+      `this filesystem hides changes from the incremental refresh. Set ${displayEnvName(STATS_INCREMENTAL_ENV)}=0 and please report it.`,
     );
   }
 
@@ -1304,7 +1304,7 @@ export default function (pi: ExtensionAPI) {
         if (!persistenceWarningShown) {
           persistenceWarningShown = true;
           ctx?.ui.notify(
-            `${LOG_PREFIX}: failed to persist footer stats; using in-memory stats for this process.`,
+            `${LOG_PREFIX}: failed to persist cache stats; using in-memory stats for this process.`,
             "warning",
           );
         }
@@ -1340,13 +1340,13 @@ export default function (pi: ExtensionAPI) {
     try {
       await refreshShardAggregate();
     } catch (error) {
-      console.warn(`${LOG_PREFIX}: footer stats refresh before persisting failed`, error);
+      console.warn(`${LOG_PREFIX}: cache stats refresh before persisting failed`, error);
     }
     await persistCacheStats(ctx, lifecycleState);
     try {
       await refreshShardAggregate();
     } catch (error) {
-      console.warn(`${LOG_PREFIX}: footer stats refresh after persisting failed`, error);
+      console.warn(`${LOG_PREFIX}: cache stats refresh after persisting failed`, error);
     }
     // That refresh may have continued an absorbed own shard under a new id
     // and queued its write: let it land before the flush (and a shutdown)
@@ -1446,7 +1446,7 @@ export default function (pi: ExtensionAPI) {
         if (!persistenceWarningShown) {
           persistenceWarningShown = true;
           ctx?.ui.notify(
-            `${LOG_PREFIX}: failed to persist footer stats; using in-memory stats for this process.`,
+            `${LOG_PREFIX}: failed to persist cache stats; using in-memory stats for this process.`,
             "warning",
           );
         }
@@ -1834,7 +1834,7 @@ export default function (pi: ExtensionAPI) {
     // itself and no forced prompt is returned.
     recordSkillCompressionOutcome(
       codexSkillCompressionBypass
-        ? { applied: false, reason: "OpenAI Codex uses Pi's native skill index to preserve task trajectory", visibleSkills, at: Date.now() }
+        ? { applied: false, reason: "OpenAI Codex uses the native skill index to preserve task trajectory", visibleSkills, at: Date.now() }
         : skillsViaSection
         ? { applied: "section", visibleSkills, at: Date.now() }
         : compressedPrompt !== strippedPrompt
@@ -2058,7 +2058,7 @@ export default function (pi: ExtensionAPI) {
         warnedSendSessionAffinityHeaders403Models.add(key403);
         ctx.ui.notify(
           `⚠️ ${LOG_PREFIX}: ${key403} returned HTTP 403 while sendSessionAffinityHeaders is enabled. ` +
-          `The proxy/CDN may be blocking Pi's custom session-affinity headers (session_id, x-client-request-id, x-session-affinity). ` +
+          `The proxy/CDN may be blocking the custom session-affinity headers (session_id, x-client-request-id, x-session-affinity). ` +
           `Run /cache-optimizer doctor for details and /cache-optimizer fix to set sendSessionAffinityHeaders: false.`,
           "warning",
         );
@@ -2331,7 +2331,7 @@ export default function (pi: ExtensionAPI) {
   //   stats   — show detailed current-session models; `stats all` shows all local shards
   //   compat  — show compat suggestion with file path
   //   config footer-mode total|session|process — persist footer mode override
-  //   fix     — auto-fix compat issues (writes models.json or extension config, requires UI)
+  //   fix     — auto-fix compat issues (writes models.json or plugin config, requires UI)
   //   rollback — undo the latest confirmed fix for the active model
   //   reset   — reset current provider/model footer stats bucket (local only)
   //   (no args) — interactive menu (with UI) or help summary
@@ -2363,7 +2363,7 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("cache-optimizer", {
-    description: "Configure and diagnose Pi cache behavior",
+    description: "Configure and diagnose prompt cache behavior",
     getArgumentCompletions: getCacheOptimizerArgumentCompletions,
     handler: async (args: string, cmdCtx: Parameters<typeof handleCacheOptimizerCommand>[1]) => {
       // Commands read and reset aggregated stats; let a background restore

@@ -1466,7 +1466,7 @@ const LEGACY_TOMBSTONE_README =
   "pi-cache-optimizer stores its stats archive in the archive.<generation>.json files next to this directory.\n" +
   "This directory replaces the single archive.json of version 2.9.0 so that 2.9.0 can no longer write it\n" +
   "(it would publish without a compare-and-swap). 2.9.0 reports the archive as unreadable and keeps raw shards.\n" +
-  "Do not remove it while any Pi process might still run pi-cache-optimizer 2.9.0.\n";
+  "Do not remove it while any Harness process might still run pi-cache-optimizer 2.9.0.\n";
 
 async function createLegacyTombstone(archivePath: string): Promise<void> {
   await mkdir(archivePath);

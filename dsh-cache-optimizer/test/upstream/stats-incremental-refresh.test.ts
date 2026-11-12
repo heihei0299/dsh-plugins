@@ -55,7 +55,7 @@ async function withEnv(values: Record<string, string | undefined>, run: () => Pr
   }
 }
 
-/** A separately loaded module instance: its own caches, like another Pi process. */
+/** A separately loaded module instance: its own caches, like another the Harness process. */
 async function loadModule(label: string): Promise<any> {
   const jiti = createJiti(join(process.cwd(), "test", "upstream", `stats-incremental-${label}.ts`), { interopDefault: false, moduleCache: false });
   return jiti.import<typeof import("../../src/extension.ts")>(join(process.cwd(), "src", "extension.ts"));
@@ -796,7 +796,7 @@ describe("non-awaited lifecycle refreshes", () => {
         });
         assert.deepEqual(unhandled, []);
         assert.equal(warnings.length, 1, "warned once");
-        assert.match(String(warnings[0]?.[0]), /background footer stats refresh failed/);
+        assert.match(String(warnings[0]?.[0]), /background cache stats refresh failed/);
       } finally {
         process.off("unhandledRejection", onUnhandled);
       }

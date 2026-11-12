@@ -32,7 +32,7 @@ async function withAgentDir(run: (dir: string) => Promise<void>): Promise<void> 
   }
 }
 
-/** A separately loaded module instance: its own caches and lock tokens, like another Pi process. */
+/** A separately loaded module instance: its own caches and lock tokens, like another the Harness process. */
 async function loadModule(label: string) {
   const jiti = createJiti(join(process.cwd(), "test", "upstream", `issue-28-review6-${label}.ts`), { interopDefault: false, moduleCache: false });
   return jiti.import<typeof import("../../src/extension.ts")>(join(process.cwd(), "src", "extension.ts"));
@@ -200,7 +200,7 @@ describe("R6: undoing a move aside never overwrites a newer archive.json", () =>
 });
 
 describe("R7: an awaited retry holds the process open", () => {
-  // Pi's print mode exits by letting the event loop drain (main() is not
+  // the Harness's print mode exits by letting the event loop drain (main() is not
   // awaited). An unref'd retry delay inside an awaited handler lets the
   // process exit mid-handler: session_shutdown never runs and the last usage
   // is lost (2.9.3 review). The delays must stay ref'd.
@@ -320,7 +320,7 @@ describe("R7: an awaited retry holds the process open", () => {
 });
 
 describe("R7: the shutdown flush is not abandoned", () => {
-  test("Pi's print mode (exit by draining the event loop) still completes a final flush whose rename is being retried", async () => {
+  test("the Harness's print mode (exit by draining the event loop) still completes a final flush whose rename is being retried", async () => {
     await withAgentDir(async (dir) => {
       const script = `
         const loaded = await import(${JSON.stringify(join(process.cwd(), "src", "extension.ts"))});

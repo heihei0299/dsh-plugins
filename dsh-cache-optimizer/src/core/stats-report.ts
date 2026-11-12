@@ -260,7 +260,7 @@ export function buildStatsOutput(model: PiModel | undefined, adapter: CacheProvi
   const missingAny = recentSamples.some((s) => s.missingUsageFields);
   if (missingAny) {
     lines.push("");
-    lines.push("⚠️ Some recent responses had missing or empty cache usage fields. Footer may under-report hits.");
+    lines.push("⚠️ Some recent responses had missing or empty cache usage fields. The status line may under-report hits.");
     lines.push("   The proxy may not return prompt_cache_hit_tokens or usage.input/cacheRead in responses.");
   }
 

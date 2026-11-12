@@ -56,8 +56,8 @@ export function diagnoseKimiCodeBaseUrl(model: PiModel | undefined): KimiBaseUrl
       kind: "hint",
       lines: [
         "ℹ️ This Kimi Code entry uses the Anthropic Messages API, but its base URL ends in /coding/v1.",
-        "   The Anthropic endpoint is https://api.kimi.com/coding (Pi appends /v1/messages itself).",
-        "   Pi 1.3.0+ ships kimi-coding on OpenAI Chat Completions; drop the api override or the /v1. Not changed automatically.",
+        "   The Anthropic endpoint is https://api.kimi.com/coding (the adapter appends /v1/messages itself).",
+        "   the pi-ai adapter ships kimi-coding on OpenAI Chat Completions; drop the api override or the /v1. Not changed automatically.",
       ],
     };
   }
@@ -86,7 +86,7 @@ export function buildKimiBaseUrlDoctorLines(model: PiModel | undefined): string[
       "⚠️  Kimi Code base URL is missing /v1.",
       `   Current:  ${status.current}`,
       `   Expected: ${status.suggested}`,
-      "   This model uses OpenAI Chat Completions (Pi 1.3.0+ kimi-coding), so requests to /coding/chat/completions fail.",
+      "   This model uses OpenAI Chat Completions (the pi-ai adapter kimi-coding), so requests to /coding/chat/completions fail.",
       "   Run /cache-optimizer fix kimi-base-url to append /v1 with a preview, backup and rollback.",
     ];
   }
@@ -126,11 +126,11 @@ export function planKimiBaseUrlFix(
     return { error: "models.json is not valid JSONC" };
   }
   if (!isValidModelsConfigForEffectiveCompat(parsed)) {
-    return { error: "models.json does not match Pi's model configuration schema" };
+    return { error: "models.json does not match the model configuration schema" };
   }
   const providerRecord = asRecord(asRecord(asRecord(parsed)?.providers)?.[model.provider]);
   if (!providerRecord) {
-    return { error: `models.json has no "${model.provider}" provider entry, so the base URL comes from somewhere else (an extension or Pi's built-in catalog)` };
+    return { error: `models.json has no "${model.provider}" provider entry, so the base URL comes from somewhere else (a plugin or the built-in catalog)` };
   }
   const definitions = (Array.isArray(providerRecord.models) ? providerRecord.models : []).map(asRecord);
   const ownDefinitions = definitions.filter((entry) => entry?.id === model.id);
@@ -142,7 +142,7 @@ export function planKimiBaseUrlFix(
   } else if (providerRecord.baseUrl !== undefined) {
     placement = "provider";
     if (providerRecord.oauth === "radius") {
-      return { error: "the provider uses oauth \"radius\", where Pi ignores the provider baseUrl for built-in models" };
+      return { error: "the provider uses oauth \"radius\", where the adapter ignores the provider baseUrl for built-in models" };
     }
     // A provider-level baseUrl also feeds custom models without their own.
     // Refuse when one of them is declared on another protocol, since /v1
@@ -186,7 +186,7 @@ export function planKimiBaseUrlFix(
     return { error: "the baseUrl entry is duplicated or cannot be located safely" };
   }
   if (normalizeBaseUrlForComparison(before) !== normalizeBaseUrlForComparison(status.current)) {
-    return { error: "the baseUrl in models.json differs from the active model's base URL (an extension or another source overrides it)" };
+    return { error: "the baseUrl in models.json differs from the active model's base URL (a plugin or another source overrides it)" };
   }
   const after = kimiCodeV1BaseUrl(before);
   if (!after) return { error: "the baseUrl in models.json is not a bare official Kimi Code /coding URL" };
@@ -219,7 +219,7 @@ export function selfCheckKimiBaseUrlFix(originalText: string, plan: KimiBaseUrlF
   } catch {
     return "the edited file is not valid JSONC";
   }
-  if (!isValidModelsConfigForEffectiveCompat(modified)) return "the edited file does not match Pi's model configuration schema";
+  if (!isValidModelsConfigForEffectiveCompat(modified)) return "the edited file does not match the model configuration schema";
   if (readBaseUrlState(plan.modifiedText, locateBaseUrlTarget(plan.modifiedText, provider, modelId, plan.placement)) !== plan.after) {
     return "baseUrl was not written at the target";
   }

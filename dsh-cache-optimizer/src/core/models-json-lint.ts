@@ -277,7 +277,7 @@ export function selectModelsJsonKeyTyposForTarget(
 }
 
 export function formatModelsJsonKeyTypo(typo: ModelsJsonKeyTypo): string {
-  return `⚠️ ${typo.path} is not a known Pi key and looks like a typo of ${JSON.stringify(typo.suggestion)}; Pi ignores unknown keys, so it most likely has no effect.`;
+  return `⚠️ ${typo.path} is not a known compatibility key and looks like a typo of ${JSON.stringify(typo.suggestion)}; the Harness ignores unknown keys, so it most likely has no effect.`;
 }
 
 /** Formatted hint lines for one provider/model, read from models.json on disk. Never throws. */

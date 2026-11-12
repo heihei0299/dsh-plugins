@@ -494,7 +494,7 @@ export function describeNativeVirtualRouteNote(selected: PiModel | undefined, ef
   if (!selected || !isNativeVirtualModel(selected)) return undefined;
   // Without a routed response, the not-applicable text explains the state.
   if (!effective || isNativeVirtualModel(effective)) return undefined;
-  return `🔀 Native virtual model ${modelKey(selected)} → latest routed physical model ${modelKey(effective)}. The diagnostics below apply to that physical model; Pi may route later requests elsewhere.`;
+  return `🔀 Native virtual model ${modelKey(selected)} → latest routed physical model ${modelKey(effective)}. The diagnostics below apply to that physical model; the Harness may route later requests elsewhere.`;
 }
 
 export function installCacheHintsService(

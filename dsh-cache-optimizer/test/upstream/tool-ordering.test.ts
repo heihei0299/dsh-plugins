@@ -222,7 +222,7 @@ describe("deterministic tool ordering", () => {
     const result = request({ payload }, context) as typeof payload;
     assert.deepEqual(result.tools.map((tool) => tool.name), ["z", "a"]);
     assert.equal(result.tools[1].cache_control.ttl, undefined);
-    // Pi's payload object is never mutated in place.
+    // the Harness's payload object is never mutated in place.
     assert.equal(payload.tools[1].cache_control.ttl, "1h");
   });
 

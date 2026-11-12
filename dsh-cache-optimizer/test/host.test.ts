@@ -3,7 +3,7 @@
  * against a fake Cordis context and a stubbed `globalThis.fetch`.
  *
  * They assert the two seams that cannot be observed from the upstream unit
- * suite: the event translation (Harness event → Pi hook) and the wire rewrite
+ * suite: the event translation (Harness event → the Harness hook) and the wire rewrite
  * (parsed request body → optimizer mutation → serialized body).
  */
 

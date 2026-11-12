@@ -214,7 +214,7 @@ export function appendOpenAIProxyCompatAdviceLines(lines: string[], missing: str
   }
 
   if (missing.includes("sendSessionAffinityHeaders")) {
-    lines.push("- sendSessionAffinityHeaders: recommended for third-party proxies when supported; it helps keep one Pi session on the same upstream/backend.");
+    lines.push("- sendSessionAffinityHeaders: recommended for third-party proxies when supported; it helps keep one Harness session on the same upstream/backend.");
   }
   appendCredentialSafeProviderGuidance(lines, options, suggestion);
 }
@@ -310,7 +310,7 @@ export function appendDeepSeekCompatAdviceLines(lines: string[], missing: string
     lines.push('- requiresReasoningContentOnAssistantMessages: true keeps replayed assistant turns compatible with an explicitly selected DeepSeek reasoning wire format.');
   }
   if (missing.includes("sendSessionAffinityHeaders")) {
-    lines.push("- sendSessionAffinityHeaders: recommended for third-party OpenAI-compatible proxies when supported; it helps keep one Pi session on the same upstream/backend.");
+    lines.push("- sendSessionAffinityHeaders: recommended for third-party OpenAI-compatible proxies when supported; it helps keep one Harness session on the same upstream/backend.");
   }
 
   appendCredentialSafeProviderGuidance(lines, placement, suggestion);

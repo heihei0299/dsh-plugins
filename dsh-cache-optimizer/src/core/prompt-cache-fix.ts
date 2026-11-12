@@ -181,7 +181,7 @@ export function planPromptCacheFix(
     return { error: "models.json is not valid JSONC" };
   }
   if (!isValidModelsConfigForEffectiveCompat(parsedOriginal)) {
-    return { error: "models.json does not match Pi's model configuration schema" };
+    return { error: "models.json does not match the model configuration schema" };
   }
   const clean = stripJsoncComments(originalText);
 
@@ -264,7 +264,7 @@ export function selfCheckPromptCacheFix(
   } catch {
     return "the edited file is not valid JSONC";
   }
-  if (!isValidModelsConfigForEffectiveCompat(modified)) return "the edited file does not match Pi's model configuration schema";
+  if (!isValidModelsConfigForEffectiveCompat(modified)) return "the edited file does not match the model configuration schema";
   if (!samePromptCacheLifetimes(readTargetPromptCache(modified, provider, modelId, plan.placement), plan.promptCache)) {
     return "promptCache was not written at the target";
   }

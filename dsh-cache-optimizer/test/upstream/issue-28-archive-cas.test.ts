@@ -32,7 +32,7 @@ async function withAgentDir(run: (dir: string) => Promise<void>): Promise<void> 
   }
 }
 
-/** A separately loaded module instance: its own lock tokens and caches, like another Pi process. */
+/** A separately loaded module instance: its own lock tokens and caches, like another the Harness process. */
 async function load(label: string): Promise<any> {
   const jiti = createJiti(join(process.cwd(), "test", "upstream", `issue-28-cas-${label}.ts`), { interopDefault: false, moduleCache: false });
   return (await jiti.import<typeof import("../../src/extension.ts")>(join(process.cwd(), "src", "extension.ts"))).__internals_for_tests as any;
@@ -225,7 +225,7 @@ describe("issue #28 archive F: lock heartbeat", () => {
   });
 });
 
-/** Load the released 2.9.0 stats modules (git tag v2.9.0) as another Pi process would run them. */
+/** Load the released 2.9.0 stats modules (git tag v2.9.0) as another the Harness process would run them. */
 async function load290(): Promise<{ I: any; cleanup: () => Promise<void> } | undefined> {
   let files: Record<string, string>;
   try {

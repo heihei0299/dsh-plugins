@@ -64,7 +64,8 @@ RPC or telemetry fetch sees the store, and unloading the plugin restores the ori
 
 | Area | Behaviour here |
 | --- | --- |
-| Footer stats | The upstream TUI footer has no Harness equivalent. `ui.setStatus` records and logs the same string per session at `info` when it changes; `/cache-optimizer stats` prints the same counters in full. |
+| Footer stats | The upstream TUI footer has no Harness equivalent. `ui.setStatus` records and logs the same string per session at `info` when it changes; `/cache-optimizer stats` prints the same counters in full. Command output and logs call it the status line. |
+| User-facing copy | Notices, diagnostics and log lines name this host: "Harness process", "reload the profile or restart the Harness", "status line", `DSH_CACHE_*` switch names. Upstream comments and on-disk formats (`pi-cache-optimizer-stats.d`, shard `kind`) keep their spelling so existing state keeps loading. |
 | Skill list | The Harness renders its skill catalog as a compact durable message (`- \`name\`: description`), so Pi's XML-list compression has nothing to compress; the prompt path applies only the churn strip where a section exists. |
 | Virtual models | Pi 0.99 native virtual models and the router registry protocol do not exist in the Harness; the code paths stay dormant. |
 | Cache warming | No `cache_warming_decision` seam, so zero-price warming is reported as unavailable and `fix prompt-cache` reports that the Harness consumes no Pi warming lifetimes. |
@@ -77,12 +78,12 @@ RPC or telemetry fetch sees the store, and unloading the plugin restores the ori
 | Command | Effect |
 | --- | --- |
 | `/cache-optimizer` | Interactive menu when a question UI is attached; otherwise help and current state. |
-| `/cache-optimizer enable` / `disable` | Runtime switch for this process; resets local footer counters for a before/after comparison. |
+| `/cache-optimizer enable` / `disable` | Runtime switch for this process; resets local cache counters for a before/after comparison. |
 | `/cache-optimizer doctor` | Active model/provider/API/base URL/compat, cache-warming eligibility, low-hit diagnosis. |
 | `/cache-optimizer compat` | Copyable compat advice for the active model, when applicable. |
 | `/cache-optimizer stats` / `stats all` / `stats contributors` | Current-session models / all local models today / contributing sessions (no session ids). |
 | `/cache-optimizer reset` | Reset local counters for the active provider/model. Provider caches are untouched. |
-| `/cache-optimizer config footer-mode total\|session\|process` | Persist the footer counter scope. |
+| `/cache-optimizer config footer-mode total\|session\|process` | Persist the counter scope (session / today / process) the status line reports. |
 | `/cache-optimizer config <feature> on\|off`, `config reset` | Persist feature overrides; `reset` removes only feature overrides. |
 | `/cache-optimizer fix` | Preview, confirm, then repair the active model's missing compat in the profile. |
 | `/cache-optimizer fix prompt-cache` / `prompt-cache-key` / `kimi-base-url` | Targeted repairs with backup, receipt and self-check. |
@@ -110,7 +111,7 @@ is mirrored when the Pi name is unset:
 | `PI_CACHE_OPTIMIZER_NO_SKILL_COMPRESSION=1` | Keep the native skill list. |
 | `PI_CACHE_OPTIMIZER_NO_OPENAI_CACHE_KEY=1` | Disable the cache-key fallback. |
 | `PI_CACHE_OPTIMIZER_OPENAI_CACHE_KEY=0` | Legacy inverse switch for the same fallback. |
-| `PI_CACHE_OPTIMIZER_STATS_INCREMENTAL=0` | Kill switch for incremental footer refresh. |
+| `PI_CACHE_OPTIMIZER_STATS_INCREMENTAL=0` | Kill switch for incremental cache-stats refresh. |
 | `PI_CACHE_OPTIMIZER_STATS_TIMING=1` | Per-refresh timing log (JSON lines). |
 | `PI_CACHE_OPTIMIZER_STATS_VERIFY=1` | Verify file identities after a background full scan. |
 | `DSH_CACHE_OPTIMIZER_DEBUG=1` | Log each rewritten request (URL, size, top-level keys) and provider-config resolution. |

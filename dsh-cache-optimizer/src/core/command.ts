@@ -5,7 +5,7 @@ import { backupTimestamp, hashText, readRegularTextFile } from "./atomic-fs.ts";
 import { choosePromptCacheLifetimes, planPromptCacheFix, validateWrittenPromptCacheFix } from "./prompt-cache-fix.ts";
 import { buildKimiBaseUrlDoctorLines, diagnoseKimiCodeBaseUrl, planKimiBaseUrlFix, validateWrittenKimiBaseUrlFix } from "./kimi-base-url-fix.ts";
 import { FEATURE_COMMAND_MAP } from "./command-completion.ts";
-import { type PiModel, asRecord } from "./common.ts";
+import { type PiModel, asRecord, displayEnvName } from "./common.ts";
 import { describeMissingCacheCompatForModel, getModelsJsonDisplayPath, isAdaptiveThinkingCompatApplicable } from "./compat-advice.ts";
 import { resolveEffectiveCompatFromConfig } from "./compat-config.ts";
 import { isZeroPriceWarmingEnabled, FOOTER_MODE_ENV, type FooterStatsMode, formatOptimizerRuntimeMode, formatPersistentFeatureConfig, persistedFooterStatsMode, readPersistedCacheOptimizerConfig, resetPersistedFeatures, resolveFooterStatsMode, setPersistedCacheOptimizerConfig, setRuntimeOptimizerEnabled, writePersistedFeature, writePersistedFooterMode } from "./config.ts";
@@ -95,14 +95,14 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
         await resetCurrentSessionStats();
         await flushPersistCacheStats(cmdCtx);
         await publishStatus(cmdCtx, model);
-        cmdCtx.ui.notify(`✅ Pi Cache Optimizer enabled for this Pi process. Local footer stats were reset for before/after comparison.\n${formatOptimizerRuntimeMode()}`, "info");
+        cmdCtx.ui.notify(`✅ Cache Optimizer enabled for this Harness process. Local cache stats were reset for before/after comparison.\n${formatOptimizerRuntimeMode()}`, "info");
       } else if (subcommand === "disable") {
         setRuntimeOptimizerEnabled(false);
         providerRequestStates.length = 0;
         await resetCurrentSessionStats();
         await flushPersistCacheStats(cmdCtx);
         await publishStatus(cmdCtx, model);
-        cmdCtx.ui.notify(`⏸️ Pi Cache Optimizer disabled for this Pi process. Local footer stats were reset and will keep collecting while disabled for comparison.\n${formatOptimizerRuntimeMode()}`, "warning");
+        cmdCtx.ui.notify(`⏸️ Cache Optimizer disabled for this Harness process. Local cache stats were reset and will keep collecting while disabled for comparison.\n${formatOptimizerRuntimeMode()}`, "warning");
       } else if (subcommand === "doctor") {
         await refreshShardAggregate();
         if (!model) {
@@ -168,7 +168,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           return;
         }
         if (!configKey) {
-          cmdCtx.ui.notify(formatPersistentFeatureConfig() + `\n• Footer mode: ${resolveFooterStatsMode(persistedFooterStatsMode).mode}` + "\n\n" +
+          cmdCtx.ui.notify(formatPersistentFeatureConfig() + `\n• Status scope: ${resolveFooterStatsMode(persistedFooterStatsMode).mode}` + "\n\n" +
             "Usage: /cache-optimizer config <feature> on|off | footer-mode total|session|process | reset", "info");
           return;
         }
@@ -178,7 +178,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
             `Usage: /cache-optimizer config footer-mode total|session|process\n` +
             `       /cache-optimizer config prompt-rewrite|virtual-rewrite|skill-compression|openai-cache-key|tool-order|zero-price-warming|stats-incremental on|off\n` +
             `       /cache-optimizer config reset\n` +
-            `Current footer mode: ${resolved.mode} (${resolved.source})`,
+            `Current status scope: ${resolved.mode} (${resolved.source})`,
             "info",
           );
           return;
@@ -192,12 +192,12 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           await publishStatus(cmdCtx, model);
           const resolved = resolveFooterStatsMode(persistedFooterStatsMode);
           cmdCtx.ui.notify(
-            `✅ Footer mode set to ${resolved.mode}. Persistent config overrides ${FOOTER_MODE_ENV}.`,
+            `✅ Status scope set to ${resolved.mode}. Persistent config overrides ${displayEnvName(FOOTER_MODE_ENV)}.`,
             "info",
           );
         } catch (error) {
           cmdCtx.ui.notify(
-            `❌ Could not update footer mode config: ${error instanceof Error ? error.message : String(error)}`,
+            `❌ Could not update status scope config: ${error instanceof Error ? error.message : String(error)}`,
             "error",
           );
         }
@@ -234,12 +234,12 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
             (modelsReceipt.placement !== "provider" && modelsReceipt.modelId !== model.id) || configReceipt.appliedAt >= modelsReceipt.appliedAt);
         if (useConfigReceipt) {
           if (!cmdCtx.hasUI) {
-            cmdCtx.ui.notify("❌ Rollback requires interactive confirmation. No changes were made.\nRun /cache-optimizer rollback in Pi's interactive UI to restore the prompt-cache-key setting.", "warning");
+            cmdCtx.ui.notify("❌ Rollback requires interactive confirmation. No changes were made.\nRun /cache-optimizer rollback in the Harness UI to restore the prompt-cache-key setting.", "warning");
             return;
           }
           const confirmed = await cmdCtx.ui.confirm(
             "Cache Optimizer — Rollback prompt_cache_key opt-out",
-            `Model: ${modelKey(model)}\nAction: restore the extension config before the confirmed opt-out.\nFooter mode and unrelated configuration will be preserved.\nAfterward, run /reload or restart Pi.\n\nProceed with rollback?`,
+            `Model: ${modelKey(model)}\nAction: restore the plugin config before the confirmed opt-out.\nStatus scope and unrelated configuration will be preserved.\nAfterward, reload the profile or restart the Harness.\n\nProceed with rollback?`,
           );
           if (!confirmed) {
             cmdCtx.ui.notify("No changes were made. Rollback canceled by user.", "info");
@@ -249,7 +249,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
             if (!configReceiptSnapshot) throw new Error("prompt-cache-key receipt changed since the rollback preview");
             await rollbackPromptCacheKeyConfig(configReceiptSnapshot);
             setPersistedCacheOptimizerConfig(readPersistedCacheOptimizerConfig());
-            cmdCtx.ui.notify(`✅ Restored prompt_cache_key behavior for ${modelKey(model)}. Run /reload or restart Pi for the change to take effect.`, "info");
+            cmdCtx.ui.notify(`✅ Restored prompt_cache_key behavior for ${modelKey(model)}. Reload the profile or restart the Harness for the change to take effect.`, "info");
           } catch (error) {
             cmdCtx.ui.notify(`❌ Prompt cache key rollback refused: ${error instanceof Error ? error.message : String(error)}. No changes were made.`, "error");
           }
@@ -262,7 +262,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
             : " Check the recorded models.json backup manually if a fix receipt exists.";
           cmdCtx.ui.notify(
             "❌ Rollback requires interactive confirmation. No changes were made.\n" +
-            `Run /cache-optimizer rollback in Pi's interactive UI.${backupHint} Then run /reload.`,
+            `Run /cache-optimizer rollback in the Harness UI.${backupHint} Then reload the profile.`,
             "warning",
           );
           return;
@@ -302,7 +302,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           `Action: ${rollbackScope}.`,
           `A new rollback backup will be written to: ${rollback.rollbackBackupPath}`,
           "Comments, credentials, unrelated fields, and the existing access mode will be preserved.",
-          "Afterward, run /reload or restart Pi for the configuration change to take effect.",
+          "Afterward, reload the profile or restart the Harness for the configuration change to take effect.",
           "",
           "Proceed with rollback?",
         ].join("\n");
@@ -343,7 +343,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           cmdCtx.ui.notify(
             `✅ Rollback completed for ${rollback.receipt.provider}/${rollback.receipt.modelId}.\n` +
             `Rollback backup saved to: ${rollback.rollbackBackupPath}\n` +
-            "The receipt was marked as rolled back. Run /reload or restart Pi for the change to take effect.",
+            "The receipt was marked as rolled back. Reload the profile or restart the Harness for the change to take effect.",
             "info",
           );
         } catch (rollbackError) {
@@ -378,7 +378,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
         await publishStatus(cmdCtx, model);
 
         cmdCtx.ui.notify(
-          `✅ Reset local footer cache stats for "${displayKey}". ` +
+          `✅ Reset local status line cache stats for "${displayKey}". ` +
           "Upstream provider prompt cache was not modified. " +
           "New requests will start a fresh local stats bucket for this provider/model.",
           "info",
@@ -417,20 +417,20 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           if (!cmdCtx.hasUI) {
             cmdCtx.ui.notify(
               "❌ Non-interactive terminal detected. Prompt cache key opt-out requires UI confirmation. No changes were made.\n" +
-              `Run /cache-optimizer fix prompt-cache-key in Pi's interactive UI for ${modelKey(model)}.`,
+              `Run /cache-optimizer fix prompt-cache-key in the Harness UI for ${modelKey(model)}.`,
               "warning",
             );
             return;
           }
           const preview = [
-            "📝 Preview of extension configuration change:",
+            "📝 Preview of plugin configuration change:",
             ...buildPromptCacheKeyConfigPreview(model),
             "",
             "⚠️ Risk notice:",
             "  1. This affects all sessions using this exact provider/model.",
             "  2. Provider prompt-cache reuse may decrease because both key spellings are removed.",
-            "  3. This does not modify Pi's models.json, credentials, prompts, headers, or other models.",
-            "  4. The extension config will be backed up and Pi must be reloaded/restarted.",
+            "  3. This does not modify the provider configuration, credentials, prompts, headers, or other models.",
+            "  4. The plugin config will be backed up and the Harness must be reloaded/restarted.",
             "",
             "Apply this persistent opt-out?",
           ].join("\n");
@@ -445,7 +445,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
             cmdCtx.ui.notify(
               `✅ Prompt cache key opt-out saved for ${modelKey(model)}.\n` +
               `Config backup saved to: ${result.backupPath}\n` +
-              "Run /reload or restart Pi for the change to take effect. Use /cache-optimizer rollback to restore it.",
+              "Reload the profile or restart the Harness for the change to take effect. Use /cache-optimizer rollback to restore it.",
               "info",
             );
           } catch (error) {
@@ -472,7 +472,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           const manualLines = [
             `❌ Non-interactive terminal detected. Auto-fix requires UI confirmation.`,
             "",
-            `Edit ${getModelsJsonDisplayPath()} and run /reload.`,
+            `Edit ${getModelsJsonDisplayPath()} and reload the profile.`,
           ];
           if (promptCacheRetention400Models.has(modelKey(model))) {
             manualLines.push(
@@ -497,7 +497,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           }
           manualLines.push(
             "",
-            "Add these compat keys at Pi's highest-precedence model override path:",
+            "Add these compat keys at the profile's highest-precedence model override path:",
             `providers["${suggestion.providerLabel}"] -> modelOverrides -> "${suggestion.modelId}" -> compat:`,
             formatCompatKeysForInsertion(suggestion.compatKeys),
           );
@@ -575,7 +575,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
               `Compat JSON to write: ${JSON.stringify(suggestion.compatKeys)}`,
               `⚠️ This affects all models using this provider across all sessions; model-level overrides remain authoritative.`,
               `A timestamped backup will be written to: ${backupPath}`,
-              "Run /reload or restart Pi for the change to take effect.",
+              "Reload the profile or restart the Harness for the change to take effect.",
               ...typoNoteLines,
               "Apply these changes?",
             ].join("\n"));
@@ -601,7 +601,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
                 return;
               }
               invalidateModelsConfigCache();
-              cmdCtx.ui.notify(`✅ Fix applied to ${getModelsJsonDisplayPath()}.\nBackup saved to: ${backupPath}\nRun /reload or restart Pi.`, "info");
+              cmdCtx.ui.notify(`✅ Fix applied to ${getModelsJsonDisplayPath()}.\nBackup saved to: ${backupPath}\nReload the profile or restart the Harness.`, "info");
             } catch (error) {
               cmdCtx.ui.notify(`❌ Write failed: ${error instanceof Error ? error.message : String(error)}. Backup may be at: ${backupPath}`, "error");
             }
@@ -652,7 +652,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
                   ? `  1. This updates the existing modelOverrides entry for "${suggestion.modelId}". Existing auth is not affected.`
                   : `  1. This creates a modelOverrides entry in models.json. Existing auth (e.g. login API tokens) is not affected.`,
                 `  2. A timestamped backup will be written to: ${backupPath}`,
-                `  3. You must run /reload or restart Pi for the change to take effect.`,
+                `  3. You must reload the profile or restart the Harness for the change to take effect.`,
                 `  4. If the file contains comments or unusual formatting, please verify the result after write.`,
               ];
               if (promptCacheRetention400Models.has(modelKey(model))) {
@@ -660,7 +660,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
                   "",
                   "💡  This fix overrides supportsLongCacheRetention to false because",
                   "a 400 prompt_cache_retention error was observed for this model.",
-                  "After applying and reloading, Pi will no longer send the",
+                  "After applying and reloading, the Harness will no longer send the",
                   "prompt_cache_retention parameter to this provider.",
                 );
               }
@@ -714,7 +714,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
                   cmdCtx.ui.notify(
                     `✅ Fix applied to ${getModelsJsonDisplayPath()}.\n` +
                     `Backup saved to: ${backupPath}\n` +
-                    `Run /reload or restart Pi for the change to take effect.`,
+                    `Reload the profile or restart the Harness for the change to take effect.`,
                     "info",
                   );
                 } catch (e) {
@@ -741,7 +741,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
             adviceLines.push(
               `❌ Could not locate model "${suggestion.modelId}" or provider "${suggestion.providerLabel}" in ${getModelsJsonDisplayPath()}.`,
               "",
-              "Providers that were added via Pi /login API (e.g. opencode go) do not have",
+              "Providers that were added via the Harness login flow (e.g. opencode go) do not have",
               "entries in models.json. You can create a minimal modelOverrides entry by hand:",
             );
           } else if (diagnosis.scenario === "provider_missing") {
@@ -760,7 +760,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
               "Add the following modelOverrides entry (keep existing auth):",
             );
           }
-          adviceLines.push("", snippet, "", "Then save and run /reload.", ...typoNoteLines);
+          adviceLines.push("", snippet, "", "Then save and reload the profile.", ...typoNoteLines);
           cmdCtx.ui.notify(adviceLines.join("\n"), "warning");
           return;
         }
@@ -772,7 +772,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           cmdCtx.ui.notify(
             `❌ ${getModelsJsonDisplayPath()} contains ${duplicateTargetDefinitions} custom model definitions ` +
             `with the exact id "${suggestion.modelId}" under providers["${suggestion.providerLabel}"].\n` +
-            `Pi uses the last definition, but /cache-optimizer fix refuses an ambiguous duplicate-id edit. ` +
+            `The Harness uses the last definition, but /cache-optimizer fix refuses an ambiguous duplicate-id edit. ` +
             `Remove or consolidate the duplicates, then run the command again.`,
             "error",
           );
@@ -869,7 +869,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           `⚠️  Risk notice:`,
           scopeRiskLine,
           `  2. A timestamped backup will be written to: ${backupPath}`,
-          `  3. You must restart Pi / run /reload for the change to take effect.`,
+          `  3. You must restart the Harness or reload the profile for the change to take effect.`,
           `  4. If the file contains comments or unusual formatting, please verify the result after write.`,
         ];
         if (promptCacheRetention400Models.has(modelKey(model))) {
@@ -877,7 +877,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
             "",
             "💡  This fix overrides supportsLongCacheRetention to false because",
             "a 400 prompt_cache_retention error was observed for this model.",
-            "After applying and reloading, Pi will no longer send the",
+            "After applying and reloading, the Harness will no longer send the",
             "prompt_cache_retention parameter to this provider.",
           );
         }
@@ -945,7 +945,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           cmdCtx.ui.notify(
             `✅ Fix applied to ${getModelsJsonDisplayPath()}.\n` +
             `Backup saved to: ${backupPath}\n` +
-            `Run /reload or restart Pi for the change to take effect.`,
+            `Reload the profile or restart the Harness for the change to take effect.`,
             "info",
           );
         } catch (writeError) {
@@ -964,10 +964,10 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
             "Doctor — Show cache configuration",
             "Stats — Show current-session model statistics",
             "Compat — Show compat suggestion",
-            "Fix — Auto-fix compat issues (writes models.json or extension config)",
+            "Fix — Auto-fix compat issues (writes models.json or plugin config)",
             "Disable prompt_cache_key — Omit it for the active model",
             "Rollback — Undo the latest confirmed fix",
-            "Footer mode — Choose total, session, or process stats",
+            "Status scope — Choose total, session, or process stats",
             "Reset — Reset local provider/model stats",
             "Cancel",
           ];
@@ -989,8 +989,8 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           } else if (choice === menuOptions[7]) {
             await handleCacheOptimizerCommand("rollback", cmdCtx);
           } else if (choice === menuOptions[8]) {
-            const modeOptions = ["session — Current Pi conversation session (default)", "total — All local sessions today", "process — Current extension instance only", "Cancel"];
-            const modeChoice = await cmdCtx.ui.select("Footer cache stats mode", modeOptions);
+            const modeOptions = ["session — Current conversation session (default)", "total — All local sessions today", "process — Current plugin instance only", "Cancel"];
+            const modeChoice = await cmdCtx.ui.select("Status line scope", modeOptions);
             const nextMode = modeChoice === modeOptions[0]
               ? "session"
               : modeChoice === modeOptions[1]
@@ -1009,20 +1009,20 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
         // Fallback: text help when no interactive UI
         const diagnosis: string[] = [];
         diagnosis.push("📋 /cache-optimizer commands:");
-        diagnosis.push("  enable  — Enable prompt/cache optimizations for this Pi process");
-        diagnosis.push("  disable — Disable prompt/cache optimizations for this Pi process");
+        diagnosis.push("  enable  — Enable prompt/cache optimizations for this Harness process");
+        diagnosis.push("  disable — Disable prompt/cache optimizations for this Harness process");
         diagnosis.push("  doctor  — Show current model/provider/api/baseUrl/compat and low-hit diagnosis");
         diagnosis.push("  stats   — Show detailed statistics for every model in the current session");
         diagnosis.push("  stats all — Show detailed totals for every model across all local sessions");
         diagnosis.push("  stats contributors — Show per-session contributors for the active model");
         diagnosis.push("  compat  — Show compat suggestion with edit location");
         diagnosis.push("  config prompt-rewrite|virtual-rewrite|skill-compression|openai-cache-key|tool-order|zero-price-warming|stats-incremental on|off — Persist feature settings");
-        diagnosis.push("  config footer-mode total|session|process — Persist the footer stats mode");
+        diagnosis.push("  config footer-mode total|session|process — Persist the cache stats mode");
         diagnosis.push("  config reset — Remove persistent feature overrides");
-        diagnosis.push("  fix     — Auto-fix compat issues (writes models.json or extension config, requires UI)");
-        diagnosis.push("  fix prompt-cache — Add promptCache lifetimes so Pi's cache warming can run");
+        diagnosis.push("  fix     — Auto-fix compat issues (writes models.json or plugin config, requires UI)");
+        diagnosis.push("  fix prompt-cache — Add promptCache lifetimes so cache warming can run");
         diagnosis.push("  fix prompt-cache-key — Explicitly omit prompt_cache_key for the active model");
-        diagnosis.push("  fix kimi-base-url — Append /v1 to an official Kimi Code base URL (Pi 1.3.0+ OpenAI Chat Completions)");
+        diagnosis.push("  fix kimi-base-url — Append /v1 to an official Kimi Code base URL (the OpenAI Chat Completions via pi-ai)");
         diagnosis.push("  rollback — Undo the latest confirmed fix (requires UI confirmation)");
         diagnosis.push("  reset   — Reset local provider/model stats for current model (does not affect upstream)");
         diagnosis.push("");
@@ -1094,7 +1094,7 @@ async function runPromptCacheFix(cmdCtx: ExtensionCommandContext, model: PiModel
     `❌ ${reason}. No changes were made.`,
     "",
     `Add this to the model entry in ${getModelsJsonDisplayPath()} (custom models) or under`,
-    `providers["${model.provider}"].modelOverrides["${model.id}"] (built-in models), then run /reload:`,
+    `providers["${model.provider}"].modelOverrides["${model.id}"] (built-in models), then reload the profile:`,
     `  ${snippet}`,
     ...typoNoteLines,
   ].join("\n");
@@ -1125,15 +1125,15 @@ async function runPromptCacheFix(cmdCtx: ExtensionCommandContext, model: PiModel
     `JSON to write: ${snippet}`,
     plan.targetExistedBefore ? "" : "A new modelOverrides entry will be created for this model.",
     "",
-    "Why: Pi only warms a prompt cache when the model declares its lifetime for the retention tier in use",
-    `(${tier} here). ${model.api === "anthropic-messages" ? "300s/3600s are Anthropic's documented 5m and 1h lifetimes, the values Pi ships for its own Claude models." : "300s is the conservative short lifetime."}`,
+    "Why: the adapter only warms a prompt cache when the model declares its lifetime for the retention tier in use",
+    `(${tier} here). ${model.api === "anthropic-messages" ? "300s/3600s are Anthropic's documented 5m and 1h lifetimes, the values the adapter ships for Claude models." : "300s is the conservative short lifetime."}`,
     "",
     `A timestamped backup will be written to: ${backupPath}`,
     "Comments and unrelated fields are preserved. Undo with /cache-optimizer rollback.",
     isActionableModelsJsonFixReceipt(pendingReceipt)
       ? `⚠️ This replaces the rollback receipt of the earlier fix for ${pendingReceipt.provider}/${pendingReceipt.modelId}; its backup ${pendingReceipt.backupFile} stays on disk.`
       : "",
-    "Run /reload or restart Pi for the change to take effect.",
+    "Reload the profile or restart the Harness for the change to take effect.",
     ...typoNoteLines,
     "",
     "Apply this change?",
@@ -1171,7 +1171,7 @@ async function runPromptCacheFix(cmdCtx: ExtensionCommandContext, model: PiModel
     cmdCtx.ui.notify(
       `✅ promptCache ${JSON.stringify(plan.promptCache)} added for ${modelKey(model)}.\n` +
       `Backup saved to: ${backupPath}\n` +
-      "Run /reload or restart Pi, then /cache-optimizer doctor to confirm warming is eligible.",
+      "Reload the profile or restart the Harness, then /cache-optimizer doctor to confirm warming is eligible.",
       "info",
     );
   } catch (error) {
@@ -1202,7 +1202,7 @@ async function runKimiBaseUrlFix(cmdCtx: ExtensionCommandContext, model: PiModel
     `  ${JSON.stringify(status.current)}`,
     "to",
     `  ${JSON.stringify(status.suggested)}`,
-    "then run /reload.",
+    "then reload the profile.",
   ].join("\n");
 
   if (!cmdCtx.hasUI) {
@@ -1239,7 +1239,7 @@ async function runKimiBaseUrlFix(cmdCtx: ExtensionCommandContext, model: PiModel
     `After:  ${JSON.stringify(plan.after)}`,
     plan.affectedNote ?? "",
     "",
-    "Why: this model uses OpenAI Chat Completions (Pi 1.3.0+ kimi-coding), whose official endpoint is /coding/v1.",
+    "Why: this model uses OpenAI Chat Completions (the pi-ai adapter kimi-coding), whose official endpoint is /coding/v1.",
     "Without /v1, requests go to /coding/chat/completions and fail.",
     "",
     `A timestamped backup will be written to: ${backupPath}`,
@@ -1247,7 +1247,7 @@ async function runKimiBaseUrlFix(cmdCtx: ExtensionCommandContext, model: PiModel
     isActionableModelsJsonFixReceipt(pendingReceipt)
       ? `⚠️ This replaces the rollback receipt of the earlier fix for ${pendingReceipt.provider}/${pendingReceipt.modelId}; its backup ${pendingReceipt.backupFile} stays on disk.`
       : "",
-    "Run /reload or restart Pi for the change to take effect.",
+    "Reload the profile or restart the Harness for the change to take effect.",
     "",
     "Apply this change?",
   ].filter((line, index, lines) => line !== "" || lines[index - 1] !== "").join("\n"));
@@ -1284,7 +1284,7 @@ async function runKimiBaseUrlFix(cmdCtx: ExtensionCommandContext, model: PiModel
     cmdCtx.ui.notify(
       `✅ baseUrl updated to ${plan.after} for ${modelKey(model)}.\n` +
       `Backup saved to: ${backupPath}\n` +
-      "Run /reload or restart Pi, then /cache-optimizer doctor to confirm.",
+      "Reload the profile or restart the Harness, then /cache-optimizer doctor to confirm.",
       "info",
     );
   } catch (error) {

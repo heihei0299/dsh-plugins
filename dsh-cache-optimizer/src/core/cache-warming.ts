@@ -145,11 +145,11 @@ function formatSeconds(seconds: number): string {
 }
 
 export function buildCacheWarmingDiagnosis(model: PiModel, input: CacheWarmingDiagnosisInput): CacheWarmingDiagnosis {
-  const lines: string[] = ["", "🔥 Prompt cache warming (Pi cacheWarming):"];
+  const lines: string[] = ["", "🔥 Prompt cache warming (cacheWarming):"];
   const issues: string[] = [];
 
   if (input.mode === "unsupported") {
-    lines.push("- This Pi host does not expose cache warming settings (requires Pi 0.86+). Nothing to check.");
+    lines.push("- This Harness host does not expose cache warming settings (requires the pi-ai adapter). Nothing to check.");
     return { eligible: false, issues: ["unsupported"], lines };
   }
 
@@ -167,7 +167,7 @@ export function buildCacheWarmingDiagnosis(model: PiModel, input: CacheWarmingDi
     const suggested = suggestedPromptCacheLifetimes(model);
     const snippet: Record<string, number> = { short: suggested.short };
     if (suggested.long !== undefined) snippet.long = suggested.long;
-    lines.push(`- ⚠️ The model declares no promptCache.${input.tier} lifetime, so Pi never warms its cache.`);
+    lines.push(`- ⚠️ The model declares no promptCache.${input.tier} lifetime, so the adapter never warms its cache.`);
     lines.push(`  Add to this model's entry in models.json (custom models) or under the provider's modelOverrides.${JSON.stringify(model.id)} (built-in models):`);
     lines.push(`  "promptCache": ${JSON.stringify(snippet)}`);
     if (input.tier === "short" || suggested.long !== undefined) {
@@ -186,22 +186,22 @@ export function buildCacheWarmingDiagnosis(model: PiModel, input: CacheWarmingDi
 
   if (!hasPricing(model)) {
     if (input.zeroPriceWarming && isZeroPriced(model)) {
-      lines.push("- The model has no input/cache prices. Pi would skip warming; this extension overrides that (config zero-price-warming on).");
+      lines.push("- The model has no input/cache prices. the adapter would skip warming; this plugin overrides that (config zero-price-warming on).");
     } else if (isOpenRouterRouterModel(model)) {
       issues.push("pricing_unknown");
-      lines.push("- ⚠️ OpenRouter router models list a placeholder price that Pi shows as 0, but the routed model is billed at its own price. Pi cannot estimate savings and skips warming; zero-price warming does not apply.");
+      lines.push("- ⚠️ OpenRouter router models list a placeholder price that the adapter shows as 0, but the routed model is billed at its own price. the adapter cannot estimate savings and skips warming; zero-price warming does not apply.");
     } else if (hasOnlyTierPrices(model)) {
       issues.push("pricing_missing");
-      lines.push("- ⚠️ The model has prompt-length price tiers but no base input/cache prices, so Pi cannot estimate savings and skips warming. Add base prices to the cost block.");
+      lines.push("- ⚠️ The model has prompt-length price tiers but no base input/cache prices, so the adapter cannot estimate savings and skips warming. Add base prices to the cost block.");
     } else {
       issues.push("pricing_missing");
-      lines.push("- ⚠️ The model has no input/cache prices, so Pi cannot estimate savings and skips warming. Add a cost block, or turn on /cache-optimizer config zero-price-warming.");
+      lines.push("- ⚠️ The model has no input/cache prices, so the adapter cannot estimate savings and skips warming. Add a cost block, or turn on /cache-optimizer config zero-price-warming.");
     }
   }
 
   if (!isReplayableForWarming(model)) {
     issues.push("not_replayable");
-    lines.push("- ⚠️ Anthropic budget-based thinking cannot be replayed with a one-token cap, so Pi skips warming. Set compat.forceAdaptiveThinking only if the model supports adaptive thinking.");
+    lines.push("- ⚠️ Anthropic budget-based thinking cannot be replayed with a one-token cap, so the adapter skips warming. Set compat.forceAdaptiveThinking only if the model supports adaptive thinking.");
   }
 
   if (ttl !== undefined && input.mode === "idle") {
@@ -213,7 +213,7 @@ export function buildCacheWarmingDiagnosis(model: PiModel, input: CacheWarmingDi
 
   const eligible = input.mode !== "off" && issues.length === 0;
   if (eligible) {
-    lines.push(`- ✓ Eligible: Pi keeps this cache warm ${input.mode === "idle" ? "during runs and briefly between runs" : "during agent runs"} when the expected savings are at least $0.05.`);
+    lines.push(`- ✓ Eligible: the adapter keeps this cache warm ${input.mode === "idle" ? "during runs and briefly between runs" : "during agent runs"} when the expected savings are at least $0.05.`);
   }
   return { eligible, issues, lines };
 }

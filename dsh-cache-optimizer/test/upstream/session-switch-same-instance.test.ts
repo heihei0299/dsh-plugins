@@ -6,7 +6,7 @@ import { describe, test } from "node:test";
 import { createJiti } from "jiti";
 
 // A host that keeps one extension instance across sessions sends it a second
-// session_start (Pi 1.3 builds a new instance instead). The earlier session's
+// session_start (the Harness 1.3 builds a new instance instead). The earlier session's
 // usage for the day must survive: the shard holding it is retired and the
 // instance continues under a new id, as on day rollover (pre-2.10.1 the reused
 // id was rewritten with the cleared counters).
@@ -46,7 +46,7 @@ async function withEnv(values: Record<string, string | undefined>, run: () => Pr
   }
 }
 
-/** A separately loaded module instance: its own caches, like another Pi process. */
+/** A separately loaded module instance: its own caches, like another the Harness process. */
 async function loadModule(label: string): Promise<any> {
   const jiti = createJiti(join(process.cwd(), "test", "upstream", `session-switch-${label}.ts`), { interopDefault: false, moduleCache: false });
   return jiti.import<typeof import("../../src/extension.ts")>(join(process.cwd(), "src", "extension.ts"));

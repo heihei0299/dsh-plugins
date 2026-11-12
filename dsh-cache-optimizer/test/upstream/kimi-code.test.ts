@@ -16,7 +16,7 @@ import { composeModelsJsonReceiptRollback, createBaseUrlFixReceipt, parseModelsJ
 import { parseJsonc } from "../../src/core/jsonc.ts";
 
 
-/** Pi 1.3.0's own kimi-coding catalog (openai-completions at /coding/v1). */
+/** the Harness 1.3.0's own kimi-coding catalog (openai-completions at /coding/v1). */
 function builtInKimiModels(): PiModel[] {
   const dataPath = join(process.cwd(), "node_modules", "@earendil-works", "pi-ai", "dist", "providers", "data", "kimi-coding.json");
   const data = JSON.parse(readFileSync(dataPath, "utf8")) as Record<string, Record<string, Record<string, unknown>>>;
@@ -67,9 +67,9 @@ describe("official Kimi Code endpoint detection", () => {
 });
 
 describe("session-affinity advice skips the official Kimi Code origin", () => {
-  test("Pi 1.3.0 built-in Kimi models get no proxy compat warning or fix", () => {
+  test("the Harness 1.3.0 built-in Kimi models get no proxy compat warning or fix", () => {
     const models = builtInKimiModels();
-    assert.ok(models.length >= 3, "expected Pi's kimi-coding catalog");
+    assert.ok(models.length >= 3, "expected the Harness's kimi-coding catalog");
     for (const model of models) {
       assert.equal(model.api, "openai-completions");
       assert.ok(isOfficialKimiCodeEndpoint(model));
@@ -182,7 +182,7 @@ describe("planKimiBaseUrlFix", () => {
     assert.ok("error" in withRegistry && /kimi-for-coding/.test(withRegistry.error));
     // No registry: a custom entry inheriting the provider baseUrl is refused.
     assert.ok("error" in planKimiBaseUrlFix(text, custom));
-    // Pi 1.3.0 registry (all built-ins on openai-completions) allows it.
+    // the Harness 1.3.0 registry (all built-ins on openai-completions) allows it.
     const ok = planKimiBaseUrlFix(text, custom, [custom, kimi({ id: "kimi-for-coding", baseUrl: "https://api.kimi.com/coding" })]);
     assert.ok(!("error" in ok), JSON.stringify(ok));
   });

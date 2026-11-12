@@ -193,7 +193,7 @@ export const CACHE_PROVIDER_ADAPTERS: CacheProviderAdapter[] = [
 
       const lines = [
         `💡 Cache optimizer: ${modelKey(model)} looks Claude/Anthropic-like but OpenAI-compatible compat lacks cacheControlFormat: "anthropic". ` +
-        "Pi may not place Anthropic cache_control breakpoints unless this endpoint supports and enables that compat flag.",
+        "The adapter may not place Anthropic cache_control breakpoints unless this endpoint supports and enables that compat flag.",
       ];
       appendModelsJsonTypoHints(lines, model.provider, model.id);
       return lines.join("\n");

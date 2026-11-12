@@ -6,9 +6,9 @@ import { join } from "node:path";
 import { createJiti } from "jiti";
 import { derivePromptCacheKey } from "../../src/core/request-payload.ts";
 
-// Pi 0.99+ native virtual models keep ctx.model virtual (api "pi-virtual")
-// while Pi dispatches each request to a physical model. These tests pin how
-// the extension resolves that physical model for request hooks, footer stats,
+// the Harness 0.99+ native virtual models keep ctx.model virtual (api "pi-virtual")
+// while the Harness dispatches each request to a physical model. These tests pin how
+// the extension resolves that physical model for request hooks, cache stats,
 // and diagnostics.
 
 const OPTIMIZER_ENV = [
@@ -37,7 +37,7 @@ before(async () => {
     previousOptimizerEnv.set(name, process.env[name]);
     delete process.env[name];
   }
-  // The extension config is read at module load; create the omit rule first.
+  // The plugin config is read at module load; create the omit rule first.
   await writeFile(
     join(agentDir, "pi-cache-optimizer-config.json"),
     JSON.stringify({ version: 2, promptCacheKey: { omit: ["strict-proxy/omit-model"] } }),
@@ -140,7 +140,7 @@ function setup() {
 }
 
 describe("native virtual model contracts", () => {
-  test("installed Pi marks native virtual models with the pi-virtual API", async () => {
+  test("installed the Harness marks native virtual models with the pi-virtual API", async () => {
     const piVirtual = await jiti.import<typeof import("../../node_modules/@earendil-works/pi-coding-agent/dist/core/virtual-models.js")>(
       join(process.cwd(), "node_modules", "@earendil-works", "pi-coding-agent", "dist", "core", "virtual-models.js"),
     );
@@ -174,7 +174,7 @@ describe("native virtual model contracts", () => {
     }
   });
 
-  test("branch resolution follows the latest physical response like Pi", () => {
+  test("branch resolution follows the latest physical response like the Harness", () => {
     const branch = [
       assistantEntry("old-proxy", "glm-5.2", "openai-completions"),
       assistantEntry("jev", "auto", "pi-virtual", { stopReason: "error" }),
@@ -498,7 +498,7 @@ describe("native virtual model hooks", () => {
     assert.ok(!notifications.at(-1)?.includes("jev/auto"));
     await hooks.get("session_shutdown")!({}, routedCtx);
 
-    // After /reload, a fresh instance has no cached footer text; it must
+    // After a profile reload, a fresh instance has no cached footer text; it must
     // resolve the routed physical model from the session branch alone.
     const reloaded = setup();
     const reloadStatuses: Array<string | undefined> = [];
@@ -514,7 +514,7 @@ describe("native virtual model hooks", () => {
     const statuses: Array<string | undefined> = [];
     const notifications: string[] = [];
     // The display name contains an adapter token; the selection still has no
-    // physical cache identity until Pi routes a request.
+    // physical cache identity until the Harness routes a request.
     const selected = virtualModel("jev", "deepseek-auto", "DeepSeek Auto");
     const ctx = context(selected, { sessionId: "unrouted-session" }, { statuses, notifications });
 
@@ -523,7 +523,7 @@ describe("native virtual model hooks", () => {
     assert.deepEqual(statuses.filter((status) => status !== undefined), []);
 
     await commands.get("cache-optimizer")!.handler("compat", ctx);
-    assert.match(notifications.at(-1) ?? "", /Native virtual model: Pi routes each request/);
+    assert.match(notifications.at(-1) ?? "", /Native virtual model: the Harness routes each request/);
   });
 
   test("doctor and compat name the virtual selection and its routed physical model", async () => {
@@ -541,7 +541,7 @@ describe("native virtual model hooks", () => {
     assert.match(notifications.at(-1) ?? "", /^🔀 Native virtual model jev\/auto/);
   });
 
-  test("native virtual selections keep Pi's system prompt unchanged", async () => {
+  test("native virtual selections keep the Harness's system prompt unchanged", async () => {
     const { hooks } = setup();
     const systemPrompt = [
       "You are a coding assistant.",
@@ -564,7 +564,7 @@ describe("native virtual model hooks", () => {
   });
 
 
-  test("every API gets in-place edits only and Pi's section order is never changed", async () => {
+  test("every API gets in-place edits only and the Harness's section order is never changed", async () => {
     const { hooks } = setup();
     const sourceInfo = { path: "", source: "local", scope: "user", origin: "top-level" };
     const skills = ["alpha", "beta", "gamma", "delta"].map((name) => ({
@@ -598,7 +598,7 @@ describe("native virtual model hooks", () => {
       assert.ok(out.startsWith("You are a coding assistant.\n<project_context>"), `${codex.api}: section order kept`);
       assert.ok(out.includes(`<project_instructions path="/repo/AGENTS.md">\n${agents}`), `${codex.api}: AGENTS.md stays in its section`);
       if (codex.api === "openai-codex-responses") {
-        assert.ok(out.includes("<available_skills>") && !out.includes("- alpha: alpha skill description"), `${codex.api}: native Pi skill index preserved`);
+        assert.ok(out.includes("<available_skills>") && !out.includes("- alpha: alpha skill description"), `${codex.api}: native the Harness skill index preserved`);
       } else {
         assert.ok(!out.includes("<available_skills>") && out.includes("- alpha: alpha skill description"), `${codex.api}: skills compressed`);
       }
@@ -615,7 +615,7 @@ describe("native virtual model hooks", () => {
     assert.ok(!/<skills>\n\s*\n<\/skills>/.test(out), "completions: no empty section shells");
   });
 
-  test("OpenAI Codex keeps Pi's native skill index while other APIs may compress it", async () => {
+  test("OpenAI Codex keeps the native skill index while other APIs may compress it", async () => {
     const { hooks } = setup();
     const codex = physical("openai-codex", "gpt-6-luna", { api: "openai-codex-responses", baseUrl: "https://chatgpt.com/backend-api" });
     const openai = physical("openai", "gpt-6-luna", { api: "openai-completions", baseUrl: "https://api.openai.com/v1" });
@@ -666,18 +666,18 @@ describe("native virtual model hooks", () => {
       return { options, event: { type: "before_agent_start", prompt: "hi", get systemPrompt() { return pi.buildSystemPrompt(options); }, systemPromptOptions: options } };
     };
 
-    test("edits sections.skills, keeps Pi's order and wrapper, and returns no forced prompt", async () => {
+    test("edits sections.skills, keeps the Harness's order and wrapper, and returns no forced prompt", async () => {
       const pi = await loadPi();
       const { hooks } = setup();
       const { options, event } = piEvent(pi);
       const before = event.systemPrompt;
       const result = await hooks.get("before_agent_start")!(event, context(physical("proxy", "kimi-k3")));
-      assert.deepEqual(result, {}, "no forced prompt: Pi renders the edited section itself");
+      assert.deepEqual(result, {}, "no forced prompt: the Harness renders the edited section itself");
       assert.equal(typeof options.sections.skills, "string");
       const after = event.systemPrompt;
       assert.ok(!after.includes("<available_skills>") && after.length < before.length);
       assert.match(after, /<skills>\nThe following skills provide[\s\S]*- alpha: alpha skill description[\s\S]*<\/skills>/);
-      // Section order is Pi's: skills still sits between the docs and the cwd.
+      // Section order is the Harness's: skills still sits between the docs and the cwd.
       assert.ok(after.indexOf("<docs>") < after.indexOf("<skills>") && after.indexOf("<skills>") < after.indexOf("<cwd>"));
       assert.equal(pi.buildSystemPromptSections(options as any).skills, `<skills>\n${options.sections.skills}\n</skills>`);
     });
@@ -707,12 +707,12 @@ describe("native virtual model hooks", () => {
       assert.ok(options.customPrompt?.endsWith("<sub_agent_context/>"));
     });
 
-    test("compresses an inherited list without adding a skills section when Pi renders none (no read/bash tool)", async () => {
+    test("compresses an inherited list without adding a skills section when the Harness renders none (no read/bash tool)", async () => {
       const pi = await loadPi();
       const { hooks } = setup();
       const parent = pi.buildSystemPrompt(pi.normalizeBuildSystemPromptOptions({ cwd: "/repo", skills, selectedTools: ["read", "bash"] } as any));
       const { options, event } = piEvent(pi, { customPrompt: parent, selectedTools: ["edit", "write"] });
-      assert.equal(pi.buildSystemPromptSections(options as any).skills, undefined, "Pi renders no skills section for this child");
+      assert.equal(pi.buildSystemPromptSections(options as any).skills, undefined, "the Harness renders no skills section for this child");
       const result = await hooks.get("before_agent_start")!(event, context(physical("proxy", "kimi-k3")));
       assert.deepEqual(result, {}, "no forced prompt");
       assert.equal(options.sections.skills, undefined, "no skills section is added");
@@ -777,13 +777,13 @@ describe("native virtual model hooks", () => {
       assert.equal(twice.split(compressed).length, 4, "two inherited copies plus the child's own section");
     });
 
-    test("compresses inherited and own lists in different Pi wordings without forcing the prompt", async () => {
+    test("compresses inherited and own lists in different the Harness wordings without forcing the prompt", async () => {
       const pi = await loadPi();
       const { hooks } = setup();
       const [current, legacyRule] = t.SKILL_PATH_RULE_WORDINGS;
       const listIn = (rule: string) => t.formatSkillsForPrompt(skills as any, "read", rule as any).trim();
 
-      // A: Pi 1.5 renders its own section; the inherited parent prompt was rendered by Pi <= 1.4.
+      // A: the Harness 1.5 renders its own section; the inherited parent prompt was rendered by the Harness <= 1.4.
       const a = piEvent(pi, { customPrompt: `parent\n${listIn(legacyRule)}\n<sub/>` });
       assert.equal(a.event.systemPrompt.split("<available_skills>").length - 1, 2);
       assert.deepEqual(await hooks.get("before_agent_start")!(a.event, context(physical("proxy", "kimi-k3"))), {}, "A: no forced prompt");
@@ -791,7 +791,7 @@ describe("native virtual model hooks", () => {
       assert.ok(a.options.customPrompt!.includes(legacyRule) && a.options.sections.skills.includes(current), "A: each copy keeps its own wording");
       assert.equal(t.getLastSkillCompressionOutcome()?.applied, "section");
 
-      // B: the section carries the legacy wording (older Pi), the inherited prompt the new one.
+      // B: the section carries the legacy wording (older the Harness), the inherited prompt the new one.
       const b = piEvent(pi, { customPrompt: `parent\n${listIn(current)}\n<sub/>` });
       b.options.sections.skills = listIn(legacyRule);
       assert.deepEqual(await hooks.get("before_agent_start")!(b.event, context(physical("proxy", "kimi-k3"))), {}, "B: no forced prompt");
@@ -870,12 +870,12 @@ describe("native virtual model hooks", () => {
       assert.equal(few?.applied, false);
       assert.match(few?.reason ?? "", /only 2 visible skill/);
 
-      // A skill list Pi rendered differently (the 0.86 regression) must be reported, not silently skipped.
+      // A skill list the Harness rendered differently (the 0.86 regression) must be reported, not silently skipped.
       const changed = { systemPrompt: "base\n<skills>\n<available_skills>\n  <skill>something new</skill>\n</available_skills>\n</skills>", systemPromptOptions: { cwd: "/repo", contextFiles: [], skills: mkSkills(5) } };
       const unrecognised = await run(changed);
       assert.equal(unrecognised?.applied, false);
       assert.match(unrecognised?.reason ?? "", /format was not recognised/);
-      assert.match(t.describeSkillCompressionOutcome(unrecognised), /^Skill compression: not applied — Pi's skill list format was not recognised/);
+      assert.match(t.describeSkillCompressionOutcome(unrecognised), /^Skill compression: not applied — the skill list format was not recognised/);
 
       await withEnv("PI_CACHE_OPTIMIZER_NO_PROMPT_REWRITE", "1", async () => {
         const off = await run(piEvent(pi, mkSkills(5)).event);

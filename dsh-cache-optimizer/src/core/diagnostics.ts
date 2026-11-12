@@ -24,9 +24,9 @@ export function appendAdaptiveThinkingCompatAdviceLines(lines: string[], missing
     lines.push("Suggested fix:");
     lines.push(JSON.stringify(suggestion, null, 2));
   }
-  lines.push("- forceAdaptiveThinking: true tells Pi to use adaptive thinking format");
+  lines.push("- forceAdaptiveThinking: true tells the adapter to use adaptive thinking format");
   lines.push("  (thinking: {type: 'adaptive'}) instead of legacy budget tokens format.");
-  lines.push("  Without this flag, Pi sends legacy thinking which adaptive-only upstreams reject.");
+  lines.push("  Without this flag, the adapter sends legacy thinking which adaptive-only upstreams reject.");
   if (missing.includes("allowEmptySignature")) {
     lines.push("- allowEmptySignature: true preserves Kimi Coding K3 thinking blocks whose replay signature is empty.");
   }
@@ -49,7 +49,7 @@ export function describeOptionalOpenAICompatibleProxyCompat(model: PiModel): str
 }
 
 export function getPromptCacheRetentionUnsupportedHint(): string {
-  return "If this channel returns `400 Unsupported parameter: prompt_cache_retention`, remove/avoid `supportsLongCacheRetention`; this extension does not write that field directly, but Pi may send it when long retention is requested and compat says the proxy supports it.";
+  return "If this channel returns `400 Unsupported parameter: prompt_cache_retention`, remove/avoid `supportsLongCacheRetention`; this plugin does not write that field directly, but the adapter may send it when long retention is requested and compat says the proxy supports it.";
 }
 
 export function isPromptCacheKeyUnsupportedApplicable(model: PiModel): boolean {
@@ -372,7 +372,7 @@ export function getCompatCheckNotApplicableLines(model: PiModel): string[] {
   if (isNativeVirtualModel(model)) {
     return [
       "ℹ️ Compat check not applicable for this model.",
-      "   Native virtual model: Pi routes each request to a physical model and none has answered on this session branch yet. Send a prompt, then rerun to diagnose the physical model that answered.",
+      "   Native virtual model: the Harness routes each request to a physical model and none has answered on this session branch yet. Send a prompt, then rerun to diagnose the physical model that answered.",
     ];
   }
 
@@ -393,7 +393,7 @@ export function getCompatCheckNotApplicableLines(model: PiModel): string[] {
   if (api === "openai-codex-responses" || (api === "openai-responses" && isOfficialOpenAIBaseUrl(model))) {
     return [
       "ℹ️ Compat check not applicable for this model.",
-      "   Native Responses transports already use Pi core request handling; OpenAI-compatible proxy compat flags do not apply.",
+      "   Native Responses transports already use the adapter's request handling; OpenAI-compatible proxy compat flags do not apply.",
     ];
   }
 
@@ -407,7 +407,7 @@ export function getCompatCheckNotApplicableLines(model: PiModel): string[] {
   if (isOpenAICompatibleApi(api) && isOfficialKimiCodeEndpoint(model)) {
     return [
       "ℹ️ Compat check not applicable for this model.",
-      "   Official Kimi Code endpoint: Pi ships this provider's compat itself, and proxy session-affinity flags do not apply to a first-party origin.",
+      "   Official Kimi Code endpoint: the adapter ships this provider's compat itself, and proxy session-affinity flags do not apply to a first-party origin.",
     ];
   }
 
@@ -498,7 +498,7 @@ export function buildDoctorDiagnosis(model: PiModel, options: { promptCacheReten
     lines.push("");
     if (options.sessionAffinity403) {
       lines.push("⚠️  A 403 response was observed while sendSessionAffinityHeaders is enabled.");
-      lines.push("   The proxy/CDN likely blocks Pi's custom session-affinity headers (session_id,");
+      lines.push("   The proxy/CDN likely blocks the custom session-affinity headers (session_id,");
       lines.push("   x-client-request-id, x-session-affinity). Run /cache-optimizer fix to");
       lines.push(`   set sendSessionAffinityHeaders: false in ${getModelsJsonDisplayPath()}.`);
     } else {
@@ -611,7 +611,7 @@ export function buildLowHitDiagnosis(
   // Priority 3: usage fields missing
   if (hasUsageMissing) {
     lines.push(`⚠️  ${missingUsageSamples}/${samples.length} recent responses had missing/empty usage fields.`);
-    lines.push("   Footer may under-report cache hit rate.");
+    lines.push("   The status line may under-report cache hit rate.");
     lines.push("   Verify the proxy returns prompt-level usage (prompt_tokens, input_tokens_details).");
   }
 
@@ -640,7 +640,7 @@ export function buildLowHitDiagnosis(
     lines.push("   Possible causes:");
     lines.push("   • Proxy still routes to multiple backends — check session affinity on the proxy side.");
     lines.push("   • Prompt prefix varies per turn — check dynamic context in system prompt.");
-    lines.push("   • Provider does not return cache usage fields — footer can't measure hits.");
+    lines.push("   • Provider does not return cache usage fields — the status line can't measure hits.");
   }
 
   return lines;
@@ -700,7 +700,7 @@ export function buildCompatDiagnosis(model: PiModel): string | undefined {
       if (isSessionAffinity403Applicable(model)) {
         lines.push(
           "ℹ️ Session affinity headers are enabled. If you see 403 \"blocked\" errors,",
-          "   the proxy/CDN may be blocking Pi's custom headers. Set sendSessionAffinityHeaders: false.",
+          "   the proxy/CDN may be blocking the custom session-affinity headers. Set sendSessionAffinityHeaders: false.",
         );
       } else if (isOpenAISdkHeader403Applicable(model)) {
         lines.push(

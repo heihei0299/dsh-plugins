@@ -4,8 +4,10 @@
  * The upstream project is a Pi extension: one default-exported function that
  * subscribes to twelve Pi hooks and reads a small `ExtensionContext` facade.
  * `src/extension.ts` is that function, kept verbatim apart from its import
- * paths, so every cache decision, counter, receipt and diagnostic message is
- * the upstream implementation rather than a re-description of it.
+ * paths and the user-facing copy, which names this host (a "Harness process",
+ * a profile reload, the status line, `DSH_CACHE_*` switches) instead of Pi.
+ * Every cache decision, counter, receipt and diagnostic is the upstream
+ * implementation rather than a re-description of it.
  *
  * This module supplies the two things a Pi host would otherwise provide:
  *

@@ -1,7 +1,11 @@
 MIT License
 
-Copyright (c) 2026 freescheme (pi-cache-optimizer)
-Copyright (c) 2026 shial (DeepSeek Harness host adapter and integration)
+Copyright (c) 2026 freescheme
+Copyright (c) 2026 heihei (DeepSeek Harness host adapter and integration)
+
+src/core/ and src/extension.ts are derived from pi-cache-optimizer by freescheme
+(https://github.com/jiangge/pi-cache-optimizer) and stay under the MIT License
+below; only the user-facing copy and the Harness host adapter differ.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

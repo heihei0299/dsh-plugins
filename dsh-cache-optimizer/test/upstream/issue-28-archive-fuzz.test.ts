@@ -10,7 +10,7 @@ import { createJiti } from "jiti";
 // Issue #28 phase 2, adversarial review: a randomized multi-process model of
 // shard writers, day rollovers, crashes, resets, compaction and readers.
 //
-// Each simulated Pi process is backed by a real child process (so its pid is
+// Each simulated the Harness process is backed by a real child process (so its pid is
 // alive while it runs and dead after it "crashes"), and the processes share
 // a few independently loaded module instances (jiti moduleCache: false), so
 // parsed-shard and archive caches are per "process" exactly as in production.

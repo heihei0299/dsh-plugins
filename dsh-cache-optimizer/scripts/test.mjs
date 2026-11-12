@@ -18,9 +18,19 @@ const files = [
     .sort()
     .map((name) => join(upstream, name)),
 ]
+// The optimizer writes its environment switches into the host process, so a
+// Harness that already mounted this plugin (or a shell sourced from one) exports
+// PI_CACHE_* / DSH_CACHE_* to children. Those switches are per-process state the
+// suite sets up itself, so the runner strips them instead of letting one host's
+// retention or footer choice change the fixtures.
+const env = {}
+for (const [key, value] of Object.entries(process.env)) {
+  if (key.startsWith('PI_CACHE') || key.startsWith('DSH_CACHE')) continue
+  env[key] = value
+}
 const result = spawnSync(process.execPath, ['--import', 'tsx', '--test', '--test-concurrency=1', ...files], {
   cwd: root,
   stdio: 'inherit',
-  env: process.env,
+  env,
 })
 process.exit(result.status ?? 1)

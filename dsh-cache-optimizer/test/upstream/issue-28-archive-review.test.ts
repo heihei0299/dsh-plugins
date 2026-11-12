@@ -30,7 +30,7 @@ async function withAgentDir(run: (dir: string) => Promise<void>): Promise<void> 
   }
 }
 
-/** A separately loaded module instance: its own parsed-shard and archive caches, like another Pi process. */
+/** A separately loaded module instance: its own parsed-shard and archive caches, like another the Harness process. */
 async function load(label: string): Promise<any> {
   const jiti = createJiti(join(process.cwd(), "test", "upstream", `issue-28-review-${label}.ts`), { interopDefault: false, moduleCache: false });
   return (await jiti.import<typeof import("../../src/extension.ts")>(join(process.cwd(), "src", "extension.ts"))).__internals_for_tests as any;

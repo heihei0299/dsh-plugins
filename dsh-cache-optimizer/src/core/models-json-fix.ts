@@ -864,14 +864,14 @@ export function chooseFixPlacement(
   if (location.modelOverrideObjectBrace >= 0) {
     return {
       placement: "modelOverride",
-      reason: "an existing modelOverrides entry has Pi's highest precedence — repairing it directly",
+      reason: "an existing modelOverrides entry has the profile's highest precedence — repairing it directly",
     };
   }
 
   if (forceModelLevel) {
     return {
       placement: "modelOverride",
-      reason: "runtime-observed provider/model failure — using Pi's highest-precedence model override",
+      reason: "runtime-observed provider/model failure — using the profile's highest-precedence model override",
     };
   }
 

@@ -171,7 +171,7 @@ describe("OpenAI-compatible request contracts", () => {
     assert.equal(routed.compat, undefined);
   });
 
-  test("schema validation agrees with installed Pi for reviewed edge cases", async () => {
+  test("schema validation agrees with installed the Harness for reviewed edge cases", async () => {
     const tempAgentDir = await mkdtemp(join(tmpdir(), "pi-cache-schema-parity-test-"));
     try {
       const piRuntimeModule = await createJiti(join(process.cwd(), "test", "upstream", "pi-schema-test.ts"), { interopDefault: false, moduleCache: false }).import<typeof import("../../node_modules/@earendil-works/pi-coding-agent/dist/core/model-config.js")>(
@@ -209,7 +209,7 @@ describe("OpenAI-compatible request contracts", () => {
     }
   });
 
-  test("installed Pi built-in llama.cpp models match the untouched fingerprint exemption", async () => {
+  test("installed the Harness built-in llama.cpp models match the untouched fingerprint exemption", async () => {
     // Hermetic agent dir: a developer's real models.json must not change the
     // effective compat seen by the fingerprint.
     const tempAgentDir = await mkdtemp(join(tmpdir(), "pi-cache-llama-fingerprint-test-"));
@@ -229,12 +229,12 @@ describe("OpenAI-compatible request contracts", () => {
       assert.equal(builtIn.provider, "llama.cpp");
       assert.equal(builtIn.api, "openai-completions");
 
-      // The real provider shape from the installed Pi is exempt from generic
+      // The real provider shape from the installed the Harness is exempt from generic
       // proxy routing/session-affinity advice, even on a non-official base URL.
       assert.equal(t.isPiBuiltInLlamaCppModel(builtIn), true);
       assert.deepEqual(t.describeMissingOpenAICompatibleProxyCompat(builtIn), []);
 
-      // Pi 0.82.x reported supportsUsageInStreaming: false; Pi 0.83+ reports
+      // the Harness 0.82.x reported supportsUsageInStreaming: false; the Harness 0.83+ reports
       // true. Streaming usage is not routing configuration, so both host
       // shapes inside the supported peer range must stay recognized.
       for (const supportsUsageInStreaming of [false, true]) {
@@ -266,8 +266,8 @@ describe("OpenAI-compatible request contracts", () => {
     }
   });
 
-  test("skill compression anchors on the installed Pi skills formatter", async () => {
-    // compressSkillsInSystemPrompt only substitutes an exact copy of Pi's
+  test("skill compression anchors on the installed the Harness skills formatter", async () => {
+    // compressSkillsInSystemPrompt only substitutes an exact copy of the Harness's
     // verbose skills block. Drift would silently disable compression.
     const piSkills = await createJiti(join(process.cwd(), "test", "upstream", "skills-format-test.ts"), { interopDefault: false, moduleCache: false }).import<typeof import("../../node_modules/@earendil-works/pi-coding-agent/dist/core/skills.js")>(
       join(process.cwd(), "node_modules", "@earendil-works", "pi-coding-agent", "dist", "core", "skills.js"),
@@ -283,9 +283,9 @@ describe("OpenAI-compatible request contracts", () => {
     assert.equal(internals.formatSkillsForPrompt(skills, "indirect"), piSkills.formatSkillsForPrompt(skills, "indirect"));
   });
 
-  test("the legacy skill-list wording is byte-exact with Pi 1.4.0", async () => {
-    // Pinned output of Pi 1.4.0's formatSkillsForPrompt (the last release with the legacy path rule), so the
-    // legacy entry of SKILL_PATH_RULE_WORDINGS cannot drift once the installed Pi only emits the new wording.
+  test("the legacy skill-list wording is byte-exact with the Harness 1.4.0", async () => {
+    // Pinned output of the Harness 1.4.0's formatSkillsForPrompt (the last release with the legacy path rule), so the
+    // legacy entry of SKILL_PATH_RULE_WORDINGS cannot drift once the installed the Harness only emits the new wording.
     const fixture = JSON.parse(await readFile(join(process.cwd(), "test", "upstream", "fixtures", "pi-1.4.0-skills-format.json"), "utf8"));
     const sourceInfo = { path: "/skills/alpha/SKILL.md", source: "local", scope: "user", origin: "top-level" };
     const skills = [
@@ -299,7 +299,7 @@ describe("OpenAI-compatible request contracts", () => {
     }
   });
 
-  describe("skill compression on Pi's real system prompt", () => {
+  describe("skill compression on the Harness's real system prompt", () => {
     const sourceInfo = { path: "", source: "local", scope: "user", origin: "top-level" };
     const skill = (name: string, description: string, filePath: string, disableModelInvocation = false) =>
       ({ name, description, filePath, baseDir: filePath, sourceInfo, disableModelInvocation }) as any;
@@ -319,12 +319,12 @@ describe("OpenAI-compatible request contracts", () => {
         mod.buildSystemPrompt({ cwd: "/work", selectedTools, hiddenTools, skills, contextFiles: [] } as any);
     };
 
-    test("fires on the prompt Pi actually assembles, keeping every name and description", async () => {
+    test("fires on the prompt the Harness actually assembles, keeping every name and description", async () => {
       const build = await loadPiPrompt();
       const prompt = build(["read", "bash"]);
-      assert.ok(prompt.includes("<available_skills>"), "Pi should emit the verbose block");
+      assert.ok(prompt.includes("<available_skills>"), "the Harness should emit the verbose block");
       const out = internals.compressSkillsInSystemPrompt(prompt, { skills } as any);
-      assert.notEqual(out, prompt, "compression must fire against Pi's real output");
+      assert.notEqual(out, prompt, "compression must fire against the Harness's real output");
       assert.ok(out.length < prompt.length);
       assert.ok(!out.includes("<available_skills>"));
       assert.match(out, /<skills>\nThe following skills provide specialized instructions/);
@@ -367,7 +367,7 @@ describe("OpenAI-compatible request contracts", () => {
       assert.ok(out.endsWith("\n\nCurrent working directory: /work"));
     });
 
-    test("still compresses a list rendered with the pre-1.5 Pi path-rule wording, keeping that wording", () => {
+    test("still compresses a list rendered with the pre-1.5 the Harness path-rule wording, keeping that wording", () => {
       const [current, legacyRule] = internals.SKILL_PATH_RULE_WORDINGS;
       for (const tool of ["read", "bash", "indirect"] as const) {
         const selectedTools = tool === "read" ? ["read"] : tool === "bash" ? ["bash"] : ["codemode", "read"];
@@ -381,11 +381,11 @@ describe("OpenAI-compatible request contracts", () => {
         assert.ok(out.includes(legacyRule) && !out.includes(current), `${tool}: the legacy wording is kept`);
         assert.equal(internals.compressSkillsInSystemPrompt(out, opts), out);
         assert.notEqual(internals.explainSkillCompressionSkip(prompt, opts),
-          "Pi's skill list format was not recognised; Pi may have changed it (please report this)", `${tool}: doctor recognises the legacy wording`);
+          "the skill list format was not recognised; the adapter may have changed it (please report this)", `${tool}: doctor recognises the legacy wording`);
       }
     });
 
-    test("compresses via the skills section when Pi renders the pre-1.5 wording", () => {
+    test("compresses via the skills section when the Harness renders the pre-1.5 wording", () => {
       const legacyRule = internals.SKILL_PATH_RULE_WORDINGS[1];
       const block = internals.formatSkillsForPrompt(skills, "read", legacyRule).trim();
       const compressed = internals.formatSkillsForPromptCompressed(skills, "read", legacyRule).trim();
@@ -396,20 +396,20 @@ describe("OpenAI-compatible request contracts", () => {
       assert.ok(compressed.includes(legacyRule));
     });
 
-    test("no-ops below the minimum count, when Pi's text differs, and when opted out", async () => {
+    test("no-ops below the minimum count, when the Harness's text differs, and when opted out", async () => {
       const build = await loadPiPrompt();
       const prompt = build(["read"]);
       assert.equal(internals.compressSkillsInSystemPrompt(prompt, { skills: skills.slice(0, 2) } as any), prompt);
-      // `bash`-only tool sets make Pi say "Use bash to load…"; compression must recognise that wording too.
+      // `bash`-only tool sets make the Harness say "Use bash to load…"; compression must recognise that wording too.
       const bashOnly = build(["bash"]);
       const bashOut = internals.compressSkillsInSystemPrompt(bashOnly, { skills, selectedTools: ["bash"] } as any);
       assert.ok(!bashOut.includes("<available_skills>"), "bash-only prompt is compressed");
-      assert.ok(bashOut.includes("Use bash to load a skill's file when the task matches its description."), "Pi's bash wording is kept");
-      // Hidden readers (reachable only through another tool, e.g. a code-mode wrapper) make Pi name no tool.
+      assert.ok(bashOut.includes("Use bash to load a skill's file when the task matches its description."), "the Harness's bash wording is kept");
+      // Hidden readers (reachable only through another tool, e.g. a code-mode wrapper) make the Harness name no tool.
       const hidden = build(["codemode", "read", "bash"], ["read", "bash"]);
       const hiddenOut = internals.compressSkillsInSystemPrompt(hidden, { skills, selectedTools: ["codemode", "read", "bash"], hiddenTools: ["read", "bash"] } as any);
       assert.ok(!hiddenOut.includes("<available_skills>"), "hidden-reader prompt is compressed");
-      assert.ok(hiddenOut.includes("Load a skill's file when the task matches its description."), "Pi's tool-less wording is kept");
+      assert.ok(hiddenOut.includes("Load a skill's file when the task matches its description."), "the Harness's tool-less wording is kept");
       const previous = process.env.PI_CACHE_OPTIMIZER_NO_SKILL_COMPRESSION;
       process.env.PI_CACHE_OPTIMIZER_NO_SKILL_COMPRESSION = "1";
       try {
@@ -421,7 +421,7 @@ describe("OpenAI-compatible request contracts", () => {
     });
   });
 
-  test("installed Pi registerProvider drops lower provider compat for extension-owned models", async () => {
+  test("installed the Harness registerProvider drops lower provider compat for extension-owned models", async () => {
     const tempAgentDir = await mkdtemp(join(tmpdir(), "pi-cache-extension-provider-model-test-"));
     try {
       const modelsPath = join(tempAgentDir, "models.json");
@@ -691,7 +691,7 @@ describe("OpenAI-compatible request contracts", () => {
     assert.equal(internals.addOpenAIPromptCacheKey(null, "session-key"), undefined);
   });
 
-  test("does not use the unsupported Pi supportsPromptCacheKey compat field", async () => {
+  test("does not use the unsupported the Harness supportsPromptCacheKey compat field", async () => {
     const tempAgentDir = await mkdtemp(join(tmpdir(), "pi-cache-key-compat-test-"));
     const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
     try {
@@ -728,7 +728,7 @@ describe("OpenAI-compatible request contracts", () => {
       );
 
       // The extension-owned config is the only per-model opt-out. It removes
-      // both spellings after Pi/core request mutations have already run.
+      // both spellings after the Harness/core request mutations have already run.
       fresh.__internals_for_tests.setPersistedCacheOptimizerConfig({
         version: 2,
         promptCacheKey: { omit: ["cache-key-proxy/cache-key-model"] },

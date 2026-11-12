@@ -33,7 +33,7 @@ async function withAgentDir(run: (dir: string) => Promise<void>): Promise<void> 
   }
 }
 
-/** A separately loaded module instance: its own caches and lock tokens, like another Pi process. */
+/** A separately loaded module instance: its own caches and lock tokens, like another the Harness process. */
 async function loadModule(label: string) {
   const jiti = createJiti(join(process.cwd(), "test", "upstream", `issue-28-review4-${label}.ts`), { interopDefault: false, moduleCache: false });
   return jiti.import<typeof import("../../src/extension.ts")>(join(process.cwd(), "src", "extension.ts"));

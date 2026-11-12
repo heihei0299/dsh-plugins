@@ -224,7 +224,7 @@ describe("issue #28 phase 2: archive snapshot", () => {
   test("concurrent maintenance in several processes is serialized by the lock", async () => {
     await withAgentDir(async () => {
       const { I } = await load("concurrent");
-      // Separately loaded module instances: their own lock tokens and caches, like other Pi processes.
+      // Separately loaded module instances: their own lock tokens and caches, like other the Harness processes.
       const others = await Promise.all([1, 2, 3, 4].map(async (index) => (await load(`concurrent-${index}`)).I));
       const now = Date.now();
       await writeRandomFixture(I, 5, now);

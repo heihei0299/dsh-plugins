@@ -7,7 +7,7 @@ import { describe, test } from "node:test";
 import { createJiti } from "jiti";
 
 // Issue #28: on Windows, restoring historical footer statistics from ~1,450
-// shard files blocked Pi's session_start for ~19 s. Restoration now runs in
+// shard files blocked the Harness's session_start for ~19 s. Restoration now runs in
 // the background with a single directory scan and bounded-concurrency I/O.
 
 type Handler = (event: any, context: any) => unknown;
