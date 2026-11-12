@@ -756,6 +756,14 @@ export const CONTRACTS = [
 		why: "监听 session/event 时按这个事件名过滤；改名会让工作目录切换不再触发策略刷新"
 	},
 	{
+		id: "mcp-skill-manager: mcpManager.list",
+		pkg: "@deepseek-ai/dsh-mcp-manager",
+		file: "lib/types/index.d.ts",
+		optional: true,
+		pattern: /list\(\): McpManagedServerView\[\]/,
+		why: "mcp-skill-manager 从 0.2.2-rc.2 起靠 mcpManager.list() 发现托管服务器；方法消失则面板只剩由工具推导出的行"
+	},
+	{
 		id: "mcp-skill-manager: mcp publicToolName",
 		pkg: "@deepseek-ai/dsh-mcp-client",
 		file: "lib/index.js",
@@ -1000,6 +1008,18 @@ export function contractText(contract, dshRoot) {
  */
 export function checkContracts(dshRoot, contracts = CONTRACTS) {
 	return contracts.map((contract) => {
+		// A contract marked `optional` names a package a newer runtime introduced.
+		// Its absence on an older target is not a break, so it reports SKIP; once
+		// the package exists, a missing symbol fails like any other contract.
+		if (contract.optional === true && !existsSync(join(dshRoot, "node_modules", contract.pkg))) {
+			return {
+				id: contract.id,
+				ok: true,
+				skip: `${contract.pkg} 在该运行时不存在（较新版本才引入；旧运行时没有这条依赖）`,
+				where: contract.pkg,
+				reasons: []
+			};
+		}
 		const { text, reason } = contractText(contract, dshRoot);
 		const reasons = [];
 		if (text === null) reasons.push(reason);
@@ -1265,6 +1285,10 @@ export async function runCompatCheck({ argv = [], baselinePath = DEFAULT_BASELIN
 
 	// 2. Internal seams the plugins depend on.
 	for (const result of checkContracts(dshRoot)) {
+		if (result.skip !== undefined) {
+			log(`[SKIP] ${result.id.padEnd(30)} ${result.skip}`);
+			continue;
+		}
 		if (!result.ok) failures += 1;
 		log(`${result.ok ? "[PASS]" : "[FAIL]"} ${result.id.padEnd(30)} ${result.where}`);
 		for (const problem of result.reasons) log(`       ${problem}`);

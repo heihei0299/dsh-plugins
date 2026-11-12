@@ -375,7 +375,13 @@ export function Panel(props) {
                           : `${row.toolNames.join(', ')}${row.toolsTruncated ? ', …' : ''}`,
                       meta: [
                         row.transport ?? t('unknown'),
-                        row.origin === 'profile' ? 'profile' : row.origin === 'tools' ? 'runtime' : null,
+                        row.origin === 'profile'
+                          ? 'profile'
+                          : row.origin === 'tools'
+                            ? 'runtime'
+                            : row.origin === 'manager'
+                              ? 'manager'
+                              : null,
                         t('serverToolCount', { count: row.toolCount }),
                         row.disabled ? badge(t('profileDisabled'), 'warn') : null,
                         row.missing ? badge(t('staleServer'), 'warn') : null

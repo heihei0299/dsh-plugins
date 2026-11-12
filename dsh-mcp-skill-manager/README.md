@@ -2,7 +2,7 @@
 
 在 DSH Web 设置和 dsh-go App 里增加 **MCP 与 Skill** 面板：按**项目目录**决定会话可以使用哪些宿主 MCP server 与 skill。没有策略的目录保持全部启用，因此默认不改变现有行为；两端共用同一份策略文件。
 
-只管理**已经存在**的条目：不新增、编辑或删除 MCP 定义，不改写 profile 的 `cordis.patch.yml`，也不停止 MCP 进程。
+只管理**已经存在**的条目：不新增、编辑或删除 MCP 定义，不改写 profile 的 `cordis.patch.yml`，也不停止 MCP 进程。0.2.2-rc.2 起宿主的 MCP server 改由 `dsh-mcp-manager` 托管，插件会同时读取该服务的 `list()`（面板中标为 `manager`），因此改用托管列表的 profile 也能看到并禁用这些 server；旧版本没有该服务，行为不变。
 
 ## 策略
 

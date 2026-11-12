@@ -16,6 +16,9 @@ import { isWithin, sanitizeUrl } from './policy.js';
 /** Package name of the shipped host MCP client. */
 export const MCP_CLIENT_PACKAGE = '@deepseek-ai/dsh-mcp-client';
 
+/** Service name of the managed MCP fleet, mounted from DSH 0.2.2-rc.2 on. */
+export const MCP_MANAGER_SERVICE = 'mcpManager';
+
 /** Maximum tool names retained per server in the panel snapshot. */
 const MAX_LISTED_TOOLS = 100;
 
@@ -131,7 +134,52 @@ export function globalMcpToolNames(ctx) {
 }
 
 /**
- * Merge loader configuration and live tool registrations into server rows.
+ * Read servers owned by the managed MCP fleet.
+ *
+ * From DSH 0.2.2-rc.2 the shipped `web` profile mounts `dsh-mcp-manager` and
+ * keeps its servers in that service's own configuration instead of one
+ * `dsh-mcp-client` loader entry per server. Those servers therefore have no
+ * profile entry to discover; the manager's `list()` is the only source. A
+ * runtime without the service (0.2.2-rc.1 and earlier) returns nothing.
+ *
+ * @param ctx - host context.
+ * @returns one row source per managed server.
+ */
+export function managerMcpServers(ctx) {
+  const manager = service(ctx, MCP_MANAGER_SERVICE);
+  if (typeof manager?.list !== 'function') return [];
+  let views;
+  try {
+    views = manager.list();
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(views)) return [];
+  const rows = [];
+  for (const view of views) {
+    if (!isRecord(view)) continue;
+    const { name, status } = view;
+    if (!isMcpServerName(name)) continue;
+    rows.push({
+      serverName: name,
+      transport: undefined,
+      origin: 'manager',
+      // A disabled entry keeps its place but asks for no running instance.
+      disabled: isRecord(status) && status.state === 'disabled',
+      command: undefined,
+      argsCount: undefined,
+      url: undefined,
+      envKeys: [],
+      headerKeys: [],
+      cwdConfigured: false
+    });
+  }
+  return rows;
+}
+
+/**
+ * Merge loader configuration, the managed fleet, and live tool registrations
+ * into server rows.
  * @returns {{ servers: object[], loaderAvailable: boolean }}
  */
 export function discoverServers(ctx) {
@@ -165,6 +213,14 @@ export function discoverServers(ctx) {
       for (const key of entry.envKeys) if (!existing.envKeys.includes(key)) existing.envKeys.push(key);
       for (const key of entry.headerKeys) if (!existing.headerKeys.includes(key)) existing.headerKeys.push(key);
     }
+  }
+
+  // A managed server has no profile entry of its own; a loader entry for the
+  // same name keeps its configuration detail and wins here.
+  for (const entry of managerMcpServers(ctx)) {
+    if (map.has(entry.serverName)) continue;
+    map.set(entry.serverName, { ...entry, toolNames: [] });
+    known.push(entry.serverName);
   }
 
   const toolNames = globalMcpToolNames(ctx);

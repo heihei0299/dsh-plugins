@@ -143,6 +143,27 @@ test("evaluates engines.dsh through the supplied app-boot with an empty exemptio
 	assert.throws(() => evaluateEngines({}, {}), /evaluatePluginCompatibility/);
 });
 
+test("an optional contract skips a package the target runtime never shipped", async (t) => {
+	const root = await mkdtemp(join(await realpath(tmpdir()), "compat-optional-"));
+	t.after(async () => {
+		await rm(root, { recursive: true });
+	});
+	await mkdir(join(root, "node_modules", "@deepseek-ai", "dsh-present", "lib", "types"), { recursive: true });
+	await writeFile(join(root, "node_modules", "@deepseek-ai", "dsh-present", "lib", "types", "index.d.ts"), "export declare class X { run(): void; }\n");
+	const contracts = [
+		{ id: "optional absent", pkg: "@deepseek-ai/dsh-newer", file: "lib/types/index.d.ts", optional: true, pattern: /list\(\)/, why: "unused in this case" },
+		{ id: "optional present", pkg: "@deepseek-ai/dsh-present", file: "lib/types/index.d.ts", optional: true, pattern: /list\(\)/, why: "list() moved" },
+		{ id: "required absent", pkg: "@deepseek-ai/dsh-absent", file: "lib/index.js", pattern: /x/, why: "a required package must fail when absent" }
+	];
+	const [missing, present, required] = checkContracts(root, contracts);
+	assert.match(missing.skip, /不存在/);
+	assert.equal(missing.ok, true);
+	assert.equal(present.ok, false, "once the package exists, a missing symbol still fails");
+	assert.equal(present.skip, undefined);
+	assert.equal(required.ok, false, "absence only skips a contract marked optional");
+	assert.equal(required.skip, undefined);
+});
+
 test("every contract still matches the installed dsh", { skip: skipWithoutDsh }, () => {
 	const results = checkContracts(dshRoot);
 	assert.ok(results.length > 0);
