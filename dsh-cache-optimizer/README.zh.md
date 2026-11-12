@@ -52,7 +52,7 @@ fetch 都看不到作用域；卸载插件会还原原始 `fetch`。
 | 用户可见文案 | 通知、诊断与日志都按本宿主措辞：「Harness 进程」「重新加载 profile 或重启 Harness」「状态行」、`DSH_CACHE_*` 环境变量名。上游注释与磁盘格式（`pi-cache-optimizer-stats.d`、分片 `kind`）保持原拼写，已有状态照常加载。 |
 | 技能清单 | Harness 用紧凑的持久消息渲染技能目录（`- \`name\`: description`），Pi 的 XML 列表压缩无事可做；提示词路径只保留有 section 时的抖动剥离。 |
 | 虚拟模型 | Harness 没有 Pi 0.99 原生虚拟模型与路由协议；相关路径保持休眠。 |
-| 缓存预热 | 没有 `cache_warming_decision` 缝，零价预热报告为不可用，`fix prompt-cache` 会说明 Harness 不消费 Pi 的预热生命期。 |
+| 缓存预热 | 没有 `cache_warming_decision` 缝，上游的预热判定永不触发，`fix prompt-cache` 会说明 Harness 不消费 Pi 的预热生命期；预热改为显式、需开启的 `/cache-optimizer-warm` 重放。 |
 | `models.json` | provider compat 在 profile（`llm-pi-ai` → `providers`）。读取时投影到 `<state>/models.json`；修复经 schema 校验的 settings 通道写回 profile。 |
 | Tab 补全 | Harness 命令注册没有逐命令补全钩子；以文档列出子命令。 |
 | 交互确认 | 有 UI 时 `fix`/`rollback` 走 `ctx.userQuestions`；没有则打印手工指导并且绝不写入。 |
@@ -72,12 +72,14 @@ fetch 都看不到作用域；卸载插件会还原原始 `fetch`。
 | `/cache-optimizer fix` | 预览、确认后修复当前模型缺失的 compat。 |
 | `/cache-optimizer fix prompt-cache` / `prompt-cache-key` / `kimi-base-url` | 定向修复，带备份、收据与自检。 |
 | `/cache-optimizer rollback` | 确认后还原该模型最近一次已确认修复。 |
+| `/cache-optimizer-prefix` | 仅宿主：对比本会话最近两次请求体，指出缓存前缀第一处变化（路径、字节偏移、两侧值、工具顺序、结论）。 |
+| `/cache-optimizer-warm` | 仅宿主，需 `warming: true`：用一 token 上限重放本会话最近一次请求，让 provider 续住同一条 prompt cache。按会话限量，连续失败自动停用。 |
 
 ## 配置
 
 Bundle 选项（`cordis.patch.yml`）：`enabled`（默认 `true`）、`openaiCacheKey`（`true`）、
 `cacheRetention`（`true`）、`anthropicTtlRepair`（`true`）、`toolOrder`（`false`）、
-`footerMode`（`session`）。
+`footerMode`（`session`）、`warming`（`false`，上游 warming 判定钩子在 Harness 永不触发，重放需显式开启）。
 
 环境变量沿用上游名字，并提供 `DSH_CACHE_OPTIMIZER_*` 别名（Pi 名字未设置时镜像）：
 `PI_CACHE_OPTIMIZER_NO_PROMPT_REWRITE`、`NO_SKILL_COMPRESSION`、`NO_OPENAI_CACHE_KEY`、

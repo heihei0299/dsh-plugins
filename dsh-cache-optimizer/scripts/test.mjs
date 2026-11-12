@@ -13,6 +13,7 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const upstream = join(root, 'test', 'upstream')
 const files = [
   join(root, 'test', 'host.test.ts'),
+  join(root, 'test', 'audit.test.ts'),
   ...readdirSync(upstream)
     .filter((name) => name.endsWith('.test.ts'))
     .sort()

@@ -67,6 +67,8 @@ import { MODELS_JSON_PATH } from './core/paths.ts'
 import { invalidateModelsConfigCache } from './core/model-identity.ts'
 import { hashSessionId } from './core/routing.ts'
 import { applyConfigOps, diffProjection, findProviderSection, providersOf, type ProjectedProvider } from './dsh-config.ts'
+import { PrefixAudit, formatPrefixReport } from './dsh-audit.ts'
+import { Warmer, warmRequest, type CapturedRequest } from './dsh-warming.ts'
 
 /** Plugin configuration contributed by `cordis.patch.yml`. */
 export interface HostOptions {
@@ -84,6 +86,8 @@ export interface HostOptions {
   footerMode?: 'session' | 'total' | 'process'
   /** Extra time to wait for a background flush when the plugin unloads. */
   flushTimeoutMs?: number
+  /** Allow the explicit `/cache-optimizer-warm` replay (off by default). */
+  warming?: boolean
 }
 
 /** One provider profile as the `llm-pi-ai` adapter configures it. */
@@ -469,9 +473,66 @@ export function installCacheOptimizerHost(ctx: Context, options: HostOptions): (
 
   extensionEntry(piApi as never)
 
+  // ── host-only commands ─────────────────────────────────────────
+  // These answer questions the Pi extension could not: how stable the request
+  // prefix actually is, and an explicit one-shot cache warm. Both live outside
+  // the ported core so upstream code stays byte-identical.
+  const commandRuntime = (() => {
+    try {
+      return ctx.get('commands', false) as
+        | { register(definition: { name: string; description: string; handler: (invocation: { agent?: unknown }) => Promise<{ kind: 'success' | 'error'; text: string }> }): unknown }
+        | undefined
+    } catch {
+      return undefined
+    }
+  })()
+
+  commandRuntime?.register({
+    name: 'cache-optimizer-prefix',
+    description: 'Diff the last two provider requests of this session and name the first unstable byte',
+    handler: async (invocation) => {
+      const sessionId = agentSessionId(invocation.agent)
+      const report = sessionId === undefined ? undefined : audit.reportFor(sessionId)
+      return {
+        kind: 'success' as const,
+        text: report === undefined
+          ? 'No provider request captured for this session yet. Send one message, then run /cache-optimizer-prefix again.'
+          : formatPrefixReport(report),
+      }
+    },
+  })
+
+  commandRuntime?.register({
+    name: 'cache-optimizer-warm',
+    description: 'Replay this session\'s last provider request with a one-token cap to refresh its prompt cache',
+    handler: async (invocation) => {
+      if (options.warming !== true) {
+        return { kind: 'success' as const, text: 'Cache warming is off. Set warming: true in the plugin config, then run /cache-optimizer-warm again.' }
+      }
+      const sessionId = agentSessionId(invocation.agent)
+      if (sessionId === undefined) return { kind: 'error' as const, text: 'No session is attached to this invocation.' }
+      if (!warmer.available(sessionId)) {
+        return {
+          kind: 'success' as const,
+          text: warmer.retired
+            ? 'Warming retired for this process after repeated failures.'
+            : `Warming limit reached for this session (${String(warmer.spent(sessionId))} used).`,
+        }
+      }
+      const captured = lastRequests.get(sessionId)
+      if (captured === undefined) return { kind: 'success' as const, text: 'No provider request captured for this session yet.' }
+      const result = await warmRequest(captured, originalFetch)
+      warmer.record(sessionId, result.ok)
+      return { kind: result.ok ? 'success' as const : 'error' as const, text: result.text }
+    },
+  })
+
   // ── fetch interception ─────────────────────────────────────────
 
   const originalFetch = globalThis.fetch
+  const audit = new PrefixAudit()
+  const warmer = new Warmer()
+  const lastRequests = new Map<string, CapturedRequest>()
   type FetchInput = Parameters<typeof globalThis.fetch>[0]
   const patchedFetch = async (input: FetchInput, init?: RequestInit): Promise<Response> => {
     const scope = requestScope.getStore()
@@ -483,6 +544,13 @@ export function installCacheOptimizerHost(ctx: Context, options: HostOptions): (
     } catch (error) {
       log('warn', `cache-optimizer: request rewrite skipped: ${String(error)}`)
       nextInit = init
+    }
+    const wireBody = typeof nextInit?.body === 'string' ? nextInit.body : undefined
+    if (scope.sessionId !== undefined && wireBody !== undefined) {
+      // Keep the last two bodies per session: the audit diffs them, and the
+      // warmer replays the newest one when the operator asks for it.
+      audit.capture(scope.sessionId, wireBody)
+      lastRequests.set(scope.sessionId, { input, init: nextInit ?? {} })
     }
     if (process.env.DSH_CACHE_OPTIMIZER_DEBUG === '1') {
       const body = typeof nextInit?.body === 'string' ? nextInit.body : undefined

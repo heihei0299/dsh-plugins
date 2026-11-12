@@ -22,3 +22,7 @@
         toolOrder: false
         # Footer scope: session (default) | total | process.
         footerMode: session
+        # Opt-in: /cache-optimizer-warm replays this session's last request with a
+        # one-token cap so the provider refreshes the same prompt cache entry.
+        # Off by default; the replay is capped per session and retires on failures.
+        warming: false

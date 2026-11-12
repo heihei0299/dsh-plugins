@@ -68,7 +68,7 @@ RPC or telemetry fetch sees the store, and unloading the plugin restores the ori
 | User-facing copy | Notices, diagnostics and log lines name this host: "Harness process", "reload the profile or restart the Harness", "status line", `DSH_CACHE_*` switch names. Upstream comments and on-disk formats (`pi-cache-optimizer-stats.d`, shard `kind`) keep their spelling so existing state keeps loading. |
 | Skill list | The Harness renders its skill catalog as a compact durable message (`- \`name\`: description`), so Pi's XML-list compression has nothing to compress; the prompt path applies only the churn strip where a section exists. |
 | Virtual models | Pi 0.99 native virtual models and the router registry protocol do not exist in the Harness; the code paths stay dormant. |
-| Cache warming | No `cache_warming_decision` seam, so zero-price warming is reported as unavailable and `fix prompt-cache` reports that the Harness consumes no Pi warming lifetimes. |
+| Cache warming | No `cache_warming_decision` seam, so the upstream decision hook never fires and `fix prompt-cache` reports that the Harness consumes no Pi warming lifetimes. Warming is replaced by the explicit, opt-in `/cache-optimizer-warm` replay. |
 | `models.json` | Provider compat lives in the profile (`llm-pi-ai` → `providers`). It is projected into `<state>/models.json` for reading; a fix writes through the schema-validated settings transport back into the profile. |
 | Tab completion | The Harness command registry advertises no per-command completion hook; subcommands are documented instead. |
 | Interactive prompts | `/cache-optimizer fix` and `rollback` ask through `ctx.userQuestions` when a UI is attached; without one they print manual guidance and never write. |
@@ -88,6 +88,10 @@ RPC or telemetry fetch sees the store, and unloading the plugin restores the ori
 | `/cache-optimizer fix` | Preview, confirm, then repair the active model's missing compat in the profile. |
 | `/cache-optimizer fix prompt-cache` / `prompt-cache-key` / `kimi-base-url` | Targeted repairs with backup, receipt and self-check. |
 | `/cache-optimizer rollback` | Restore the latest confirmed fix for the active model, after confirmation. |
+| `/cache-optimizer-prefix` | Host-only: diff this session's last two provider request bodies and name the first byte where the cached prefix moves (path, offset, both values, tool order, verdict). |
+| `/cache-optimizer-warm` | Host-only, needs `warming: true`: replay this session's last request with a one-token cap so the provider refreshes the same prompt-cache entry. Capped per session, retires after repeated failures. |
+| `/cache-optimizer-prefix` | Host-only: diff this session's last two provider request bodies and name the first byte where the cached prefix moves (path, offset, both values, tool order, verdict). |
+| `/cache-optimizer-warm` | Host-only, needs `warming: true`: replay this session's last request with a one-token cap so the provider refreshes the same prompt-cache entry. Capped per session, retires after repeated failures. |
 
 ## Configuration
 
@@ -101,6 +105,8 @@ Bundle options (`cordis.patch.yml`):
 | `anthropicTtlRepair` | `true` | Repair invalid Anthropic `cache_control` TTL order. |
 | `toolOrder` | `false` | Deterministic tool ordering for verified payload shapes. |
 | `footerMode` | `session` | `session` / `total` / `process` counter scope (`/cache-optimizer config status-scope`). |
+| `warming` | `false` | Allow `/cache-optimizer-warm` replays; the upstream warming decision hook never fires in the Harness. |
+| `warming` | `false` | Allow `/cache-optimizer-warm` replays; the upstream warming decision hook never fires in the Harness. |
 
 Environment variables keep the upstream names, and each one has a `DSH_CACHE_OPTIMIZER_*` alias that
 is mirrored when the Pi name is unset:

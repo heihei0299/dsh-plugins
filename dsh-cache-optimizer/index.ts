@@ -33,6 +33,7 @@ export const Config = Schema.object({
   anthropicTtlRepair: Schema.boolean().default(true).description('Downgrade an invalid 1h-after-5m Anthropic cache-control ordering in the final payload'),
   toolOrder: Schema.boolean().default(false).description('Sort verified tool declarations deterministically (opt-in, off by default)'),
   footerMode: Schema.union(['session', 'total', 'process']).default('session').description('Footer aggregation scope: this conversation, every local session today, or this process'),
+  warming: Schema.boolean().default(false).description('Allow /cache-optimizer-warm to replay this session\'s last provider request with a one-token cap (capped per session; retires after repeated failures)'),
 })
 
 /**
