@@ -2330,7 +2330,7 @@ export default function (pi: ExtensionAPI) {
   //             with low-hit diagnosis
   //   stats   — show detailed current-session models; `stats all` shows all local shards
   //   compat  — show compat suggestion with file path
-  //   config footer-mode total|session|process — persist footer mode override
+  //   config status-scope total|session|process — persist the status scope override
   //   fix     — auto-fix compat issues (writes models.json or plugin config, requires UI)
   //   rollback — undo the latest confirmed fix for the active model
   //   reset   — reset current provider/model footer stats bucket (local only)

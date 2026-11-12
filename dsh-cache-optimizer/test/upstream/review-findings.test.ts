@@ -114,7 +114,7 @@ describe("footer status separation and command completion", () => {
     );
     assert.deepEqual(
       internals.getCacheOptimizerArgumentCompletions("config "),
-      ["footer-mode", "prompt-rewrite", "virtual-rewrite", "skill-compression", "openai-cache-key", "tool-order", "zero-price-warming", "stats-incremental", "reset"].map((value) => ({ value: `config ${value}`, label: value })),
+      ["status-scope", "prompt-rewrite", "virtual-rewrite", "skill-compression", "openai-cache-key", "tool-order", "zero-price-warming", "stats-incremental", "reset"].map((value) => ({ value: `config ${value}`, label: value })),
     );
     assert.deepEqual(
       internals.getCacheOptimizerArgumentCompletions("stats "),
@@ -124,6 +124,11 @@ describe("footer status separation and command completion", () => {
       internals.getCacheOptimizerArgumentCompletions("stats a"),
       [{ value: "stats all", label: "all" }],
     );
+    assert.deepEqual(
+      internals.getCacheOptimizerArgumentCompletions("config status-scope "),
+      ["total", "session", "process"].map((value) => ({ value: `config status-scope ${value}`, label: value })),
+    );
+    // The upstream spelling still completes, so existing muscle memory keeps working.
     assert.deepEqual(
       internals.getCacheOptimizerArgumentCompletions("config footer-mode "),
       ["total", "session", "process"].map((value) => ({ value: `config footer-mode ${value}`, label: value })),

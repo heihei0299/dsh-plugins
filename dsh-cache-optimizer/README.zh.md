@@ -67,7 +67,7 @@ fetch 都看不到作用域；卸载插件会还原原始 `fetch`。
 | `/cache-optimizer compat` | 适用时给出可复制的 compat 建议。 |
 | `/cache-optimizer stats` / `stats all` / `stats contributors` | 当前会话模型 / 当日全部本地模型 / 贡献会话（不含会话 id）。 |
 | `/cache-optimizer reset` | 重置当前 provider/model 的本地计数；不动 provider 缓存。 |
-| `/cache-optimizer config footer-mode total\|session\|process` | 持久化状态行报告的计数范围（会话 / 当日 / 本进程）。 |
+| `/cache-optimizer config status-scope total\|session\|process` | 持久化状态行报告的计数范围（会话 / 当日 / 本进程）；上游写法 `footer-mode` 仍然可用。 |
 | `/cache-optimizer config <feature> on\|off`、`config reset` | 持久化功能开关；`reset` 只清功能覆盖。 |
 | `/cache-optimizer fix` | 预览、确认后修复当前模型缺失的 compat。 |
 | `/cache-optimizer fix prompt-cache` / `prompt-cache-key` / `kimi-base-url` | 定向修复，带备份、收据与自检。 |

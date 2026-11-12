@@ -83,7 +83,7 @@ RPC or telemetry fetch sees the store, and unloading the plugin restores the ori
 | `/cache-optimizer compat` | Copyable compat advice for the active model, when applicable. |
 | `/cache-optimizer stats` / `stats all` / `stats contributors` | Current-session models / all local models today / contributing sessions (no session ids). |
 | `/cache-optimizer reset` | Reset local counters for the active provider/model. Provider caches are untouched. |
-| `/cache-optimizer config footer-mode total\|session\|process` | Persist the counter scope (session / today / process) the status line reports. |
+| `/cache-optimizer config status-scope total\|session\|process` | Persist the counter scope (session / today / process) the status line reports. The upstream spelling `footer-mode` is still accepted. |
 | `/cache-optimizer config <feature> on\|off`, `config reset` | Persist feature overrides; `reset` removes only feature overrides. |
 | `/cache-optimizer fix` | Preview, confirm, then repair the active model's missing compat in the profile. |
 | `/cache-optimizer fix prompt-cache` / `prompt-cache-key` / `kimi-base-url` | Targeted repairs with backup, receipt and self-check. |
@@ -100,7 +100,7 @@ Bundle options (`cordis.patch.yml`):
 | `cacheRetention` | `true` | Request long cache retention where supported. |
 | `anthropicTtlRepair` | `true` | Repair invalid Anthropic `cache_control` TTL order. |
 | `toolOrder` | `false` | Deterministic tool ordering for verified payload shapes. |
-| `footerMode` | `session` | `session` / `total` / `process` counter scope. |
+| `footerMode` | `session` | `session` / `total` / `process` counter scope (`/cache-optimizer config status-scope`). |
 
 Environment variables keep the upstream names, and each one has a `DSH_CACHE_OPTIMIZER_*` alias that
 is mirrored when the Pi name is unset:

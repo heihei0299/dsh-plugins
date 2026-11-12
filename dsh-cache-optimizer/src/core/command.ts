@@ -142,7 +142,9 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           cmdCtx.ui.notify(buildSessionStatsOutput(sessionModels, model, aggregate.modelRefsByKey), "info");
         }
       } else if (subcommand === "config") {
-        const configKey = commandParts[1];
+        // `footer-mode` is the upstream spelling; the status line owns the same setting here.
+        const rawConfigKey = commandParts[1];
+        const configKey = rawConfigKey === "footer-mode" ? "status-scope" : rawConfigKey;
         const requestedMode = commandParts[2];
         const feature = configKey ? FEATURE_COMMAND_MAP[configKey] : undefined;
         if (feature && (requestedMode === "on" || requestedMode === "off")) {
@@ -169,13 +171,13 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
         }
         if (!configKey) {
           cmdCtx.ui.notify(formatPersistentFeatureConfig() + `\n• Status scope: ${resolveFooterStatsMode(persistedFooterStatsMode).mode}` + "\n\n" +
-            "Usage: /cache-optimizer config <feature> on|off | footer-mode total|session|process | reset", "info");
+            "Usage: /cache-optimizer config <feature> on|off | status-scope total|session|process | reset", "info");
           return;
         }
-        if (configKey !== "footer-mode" || !requestedMode || !["session", "total", "process"].includes(requestedMode)) {
+        if (configKey !== "status-scope" || !requestedMode || !["session", "total", "process"].includes(requestedMode)) {
           const resolved = resolveFooterStatsMode(persistedFooterStatsMode);
           cmdCtx.ui.notify(
-            `Usage: /cache-optimizer config footer-mode total|session|process\n` +
+            `Usage: /cache-optimizer config status-scope total|session|process (footer-mode is accepted)\n` +
             `       /cache-optimizer config prompt-rewrite|virtual-rewrite|skill-compression|openai-cache-key|tool-order|zero-price-warming|stats-incremental on|off\n` +
             `       /cache-optimizer config reset\n` +
             `Current status scope: ${resolved.mode} (${resolved.source})`,
@@ -998,7 +1000,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
                 : modeChoice === modeOptions[2]
                   ? "process"
                   : undefined;
-            if (nextMode) await handleCacheOptimizerCommand(`config footer-mode ${nextMode}`, cmdCtx);
+            if (nextMode) await handleCacheOptimizerCommand(`config status-scope ${nextMode}`, cmdCtx);
           } else if (choice === menuOptions[9]) {
             await handleCacheOptimizerCommand("reset", cmdCtx);
           }
@@ -1017,7 +1019,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
         diagnosis.push("  stats contributors — Show per-session contributors for the active model");
         diagnosis.push("  compat  — Show compat suggestion with edit location");
         diagnosis.push("  config prompt-rewrite|virtual-rewrite|skill-compression|openai-cache-key|tool-order|zero-price-warming|stats-incremental on|off — Persist feature settings");
-        diagnosis.push("  config footer-mode total|session|process — Persist the cache stats mode");
+        diagnosis.push("  config status-scope total|session|process — Persist the cache stats mode");
         diagnosis.push("  config reset — Remove persistent feature overrides");
         diagnosis.push("  fix     — Auto-fix compat issues (writes models.json or plugin config, requires UI)");
         diagnosis.push("  fix prompt-cache — Add promptCache lifetimes so cache warming can run");
