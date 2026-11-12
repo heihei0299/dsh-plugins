@@ -261,7 +261,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
           const receipt = await readModelsJsonFixReceipt();
           const backupHint = receipt && isActionableModelsJsonFixReceipt(receipt)
             ? ` The recorded backup is ${receipt.backupFile} next to ${getModelsJsonDisplayPath()}.`
-            : " Check the recorded models.json backup manually if a fix receipt exists.";
+            : " Check the recorded config backup manually if a fix receipt exists.";
           cmdCtx.ui.notify(
             "❌ Rollback requires interactive confirmation. No changes were made.\n" +
             `Run /cache-optimizer rollback in the Harness UI.${backupHint} Then reload the profile.`,
@@ -292,7 +292,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
         }
 
         const rollbackScope = rollback.mode === "exact"
-          ? "restore the exact pre-fix models.json because the file is unchanged since the fix"
+          ? "restore the exact pre-fix provider config because it is unchanged since the fix"
           : rollback.receipt.baseUrlChange
             ? `restore baseUrl ${JSON.stringify(rollback.receipt.baseUrlChange.before)} (the value before the Kimi /v1 fix), preserving subsequent user changes`
           : rollback.receipt.promptCacheAdded
@@ -652,7 +652,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
                 `⚠️  Risk notice:`,
                 repairsExistingOverride
                   ? `  1. This updates the existing modelOverrides entry for "${suggestion.modelId}". Existing auth is not affected.`
-                  : `  1. This creates a modelOverrides entry in models.json. Existing auth (e.g. login API tokens) is not affected.`,
+                  : `  1. This creates a modelOverrides entry in the provider config. Existing auth (e.g. login API tokens) is not affected.`,
                 `  2. A timestamped backup will be written to: ${backupPath}`,
                 `  3. You must reload the profile or restart the Harness for the change to take effect.`,
                 `  4. If the file contains comments or unusual formatting, please verify the result after write.`,
@@ -744,7 +744,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
               `❌ Could not locate model "${suggestion.modelId}" or provider "${suggestion.providerLabel}" in ${getModelsJsonDisplayPath()}.`,
               "",
               "Providers that were added via the Harness login flow (e.g. opencode go) do not have",
-              "entries in models.json. You can create a minimal modelOverrides entry by hand:",
+              "entries in the provider config. You can create a minimal modelOverrides entry by hand:",
             );
           } else if (diagnosis.scenario === "provider_missing") {
             adviceLines.push(
@@ -966,7 +966,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
             "Doctor — Show cache configuration",
             "Stats — Show current-session model statistics",
             "Compat — Show compat suggestion",
-            "Fix — Auto-fix compat issues (writes models.json or plugin config)",
+            "Fix — Auto-fix compat issues (writes the provider config or the plugin config)",
             "Disable prompt_cache_key — Omit it for the active model",
             "Rollback — Undo the latest confirmed fix",
             "Status scope — Choose total, session, or process stats",
@@ -1021,7 +1021,7 @@ export function createCacheOptimizerCommandHandler(runtime: CommandRuntime) {
         diagnosis.push("  config prompt-rewrite|virtual-rewrite|skill-compression|openai-cache-key|tool-order|zero-price-warming|stats-incremental on|off — Persist feature settings");
         diagnosis.push("  config status-scope total|session|process — Persist the cache stats mode");
         diagnosis.push("  config reset — Remove persistent feature overrides");
-        diagnosis.push("  fix     — Auto-fix compat issues (writes models.json or plugin config, requires UI)");
+        diagnosis.push("  fix     — Auto-fix compat issues (writes the provider config or the plugin config, requires UI)");
         diagnosis.push("  fix prompt-cache — Add promptCache lifetimes so cache warming can run");
         diagnosis.push("  fix prompt-cache-key — Explicitly omit prompt_cache_key for the active model");
         diagnosis.push("  fix kimi-base-url — Append /v1 to an official Kimi Code base URL (the OpenAI Chat Completions via pi-ai)");
@@ -1115,7 +1115,7 @@ async function runPromptCacheFix(cmdCtx: ExtensionCommandContext, model: PiModel
   }
   const plan = planPromptCacheFix(current.text, model.provider, model.id, choice.promptCache);
   if ("error" in plan) {
-    cmdCtx.ui.notify(manual(`Cannot edit models.json safely: ${plan.error}`), "error");
+    cmdCtx.ui.notify(manual(`Cannot edit the provider config safely: ${plan.error}`), "error");
     return;
   }
 
@@ -1228,7 +1228,7 @@ async function runKimiBaseUrlFix(cmdCtx: ExtensionCommandContext, model: PiModel
   }
   const plan = planKimiBaseUrlFix(current.text, model, registeredModels);
   if ("error" in plan) {
-    cmdCtx.ui.notify(manual(`Cannot edit models.json safely: ${plan.error}`), "error");
+    cmdCtx.ui.notify(manual(`Cannot edit the provider config safely: ${plan.error}`), "error");
     return;
   }
 

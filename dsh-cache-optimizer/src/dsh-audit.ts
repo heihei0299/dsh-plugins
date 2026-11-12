@@ -25,6 +25,8 @@ export interface Divergence {
   /** Short rendering of both sides, truncated for the transcript. */
   readonly previous: string
   readonly current: string
+  /** Set when the moving text belongs to a known injected block. */
+  readonly hint?: string
 }
 
 /** Audit result for one session. */
@@ -164,6 +166,10 @@ export class PrefixAudit {
     if (divergence === undefined) {
       return { samples: 2, bytes: current.length, stableBytes: current.length, toolOrder, verdict: 'steady' }
     }
+    const catalog = [divergence.previous, divergence.current].some((value) => {
+      const text = typeof value === 'string' ? value : JSON.stringify(value) ?? ''
+      return text.includes('<available_skills>') || text.includes('available skill catalog')
+    })
     const messages = (parsedCurrent as { messages?: unknown[] } | undefined)?.messages
     const tailStart = Array.isArray(messages) ? Math.max(0, messages.length - 2) : 0
     const match = /^messages\[(\d+)\]/.exec(divergence.path)
@@ -178,6 +184,7 @@ export class PrefixAudit {
         offset,
         previous: render(divergence.previous),
         current: render(divergence.current),
+        ...(catalog ? { hint: 'the injected skill catalog message (dsh-tool-skill) moved' } : {}),
       },
       toolOrder,
       verdict,
@@ -199,6 +206,7 @@ export function formatPrefixReport(report: PrefixReport): string {
       `• first divergence: ${report.divergence.path} at byte ${report.divergence.offset}`,
       `  before: ${report.divergence.previous}`,
       `  after:  ${report.divergence.current}`,
+      ...(report.divergence.hint === undefined ? [] : [`  note:   ${report.divergence.hint}`]),
     )
   }
   lines.push(`• verdict: ${report.verdict === 'steady' ? 'byte-identical prefix' : report.verdict === 'tail-only' ? 'only the newest turn differs (expected)' : report.verdict === 'churn' ? 'unexpected churn inside the cached prefix' : 'not enough samples yet'}`)

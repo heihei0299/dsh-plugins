@@ -2224,7 +2224,7 @@ describe("/cache-optimizer fix command", () => {
       await chmod(modelsPath, 0o644);
       confirmations.length = 0;
       notifications.length = 0;
-      menuChoice = "Fix — Auto-fix compat issues (writes models.json or plugin config)";
+      menuChoice = "Fix — Auto-fix compat issues (writes the provider config or the plugin config)";
 
       await command.handler("", commandContext);
       assert.equal(menuPrompts.length, 1);

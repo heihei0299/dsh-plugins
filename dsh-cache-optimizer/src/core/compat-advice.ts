@@ -184,7 +184,7 @@ function appendProviderGuidanceBody(lines: string[], placement: CompatAdvicePlac
   if (!providerLabel) return;
 
   lines.push("");
-  lines.push("If this channel has no models.json provider entry yet:");
+  lines.push("If this channel has no provider entry yet:");
   lines.push("- Keep existing authentication as-is; do not copy credentials, tokens, or API keys.");
   lines.push(`- Add only cache/routing compat overrides in ${getModelsJsonDisplayPath()}.`);
 

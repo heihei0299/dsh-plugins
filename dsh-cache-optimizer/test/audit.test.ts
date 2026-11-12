@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { PrefixAudit, firstDivergence, formatPrefixReport } from '../src/dsh-audit.ts'
-import { Warmer, buildWarmingBody, readWarmingUsage } from '../src/dsh-warming.ts'
+import { Warmer, buildWarmingBody, readWarmingUsage, warmRequest } from '../src/dsh-warming.ts'
 
 const tools = (names: string[]) => ({ tools: names.map((name) => ({ type: 'function', function: { name, parameters: {} } })) })
 
@@ -73,6 +73,37 @@ describe('warming replay', () => {
   test('usage exposes cached tokens when the provider reports them', () => {
     assert.equal(readWarmingUsage({ usage: { prompt_tokens: 900, prompt_tokens_details: { cached_tokens: 800 } } }), 'prompt tokens 900, cached 800')
     assert.equal(readWarmingUsage({}), undefined)
+  })
+
+  test('a replay sends the same prefix with one output token', async () => {
+    const seen: Record<string, unknown>[] = []
+    const fakeFetch = (async (_input: unknown, init: RequestInit) => {
+      seen.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+      return new Response(JSON.stringify({ usage: { prompt_tokens: 1200, prompt_tokens_details: { cached_tokens: 1100 } } }), { status: 200 })
+    }) as unknown as typeof globalThis.fetch
+    const request = { input: 'http://stub/v1/chat/completions', init: { method: 'POST' as const, body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }], stream: true, stream_options: { include_usage: true }, max_tokens: 4096 }) } }
+    const result = await warmRequest(request, fakeFetch)
+    assert.equal(result.ok, true)
+    assert.equal(seen[0].max_tokens, 1)
+    assert.equal(seen[0].stream, false)
+    assert.equal('stream_options' in seen[0], false)
+    assert.match(result.text, /cached 1100/)
+  })
+
+  test('a rejected replay is reported, not swallowed', async () => {
+    const fakeFetch = (async () => new Response('nope', { status: 403 })) as unknown as typeof globalThis.fetch
+    const result = await warmRequest({ input: 'http://stub', init: { body: JSON.stringify({ messages: [] }) } }, fakeFetch)
+    assert.equal(result.ok, false)
+    assert.match(result.text, /HTTP 403/)
+  })
+
+  test('a divergence inside the injected skill catalog is labelled', () => {
+    const audit = new PrefixAudit()
+    const body = (text: string) => JSON.stringify({ messages: [{ role: 'user', content: [{ type: 'text', text }] }] })
+    audit.capture('s', body('- `a`: one'))
+    audit.capture('s', body('<available_skills>\n- `a`: one\n- `b`: two\n</available_skills>'))
+    const report = audit.reportFor('s')
+    assert.match(report?.divergence?.hint ?? '', /skill catalog/)
   })
 
   test('the warmer caps a session and retires after failures', () => {
