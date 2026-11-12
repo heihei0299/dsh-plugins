@@ -122,13 +122,16 @@ export function buildStyles(options: StyleOptions): string {
   // component publishes which categories it covers on the slot anchor, so an
   // unreadable projection falls back to the host control instead of nothing.
   //
-  // Subagents: the host's catalog trigger is the only tree popup in this slot
-  // (ui-subagent's CatalogDropdown sets `aria-haspopup="tree"` on it). That is
-  // a language-independent marker, unlike the localized `aria-label` the first
+  // Subagents: 0.2.2-rc.2 marks the host catalog entry with a dedicated
+  // `data-subagent-action` attribute, matched directly. Releases up to
+  // 0.2.2-rc.1 only expose the trigger's `aria-haspopup="tree"` (rc.2 turned
+  // that popup into `dialog`), so the popup type stays as the fallback. Both
+  // are language-independent, unlike the localized `aria-label` the first
   // version matched. The rule stays scoped to the exact slot anchor and a
   // direct entry, excluding our own group. Another tree popup in that slot
-  // could still match; if the host drops the marker both badges stay visible.
-  rules.push(`${scope} ${HEADER_ACTIONS}[${BADGES_ATTRIBUTE}~="subagents"] > *:not(.dsh-mobile-badge-group):has(> button[aria-haspopup="tree"]){display:none}`);
+  // could still match on the fallback; if the host drops both markers both
+  // badges stay visible.
+  rules.push(`${scope} ${HEADER_ACTIONS}[${BADGES_ATTRIBUTE}~="subagents"] > *:not(.dsh-mobile-badge-group):is([data-subagent-action],:has(> button[aria-haspopup="tree"])){display:none}`);
   // Jobs: the host exposes no stable entry/component marker for the background
   // job trigger (verified against ui-jobs 0.2.1-rc.2: one plain <div> whose
   // direct child is the trigger <button aria-expanded aria-label=…>; list-entry

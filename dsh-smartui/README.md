@@ -84,7 +84,7 @@ interface SmartUIDocument {
 
 ## 兼容基线与运行边界
 
-以 DSH `0.2.1-rc.2` 的公开声明为结构基线并在 `0.2.2-rc.1` 上复验；`engines.dsh` 接受 `0.2.1-rc.2`、`0.2.1-rc.5`、`0.2.2-rc.1`。Client 运行时不 import 任何 DSH Client 内部包，只用宿主 React 与下列公开对象：
+以 DSH `0.2.1-rc.2` 的公开声明为结构基线并在 `0.2.2-rc.1` 上复验；`engines.dsh` 接受 `0.2.1-rc.2`、`0.2.1-rc.5`、`0.2.2-rc.1`、`0.2.2-rc.2`。Client 运行时不 import 任何 DSH Client 内部包，只用宿主 React 与下列公开对象：
 
 - Host 用 `@deepseek-ai/dsh-tools`（含 `presentationMeta`）注册工具，用 `@deepseek-ai/dsh-system-prompt` 添加可撤销提示词。
 - Client 绑定 `tool.call.toolview`（当前 matcher 不校验工具名）、`conversation.chat.node`（只注册 `smartui-document`），并使用原生 `captureInsertion`/`insertText`、locale、theme、ConfigForms 与 `settings.general.item`/`conversation.input.dock` 插槽。

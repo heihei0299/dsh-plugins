@@ -36,7 +36,7 @@ const ReactStub = {
 test('package exposes the dsh-go host, client, locale, icon, and bundle patch', () => {
   assert.equal(packageJson.name, '@local/dsh-mcp-skill-manager');
   assert.equal(packageJson.type, 'module');
-  assert.equal(packageJson.engines.dsh, '0.2.2-rc.1');
+  assert.equal(packageJson.engines.dsh, '0.2.2-rc.1 || 0.2.2-rc.2');
   assert.equal(packageJson.main, './lib/index.js');
   assert.equal(packageJson.exports['.'], './lib/index.js');
   assert.equal(packageJson.exports['./client'], './dist/client.js');

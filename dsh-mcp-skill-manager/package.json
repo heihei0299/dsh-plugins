@@ -8,7 +8,7 @@
   "main": "./lib/index.js",
   "engines": {
     "node": ">=22",
-    "dsh": "0.2.2-rc.1"
+    "dsh": "0.2.2-rc.1 || 0.2.2-rc.2"
   },
   "packageManager": "pnpm@10.28.0",
   "exports": {

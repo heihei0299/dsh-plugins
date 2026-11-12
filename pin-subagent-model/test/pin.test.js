@@ -50,13 +50,28 @@ test("pinnedSpec rewrites a detached route and reports the conflict", () => {
 	assert.equal(warnings.length, 1);
 });
 
-test("pinnedSpec leaves specs without a request or without a pin untouched", () => {
-	const pin = readPin({ provider: "cpa", model: "pinned" });
-	const noRequest = { provider: "spawn" };
-	assert.equal(pinnedSpec(noRequest, pin, () => {}, false), noRequest);
-	const spec = { provider: "spawn", request: {} };
+test("pinnedSpec rewrites the flattened spec that 0.2.2-rc.2 hands in", () => {
+	const pin = readPin({ provider: "cpa", model: "pinned", reasoningEffort: "max", agentPreset: "minimal" });
+	const spec = { provider: "spawn", prompt: [], agentOptions: { provider: "cpa", model: "requested" } };
+	const warnings = [];
+	const out = pinnedSpec(spec, pin, (message) => warnings.push(message), true);
+	assert.equal(out.request, undefined, "a flattened spec stays flattened");
+	assert.equal(out.provider, "spawn");
+	assert.deepEqual(out.prompt, []);
+	assert.equal(out.agentOptions.model, "pinned");
+	assert.equal(out.agentOptions.reasoningEffort, "max");
+	assert.equal(out.agentPreset, "minimal");
+	assert.equal(spec.agentOptions.model, "requested", "the caller's spec is not mutated");
+	assert.equal(warnings.length, 1);
+});
+
+test("pinnedSpec leaves specs untouched when nothing is pinned", () => {
 	const emptyPin = { route: undefined, preset: undefined, providers: new Set(["spawn"]), onConflict: "override" };
-	assert.equal(pinnedSpec(spec, emptyPin, () => {}, true), spec);
+	for (const spec of [{ provider: "spawn", request: {} }, { provider: "spawn", prompt: [] }]) {
+		assert.equal(pinnedSpec(spec, emptyPin, () => {}, true), spec);
+	}
+	const pin = readPin({ provider: "cpa", model: "pinned" });
+	assert.equal(pinnedSpec(undefined, pin, () => {}, false), undefined);
 });
 
 test("pinnedSpec pins a preset only when the backend can accept it", () => {
@@ -64,6 +79,9 @@ test("pinnedSpec pins a preset only when the backend can accept it", () => {
 	const spec = { provider: "spawn", request: {} };
 	assert.equal(pinnedSpec(spec, pin, () => {}, false), spec);
 	assert.equal(pinnedSpec(spec, pin, () => {}, true).request.agentPreset, "minimal");
+	const flat = { provider: "spawn", prompt: [] };
+	assert.equal(pinnedSpec(flat, pin, () => {}, false), flat);
+	assert.equal(pinnedSpec(flat, pin, () => {}, true).agentPreset, "minimal");
 });
 
 test("pinnedSpec rejects conflicts when onConflict is reject", () => {

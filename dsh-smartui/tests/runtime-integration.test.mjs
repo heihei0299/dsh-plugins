@@ -24,7 +24,7 @@ import { createRequire } from 'node:module';
 import { delimiter, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const SUPPORTED_RUNTIMES = new Set(['0.2.1-rc.2', '0.2.1-rc.5', '0.2.2-rc.1']);
+const SUPPORTED_RUNTIMES = new Set(['0.2.1-rc.2', '0.2.1-rc.5', '0.2.2-rc.1', '0.2.2-rc.2']);
 const TOOL_NAME = 'render_smart_ui';
 const hostEntry = new URL('../dist/host/index.js', import.meta.url);
 const roots = (process.env.DSH_TEST_RUNTIME_ROOT ?? '').split(delimiter).map(root => root.trim()).filter(Boolean);

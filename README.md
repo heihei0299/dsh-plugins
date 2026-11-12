@@ -1,6 +1,6 @@
 # dsh-plugins
 
-DeepSeek Harness（DSH）插件集合：十个插件可独立装入 profile，不改 DSH 核心、不另起 Web 服务。需 Node ≥22。`pin-subagent-model`、`dsh-mobile`、`dsh-smartui`、`dsh-lan-connect`、`dsh-history-budget` 的版本门禁接受 `0.2.1-rc.2`、`0.2.1-rc.5` 或 `0.2.2-rc.1`，其余五个只接受 `0.2.2-rc.1`。门禁与测试不代替活体验收。
+DeepSeek Harness（DSH）插件集合：十个插件可独立装入 profile，不改 DSH 核心、不另起 Web 服务。需 Node ≥22。`pin-subagent-model`、`dsh-mobile`、`dsh-smartui`、`dsh-lan-connect`、`dsh-history-budget` 的版本门禁接受 `0.2.1-rc.2`、`0.2.1-rc.5`、`0.2.2-rc.1` 或 `0.2.2-rc.2`，其余五个接受 `0.2.2-rc.1` 或 `0.2.2-rc.2`。门禁与测试不代替活体验收。
 
 ## 插件
 

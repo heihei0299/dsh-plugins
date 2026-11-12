@@ -32,7 +32,7 @@ bundle 层只注册 entry，预算属于 profile 配置：
 
 ## 安装
 
-要求 Node ≥22；`engines.dsh` 接受 `0.2.1-rc.2`、`0.2.1-rc.5` 或 `0.2.2-rc.1`。从仓库根目录：
+要求 Node ≥22；`engines.dsh` 接受 `0.2.1-rc.2`、`0.2.1-rc.5`、`0.2.2-rc.1` 或 `0.2.2-rc.2`。从仓库根目录：
 
 ```bash
 dsh plugin --profile web add "link:$PWD/dsh-history-budget" --offline

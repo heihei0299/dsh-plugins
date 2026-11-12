@@ -105,7 +105,7 @@ pi-cache-optimizer-stats.d/epochs/           重置纪元
 
 ## 安装
 
-需要 `dsh` 0.2.2-rc.1 与 Node ≥ 22。仓库根目录：
+需要 `dsh` 0.2.2-rc.1 或 0.2.2-rc.2 与 Node ≥ 22。仓库根目录：
 
 ```bash
 pnpm --dir dsh-cache-optimizer install

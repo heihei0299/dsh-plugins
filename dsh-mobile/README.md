@@ -4,7 +4,7 @@
 
 ## 要求与安装
 
-需 Node ≥22、DSH `0.2.1-rc.2 || 0.2.1-rc.5 || 0.2.2-rc.1` 与 pnpm。门禁不代表逐版验收：`0.2.2-rc.1` 做过桌面与 390×844 触屏冒烟，并静态核对了该版本客户端包的地标（`data-slot`、`data-composer-dock`、`data-row-key`、`aria-haspopup="tree"`）；真机触摸与登录态 GUI 验收仍待补。
+需 Node ≥22、DSH `0.2.1-rc.2 || 0.2.1-rc.5 || 0.2.2-rc.1 || 0.2.2-rc.2` 与 pnpm。门禁不代表逐版验收：`0.2.2-rc.1` 做过桌面与 390×844 触屏冒烟，并静态核对了该版本客户端包的地标（`data-slot`、`data-composer-dock`、`data-row-key`、`aria-haspopup="tree"`）；`0.2.2-rc.2` 只做了静态地标核对（新增 `data-subagent-action`，子智能体弹层从 `tree` 变成 `dialog`）；真机触摸与登录态 GUI 验收仍待补。
 
 ```bash
 cd dsh-mobile
@@ -50,7 +50,7 @@ dsh plugin --profile web add "link:$PWD" --offline
 
 - 浮层是 `popover="manual"` 顶层元素：无遮罩、无焦点陷阱、`aria-modal="false"`，宽 ≤360px、高 ≤440px；关闭方式为按钮、再点图标、点外部、Esc、切换会话或关闭插件。
 - 数据来自 `sessions.list` 的 `subagentCatalog` 与 `ctx.jobs`（需 `watchRows`）；子智能体运行状态优先，停止后仅当 `subagentTiming.lastTurnCompleted` 为真才显示“已完成”。
-- **安全边界**：宿主徽标只在同类替代徽标渲染时隐藏，覆盖类别写在 `data-dsh-mobile-badges`；投影读不到时不隐藏，回退到宿主原控件。子智能体按 `aria-haspopup="tree"` 匹配（0.2.1-rc.2 与 0.2.2-rc.1 的 `CatalogDropdown` 均已核对）；后台任务没有稳定标识，只保留收窄的文案匹配（`button[aria-expanded]` 含“后台任务”/“background job”），宿主改文案或未知语言时可能出现两套徽标。
+- **安全边界**：宿主徽标只在同类替代徽标渲染时隐藏，覆盖类别写在 `data-dsh-mobile-badges`；投影读不到时不隐藏，回退到宿主原控件。子智能体优先按宿主的 `data-subagent-action` 入口标记匹配（0.2.2-rc.2 起），旧版本回退到 `aria-haspopup="tree"`（0.2.1-rc.2、0.2.2-rc.1 的 `CatalogDropdown` 均已核对；rc.2 把该弹层改成了 `dialog`）；后台任务没有稳定标识，只保留收窄的文案匹配（`button[aria-expanded]` 含“后台任务”/“background job”），宿主改文案或未知语言时可能出现两套徽标。
 
 ## 边界与已知限制
 

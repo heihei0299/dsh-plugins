@@ -72,6 +72,17 @@ test("pins a request that names no route at all", async () => {
 	assert.deepEqual(service.seen[0].request.agentOptions, { provider: "cpa", model: "cline-pass/deepseek-v4.1-flash", reasoningEffort: "max" });
 });
 
+test("pins the flattened activation spec that 0.2.2-rc.2 hands in", async () => {
+	const service = recordingService({ spawn: SPAWN });
+	plugin.apply(fakeCtx(service), { ...PIN, agentPreset: "minimal" });
+	await service.startActivation({ provider: "spawn", parent: "parent", prompt: [] });
+	const seen = service.seen[0];
+	assert.equal(seen.request, undefined, "the flattened spec stays flattened");
+	assert.equal(seen.agentPreset, "minimal");
+	assert.deepEqual(seen.agentOptions, { provider: "cpa", model: "cline-pass/deepseek-v4.1-flash", reasoningEffort: "max" });
+	assert.equal(seen.parent, "parent", "task fields the plugin does not own survive the rewrite");
+});
+
 test("overrides a differing explicit request and warns", async () => {
 	const ctx = fakeCtx(recordingService({ spawn: SPAWN }));
 	plugin.apply(ctx, PIN);

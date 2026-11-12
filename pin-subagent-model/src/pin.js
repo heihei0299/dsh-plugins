@@ -56,7 +56,7 @@ export function readPin(config) {
  * Whether one registered backend accepts an independently selected preset.
  * Mirrors the runtime capability gate in `SubagentRuntime.assertCapabilities`.
  * @param provider - registered provider, or undefined when it is not registered.
- * @returns true when `request.agentPreset` is accepted by this backend.
+ * @returns true when the backend accepts an independently selected preset.
  */
 export function supportsIndependentPreset(provider) {
 	return provider !== void 0
@@ -67,6 +67,12 @@ export function supportsIndependentPreset(provider) {
 
 /**
  * Rewrite one delegation spec onto the pinned route and preset.
+ *
+ * DSH 0.2.2-rc.1 and earlier nest the task fields under `spec.request`; 0.2.2-rc.2
+ * flattens `SubagentStartRequest` onto the activation spec itself. The carrier
+ * the runtime handed in is the carrier the rewrite returns, so the same build
+ * runs on either shape.
+ *
  * @param spec - the activation spec handed to the subagents service.
  * @param pin - normalized pin.
  * @param warn - conflict sink.
@@ -74,8 +80,9 @@ export function supportsIndependentPreset(provider) {
  * @returns the original spec when it needs no rewrite, else a detached copy.
  */
 export function pinnedSpec(spec, pin, warn, canPinPreset) {
-	if (spec?.request === void 0) return spec;
-	const request = spec.request;
+	if (spec === null || typeof spec !== "object") return spec;
+	const nested = spec.request !== null && typeof spec.request === "object";
+	const request = nested ? spec.request : spec;
 	const current = request.agentOptions;
 	const wantsRoute = pin.route !== void 0;
 	const wantsPreset = pin.preset !== void 0 && canPinPreset;
@@ -88,19 +95,17 @@ export function pinnedSpec(spec, pin, warn, canPinPreset) {
 		warn(`pin-subagent-model: overriding requested child agent preset "${request.agentPreset}" with "${pin.preset}"`);
 	}
 	if (!wantsRoute && !wantsPreset) return spec;
-	return {
-		...spec,
-		request: {
-			...request,
-			...wantsPreset ? { agentPreset: pin.preset } : {},
-			...wantsRoute ? {
-				agentOptions: {
-					...current,
-					provider: pin.route.provider,
-					model: pin.route.model,
-					...pin.route.effort === void 0 ? {} : { reasoningEffort: pin.route.effort }
-				}
-			} : {}
-		}
+	const rewritten = {
+		...request,
+		...wantsPreset ? { agentPreset: pin.preset } : {},
+		...wantsRoute ? {
+			agentOptions: {
+				...current,
+				provider: pin.route.provider,
+				model: pin.route.model,
+				...pin.route.effort === void 0 ? {} : { reasoningEffort: pin.route.effort }
+			}
+		} : {}
 	};
+	return nested ? { ...spec, request: rewritten } : rewritten;
 }

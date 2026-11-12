@@ -59,11 +59,11 @@ export const CONTRACTS = [
 		why: "插件按 spec.provider 过滤要 pin 的后端"
 	},
 	{
-		id: "spec.request 载体",
+		id: "spec 任务字段载体",
 		pkg: "@deepseek-ai/dsh-subagent",
 		file: "lib/types/types.d.ts",
-		pattern: /readonly request: Omit<SubagentStartRequest/,
-		why: "插件通过 spec.request 取任务字段"
+		pattern: /extends Omit<SubagentStartRequest, 'label' \| 'signal'>|readonly request: Omit<SubagentStartRequest/,
+		why: "任务字段的形状：0.2.2-rc.2 起直接摊在 spec 上（extends Omit<SubagentStartRequest…>），之前嵌在 spec.request 里；两处都没有说明插件无处读写 pin"
 	},
 	{
 		id: "request.agentOptions",
@@ -73,11 +73,11 @@ export const CONTRACTS = [
 		why: "改路由的唯一通道；字段消失就无处写 pin"
 	},
 	{
-		id: "startLocal 使用 request.agentOptions",
+		id: "startLocal 使用 agentOptions",
 		pkg: "@deepseek-ai/dsh-subagent",
 		file: "lib/index.js",
-		pattern: /resolveChildAgentOptions\(\s*parent,\s*request\.agentOptions/,
-		why: "证明改写 request.agentOptions 会真正决定子 Agent 路由"
+		pattern: /resolveChildAgentOptions\(\s*parent,\s*(?:request|spec)\.agentOptions/,
+		why: "证明改写 agentOptions 载体（0.2.2-rc.2 起是 spec 本身）会真正决定子 Agent 路由"
 	},
 	{
 		id: "request.agentPreset",
@@ -87,11 +87,11 @@ export const CONTRACTS = [
 		why: "固定子代理预设的唯一通道；字段消失就无处写 agentPreset"
 	},
 	{
-		id: "startLocal 使用 request.agentPreset",
+		id: "startLocal 使用 agentPreset",
 		pkg: "@deepseek-ai/dsh-subagent",
 		file: "lib/index.js",
-		pattern: /composition: \{ agentPreset: request\.agentPreset \}/,
-		why: "证明改写 request.agentPreset 会真正决定子 Agent 组合"
+		pattern: /composition: \{ agentPreset: (?:request|spec)\.agentPreset \}/,
+		why: "证明改写 agentPreset 载体（0.2.2-rc.2 起是 spec 本身）会真正决定子 Agent 组合"
 	},
 	{
 		id: "spawn 支持 agentPreset",
@@ -204,8 +204,8 @@ export const CONTRACTS = [
 		id: "dsh-mobile: root 槽锚点",
 		pkg: "@deepseek-ai/dsh-client-ui-renderer",
 		file: "lib/client.js",
-		pattern: /"data-slot": slotKey/,
-		why: "dsh-mobile 全部结构选择器都以 [data-slot=\"…\"] 锚点为基准；锚点消失则样式不命中"
+		pattern: /["`]data-slot["`]\s*:\s*slotKey/,
+		why: "dsh-mobile 全部结构选择器都以 [data-slot=\"…\"] 锚点为基准；锚点消失则样式不命中（rc.2 起 bundle 被压缩，不能按空格/引号写法匹配）"
 	},
 	{
 		id: "dsh-mobile: 帧折叠属性",
@@ -218,7 +218,7 @@ export const CONTRACTS = [
 		id: "dsh-mobile: overlay 层",
 		pkg: "@deepseek-ai/dsh-client-ui-layout",
 		file: "lib/client.js",
-		pattern: /"data-shell-overlay": true/,
+		pattern: /["`]data-shell-overlay["`]\s*:\s*(?:true|!0)/,
 		why: "抽屉按钮与遮罩注册在 shell.overlay 槽；该槽不再挂载则没有打开侧栏的入口"
 	},
 	{
@@ -232,7 +232,7 @@ export const CONTRACTS = [
 		id: "dsh-mobile: 输入卡片",
 		pkg: "@deepseek-ai/dsh-client-ui-conversation",
 		file: "lib/client.js",
-		pattern: /"data-composer-card": true/,
+		pattern: /["`]data-composer-card["`]\s*:\s*(?:true|!0)/,
 		why: "44px 触控目标按 [data-composer-card] button 定位；标记改名则该规则失效"
 	},
 	{
@@ -250,17 +250,24 @@ export const CONTRACTS = [
 		why: "复制/分支等消息操作按钮的触控目标按该标记定位"
 	},
 	{
+		id: "dsh-mobile: 子智能体徽标宿主标记",
+		pkg: "@deepseek-ai/dsh-client-ui-subagent",
+		file: "lib/client.js",
+		pattern: /["`]data-subagent-action["`]\s*:\s*(?:true|!0)|["`]aria-haspopup["`]\s*:\s*["`]tree["`]/,
+		why: "dsh-mobile 靠该入口标记隐藏宿主重复的子智能体徽标：0.2.2-rc.2 起是 data-subagent-action，之前只有 aria-haspopup=\"tree\"；两者都不见了说明入口换了写法，规则会静默失效"
+	},
+	{
 		id: "dsh-mobile: 设置面板锚点",
 		pkg: "@deepseek-ai/dsh-client-ui-settings-general",
 		file: "lib/client.js",
-		pattern: /"data-shortcut-modal": "settings"/,
+		pattern: /["`]data-shortcut-modal["`]\s*:\s*["`]settings["`]/,
 		why: "窄屏设置面板重排以该宿主标记为根；改名后全屏与横向标签规则不再命中"
 	},
 	{
 		id: "dsh-mobile: 设置分区 slot",
 		pkg: "@deepseek-ai/dsh-client-ui-settings-general",
 		file: "lib/client.js",
-		pattern: /"settings\.section": \{/,
+		pattern: /["`]settings\.section["`]\s*:\s*\{/,
 		why: "设置列表行头换行规则挂在 settings.section 的 data-slot 锚点下；slot 改名会让模型行重新重叠"
 	},
 	{

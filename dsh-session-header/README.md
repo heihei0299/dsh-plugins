@@ -16,7 +16,7 @@ harness 没有请求级 header 缝，插件把两个官方拦截点组合起来�
 
 ## 安装
 
-需要 `dsh`（DSH `0.2.2-rc.1`）与 Node ≥ 22。从仓库根目录：
+需要 `dsh`（DSH `0.2.2-rc.1` 或 `0.2.2-rc.2`）与 Node ≥ 22。从仓库根目录：
 
 ```bash
 cd dsh-session-header

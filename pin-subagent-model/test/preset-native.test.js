@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import plugin from "../index.js";
 
@@ -43,6 +44,16 @@ function fakeParent(id = "parent-1") {
 
 test("real SubagentRuntime pins spawn route+preset and keeps fork on the parent preset", { skip: !runtimeRoot }, async () => {
 	const requireRuntime = createRequire(join(runtimeRoot, "package.json"));
+	// The shape under test is the one the runtime itself declares: up to
+	// 0.2.2-rc.1 the task fields sit under `spec.request`, and 0.2.2-rc.2
+	// flattens `SubagentStartRequest` onto the activation spec.
+	const subagentTypes = readFileSync(
+		join(dirname(requireRuntime.resolve("@deepseek-ai/dsh-subagent/package.json")), "lib", "types", "types.d.ts"),
+		"utf8"
+	);
+	const flattened = !/readonly request: Omit<SubagentStartRequest/.test(subagentTypes);
+	const specFor = (provider, fields, signal) => flattened ? { provider, ...fields, signal } : { provider, request: fields, signal };
+	const carrierOf = (spec) => flattened ? spec : spec.request;
 	const { Context, Service } = await runtimeModule(requireRuntime, "@deepseek-ai/cordis");
 	const { SubagentRuntime, resolveChildAgentOptions, childSessionMeta } = await runtimeModule(requireRuntime, "@deepseek-ai/dsh-subagent");
 	const { apply: applySpawn } = await runtimeModule(requireRuntime, "@deepseek-ai/dsh-subagent-spawn-in-process");
@@ -61,24 +72,45 @@ test("real SubagentRuntime pins spawn route+preset and keeps fork on the parent 
 		}
 	}
 
+	// The runtime declares `inject = ["workingDirectory", "sessionProjections"]` and,
+	// from 0.2.2-rc.2 on, registers its projections in `Service.init`. Stubs that
+	// answer only what that init touches keep the mount real without a profile.
+	class FixtureProjections extends Service {
+		constructor(ctx) {
+			super(ctx, "sessionProjections");
+		}
+		async register() {
+			return { stateOf: () => ({}) };
+		}
+	}
+
+	class FixtureWorkingDirectory extends Service {
+		constructor(ctx) {
+			super(ctx, "workingDirectory");
+		}
+	}
+
 	const root = new Context();
-	new FixtureAgents(root);
-	const runtime = new SubagentRuntime(root, {
-		maxDepth: { get: () => 1 },
-		maxActiveSubagents: { get: () => 8 }
-	});
+	await root.plugin(FixtureProjections);
+	await root.plugin(FixtureWorkingDirectory);
+	await root.plugin(FixtureAgents);
+	// Mount the runtime as a service instead of calling its constructor: 0.2.2-rc.2
+	// builds the manager in `Service.init`, which a bare construction never runs.
+	await root.plugin(SubagentRuntime, { maxDepth: 1, maxActiveSubagents: 8 });
+	const runtime = root.get("subagents");
 	// The real providers are registered through the runtime's own registry, so
 	// their capability flags and `prepareContinuable` presence are the ones the
 	// activation gate and dispatch actually read.
 	applySpawn({ subagents: runtime }, { providerName: "spawn" });
 	applyFork({ subagents: runtime }, { providerName: "fork" });
-	assert.deepEqual(runtime.list(), ["spawn", "fork"]);
+	// `list()` disappeared in 0.2.2-rc.2; `getProvider` exists in both and proves
+	// the same thing here: the providers went through the runtime's own registry.
+	assert.equal(runtime.getProvider("spawn").name, "spawn");
+	assert.equal(runtime.getProvider("fork").name, "fork");
 
-	// Let the runtime's `agents` injection build its real manager, then replace
-	// only the child-creation half: recording what the runtime dispatches avoids
-	// persistence, a working directory, and any model call.
-	await new Promise((resolve) => setImmediate(resolve));
 	assert.notEqual(runtime.manager, void 0, "the real runtime must wire its own manager");
+	// Replace only the child-creation half: recording what the runtime dispatches
+	// avoids persistence, a working directory, and any model call.
 	const dispatched = [];
 	runtime.manager = {
 		async startLocal(spec) {
@@ -105,21 +137,21 @@ test("real SubagentRuntime pins spawn route+preset and keeps fork on the parent 
 
 	// One explicit, differing route: the delegated request asks for
 	// cpa/gpt-6-luna while the profile pins cpa/cline-pass/deepseek-v4.1-flash.
-	const spawnSpec = { provider: "spawn", request: { parent, agentOptions: { provider: "cpa", model: "gpt-6-luna" } }, signal };
+	const spawnSpec = specFor("spawn", { parent, agentOptions: { provider: "cpa", model: "gpt-6-luna" } }, signal);
 	assert.deepEqual(await root.subagents.startActivation(spawnSpec), { kind: "local" });
-	const forkSpec = { provider: "fork", request: { parent }, signal };
+	const forkSpec = specFor("fork", { parent }, signal);
 	assert.deepEqual(await root.subagents.startActivation(forkSpec), { kind: "local" });
 
 	assert.equal(dispatched.length, 2);
 	const [spawn, fork] = dispatched;
 
 	// Spawn: both the explicit route and the backend's independent preset.
-	assert.deepEqual(spawn.request.agentOptions, { provider: PIN.provider, model: PIN.model, reasoningEffort: PIN.reasoningEffort });
-	assert.equal(spawn.request.agentPreset, PIN.agentPreset);
+	assert.deepEqual(carrierOf(spawn).agentOptions, { provider: PIN.provider, model: PIN.model, reasoningEffort: PIN.reasoningEffort });
+	assert.equal(carrierOf(spawn).agentPreset, PIN.agentPreset);
 	// Fork: the route is still pinned, but the preset is omitted so the child
 	// joins the parent's composition.
-	assert.deepEqual(fork.request.agentOptions, { provider: PIN.provider, model: PIN.model, reasoningEffort: PIN.reasoningEffort });
-	assert.equal(fork.request.agentPreset, void 0);
+	assert.deepEqual(carrierOf(fork).agentOptions, { provider: PIN.provider, model: PIN.model, reasoningEffort: PIN.reasoningEffort });
+	assert.equal(carrierOf(fork).agentPreset, void 0);
 	assert.match(warnings.join("\n"), /overriding requested child route cpa\/gpt-6-luna/);
 	assert.match(warnings.join("\n"), /provider "fork" cannot select an independent agent preset/);
 
@@ -134,18 +166,18 @@ test("real SubagentRuntime pins spawn route+preset and keeps fork on the parent 
 	// And the pinned request lands where the local start reads it: the child
 	// route survives parent inheritance, spawn selects the pinned preset, and
 	// fork keeps the parent's composed preset.
-	const spawnOptions = resolveChildAgentOptions(parent, spawn.request.agentOptions, 1);
-	const forkOptions = resolveChildAgentOptions(parent, fork.request.agentOptions, 1);
+	const spawnOptions = resolveChildAgentOptions(parent, carrierOf(spawn).agentOptions, 1);
+	const forkOptions = resolveChildAgentOptions(parent, carrierOf(fork).agentOptions, 1);
 	assert.equal(spawnOptions.provider, PIN.provider);
 	assert.equal(spawnOptions.model, PIN.model);
 	assert.equal(spawnOptions.reasoningEffort, PIN.reasoningEffort);
 	assert.deepEqual(forkOptions, spawnOptions);
-	assert.equal(childSessionMeta(parent, 1, false, spawn.request.agentPreset).agentPreset, PIN.agentPreset);
-	assert.equal(childSessionMeta(parent, 1, false, fork.request.agentPreset).agentPreset, COMPOSED_PARENT_PRESET);
+	assert.equal(childSessionMeta(parent, 1, false, carrierOf(spawn).agentPreset).agentPreset, PIN.agentPreset);
+	assert.equal(childSessionMeta(parent, 1, false, carrierOf(fork).agentPreset).agentPreset, COMPOSED_PARENT_PRESET);
 
 	// The caller's spec is untouched and disposal removes the decoration.
-	assert.equal(spawnSpec.request.agentOptions.model, "gpt-6-luna");
-	assert.equal(spawnSpec.request.agentPreset, void 0);
+	assert.equal(carrierOf(spawnSpec).agentOptions.model, "gpt-6-luna");
+	assert.equal(carrierOf(spawnSpec).agentPreset, void 0);
 	assert.equal(Object.hasOwn(runtime, "startActivation"), true);
 	disposeAll();
 	assert.equal(Object.hasOwn(runtime, "startActivation"), false);

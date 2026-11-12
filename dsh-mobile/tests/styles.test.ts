@@ -162,9 +162,10 @@ test('the header keeps its height while gaining breathing room under the tabs', 
 test('host badges are retired only for a category this plugin replaces', () => {
   const subagents = full.split('\n').find(line => line.includes('[data-dsh-mobile-badges~="subagents"]')) ?? '';
   const jobs = full.split('\n').find(line => line.includes('[data-dsh-mobile-badges~="jobs"]')) ?? '';
-  // Subagents are identified by the current host's ARIA popup type rather than
-  // localized copy; a future unrelated tree popup in this slot could also match.
-  assert.match(subagents, /button\[aria-haspopup="tree"\]/);
+  // Subagents prefer the host's dedicated entry marker (0.2.2-rc.2+) and fall
+  // back to the ARIA popup type of the older releases, never to localized copy;
+  // a future unrelated tree popup in this slot could still match the fallback.
+  assert.match(subagents, /\[data-subagent-action\]/);
   assert.match(subagents, /:has\(> button\[aria-haspopup="tree"\]\)/);
   assert.doesNotMatch(subagents, /aria-label/, 'subagents must not be matched by localized copy');
   // The jobs entry has no stable host marker in 0.2.1-rc.2, so the localized

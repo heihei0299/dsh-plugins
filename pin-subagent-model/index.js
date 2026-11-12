@@ -14,11 +14,12 @@
  * express that with settings or preset tool config alone.
  *
  * The seam: `SubagentRuntime.startActivation(spec)` runs before `startLocal`,
- * which is where `resolveChildAgentOptions` reads `spec.request.agentOptions`
- * and where `applyChildComposition` reads `spec.request.agentPreset`. Writing
- * those fields here converges inherited choices and explicit requests on the
- * configured pin, without touching the agent preset that owns the
- * `subagent`/`subagent_fork` tool rows.
+ * which is where `resolveChildAgentOptions` reads the requested `agentOptions`
+ * and where `applyChildComposition` reads the requested `agentPreset`. Those
+ * fields sit under `spec.request` up to 0.2.2-rc.1 and directly on `spec` in
+ * 0.2.2-rc.2 and later. Writing them here converges inherited choices and
+ * explicit requests on the configured pin, without touching the agent preset
+ * that owns the `subagent`/`subagent_fork` tool rows.
  *
  * Config, normally an id-targeted override of the `pin-subagent-model` entry in
  * the profile's `cordis.patch.yml`:

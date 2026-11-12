@@ -142,7 +142,7 @@ API keys, prompts, payloads, headers, responses or model output.
 
 ## Install
 
-Requires `dsh` 0.2.2-rc.1 and Node ≥ 22. From the repository root:
+Requires `dsh` 0.2.2-rc.1 or 0.2.2-rc.2 and Node ≥ 22. From the repository root:
 
 ```bash
 pnpm --dir dsh-cache-optimizer install

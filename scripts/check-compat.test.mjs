@@ -29,7 +29,7 @@ import {
 const dshRoot = resolveDshRoot();
 const skipWithoutDsh = dshRoot === null && "no installed dsh on PATH";
 /** Runtimes nobody verified against; accepting one of them means the range was loosened. */
-const UNVERIFIED = ["0.2.1-rc.3", "0.2.1-alpha.1", "0.2.2-alpha.2", "0.2.2-rc.2"];
+const UNVERIFIED = ["0.2.1-rc.3", "0.2.1-alpha.1", "0.2.2-alpha.2", "0.2.2-alpha.3"];
 
 test("parses the valid flags and rejects every malformed one", () => {
 	assert.deepEqual(parseArgs(["--contracts-only", "--dsh", "/tmp/runtime", "--baseline", "b.json"]), {
