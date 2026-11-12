@@ -54,6 +54,14 @@ The bundle patch ships `enabled: true` and `subagents: false`. A profile overrid
 
 The full text is in [`src/rules.js`](src/rules.js). It is deliberately shorter than the upstream skill because it rides every model step; the current version is roughly 600 words (~900 tokens) per step.
 
+## dsh-go panel
+
+Registers a native panel (`session.tab` and `features`), also reachable from the composer capsule (`composer.actions`). It shows whether this session is shaped (on / off / subagent / plugin disabled) and the ruleset size, with **On**, **Off**, and **Refresh** actions. The switch applies to the live Agent resolved at tap time and shares the in-memory state with `/adhd`, so a change lands from the next reply.
+
+- The panel resolves the Agent through `ctx.agents.get(scope.sessionId)`; when it cannot, it names the real reason (for example no `agents` service) instead of pretending the switch worked.
+- Native surfaces need the dsh-go bridge on the host: the local engine ships it, remote hosts usually do not, and DSH Remote connections do not show it.
+- Verified by unit tests over the manifest, view, and state switch only; no end-to-end run against a real dsh-go App.
+
 ## Limits
 
 - Prompt steering, not enforcement: a model can still drift, especially on long turns. `/adhd status` reports the switch, not compliance.

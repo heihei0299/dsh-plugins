@@ -47,6 +47,15 @@ A route, a preset, or both are valid; with neither the plugin stays loaded, warn
 - The composer chip appears only when the child's retained window holds a valid own `request/header`; it shows the requested route, not the configured pin.
 - Duplicate direct mounts or an unwritable method fail visibly; disposal restores the original only while this plugin's marker is still on top.
 
+## dsh-go panel
+
+Adds a read-only native panel (`session.tab` and `features`), reachable from the composer capsule (`composer.actions`). It shows the live pin (route, preset, effort, backends, `onConflict`), each backend's independent-preset capability, the rewrite and conflict counters, and the most recent rewrite with its backend and route.
+
+- Volatile fields are read live, so an edit made in the WebUI configuration page shows after a refresh.
+- The panel writes nothing: configuration stays in the profile or the WebUI configuration page.
+- Without a dsh-go bridge (remote hosts, DSH Remote connections) the panel is simply not registered.
+- Verified by unit tests over the manifest, view, and controller only; no end-to-end run against a real dsh-go App.
+
 ## Test
 
 ```bash

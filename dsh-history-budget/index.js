@@ -36,6 +36,7 @@
  */
 
 import { trimRecords } from "./src/budget.js";
+import { registerDshGo } from "./src/dsh-go/register.js";
 
 const name = "history-budget";
 const inject = ["sessionController"];
@@ -129,14 +130,51 @@ export function apply(ctx, config) {
 	const maxBytes = positiveInteger(config?.maxBytes, DEFAULT_MAX_BYTES, "maxBytes", warn);
 	const minRecords = positiveInteger(config?.minRecords, DEFAULT_MIN_RECORDS, "minRecords", warn);
 
+	// Panel state: what was mounted, what it trimmed, and why it may not be
+	// bounding. The wrappers below own these counters; the panel only reads them.
+	const status = {
+		maxBytes,
+		minRecords,
+		mounted: false,
+		reason: "",
+		followBound: false,
+		eventsBound: false,
+		pageBound: false,
+		openingTrims: 0,
+		pageTrims: 0,
+		recordsDropped: 0,
+		bypassed: 0,
+		lastAt: 0,
+		lastBytes: 0
+	};
+	const mountPanel = () => {
+		if (typeof ctx.inject !== "function") return;
+		try {
+			ctx.inject(["dshGo"], (bridgeCtx) => {
+				try {
+					const dispose = registerDshGo(bridgeCtx, { hostCtx: ctx, status });
+					if (typeof dispose === "function") ctx.effect(() => dispose, "history-budget: dsh-go panel");
+				} catch (error) {
+					warn(`history-budget: could not register the dsh-go panel: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			});
+		} catch (error) {
+			warn(`history-budget: could not wait for the dsh-go bridge: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	};
+
 	const service = ctx.sessionController;
 	const follow = service?.follow;
 	if (typeof follow !== "function") {
 		warn("history-budget: `sessionController.follow` is unavailable, so nothing is bounded");
+		status.reason = "sessionController.follow unavailable";
+		mountPanel();
 		return;
 	}
 	if (service[INSTALLED] === true) {
 		warn("history-budget: `sessionController.follow` is already wrapped; mount this plugin once");
+		status.reason = "sessionController.follow is already wrapped";
+		mountPanel();
 		return;
 	}
 	// `events` is the current unary history read; `page` is its deprecated alias
@@ -151,7 +189,15 @@ export function apply(ctx, config) {
 		// after us may keep this closure alive, and it must not keep trimming with
 		// a configuration its mount no longer owns.
 		let active = true;
+		const count = (kind, result) => {
+			if (kind === "opening frame") status.openingTrims += 1;
+			else status.pageTrims += 1;
+			status.recordsDropped += result.trimmed;
+			status.lastAt = Date.now();
+			status.lastBytes = result.bytes;
+		};
 		const report = (kind, result) => {
+			count(kind, result);
 			info(`history-budget: ${kind} trimmed ${String(result.trimmed)} record(s) to ${String(result.bytes)} bytes`);
 		};
 
@@ -160,6 +206,7 @@ export function apply(ctx, config) {
 			// A caller that asks for its own budget is talking to a host that
 			// implements one; bounding it here as well would page the same stream twice.
 			if (!active || request?.maxBytes !== undefined) {
+				if (request?.maxBytes !== undefined) status.bypassed += 1;
 				yield* stream;
 				return;
 			}
@@ -196,7 +243,11 @@ export function apply(ctx, config) {
 		const wrapPage = ([key, method]) => {
 			const wrapped = async function historyBudgetPage(request, signal) {
 				const result = await method.call(this, request, signal);
-				if (!active || request?.maxBytes !== undefined) return result;
+				if (!active) return result;
+				if (request?.maxBytes !== undefined) {
+					status.bypassed += 1;
+					return result;
+				}
 				if (!result || !Array.isArray(result.records) || result.records.length === 0) return result;
 				const trimmed = trimRecords(result, maxBytes, minRecords);
 				if (trimmed.trimmed === 0) return result;
@@ -208,9 +259,18 @@ export function apply(ctx, config) {
 		const restoreFollow = install(service, "follow", wrappedFollow, follow);
 		if (restoreFollow === undefined) {
 			warn("history-budget: `sessionController.follow` cannot be replaced in place; nothing is bounded");
+			status.reason = "sessionController.follow cannot be replaced in place";
 			return;
 		}
 		const restores = pages.map(wrapPage);
+		status.followBound = true;
+		status.mounted = true;
+		status.reason = "";
+		pages.forEach(([key], index) => {
+			if (restores[index] === undefined) return;
+			if (key === "events") status.eventsBound = true;
+			if (key === "page") status.pageBound = true;
+		});
 		if (pages.length === 0) {
 			warn("history-budget: neither `sessionController.events` nor `sessionController.page` is available; only the opening frame is bounded");
 		}
@@ -222,6 +282,10 @@ export function apply(ctx, config) {
 		info(`history-budget: opening frames bounded to ${String(maxBytes)} bytes, keeping at least ${String(minRecords)} record(s)`);
 		return () => {
 			active = false;
+			status.mounted = false;
+			status.followBound = false;
+			status.eventsBound = false;
+			status.pageBound = false;
 			restoreFollow();
 			for (const restore of restores) restore?.();
 			if (service[INSTALLED] === true) {
@@ -231,6 +295,7 @@ export function apply(ctx, config) {
 			}
 		};
 	});
+	mountPanel();
 }
 
 export { name, inject };

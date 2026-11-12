@@ -50,6 +50,7 @@
 import z from "@deepseek-ai/schemastery";
 
 import { DEFAULT_PROVIDERS, pinnedSpec, readPin, supportsIndependentPreset } from "./src/pin.js";
+import { registerDshGo } from "./src/dsh-go/register.js";
 
 /**
  * Live entry configuration.
@@ -99,6 +100,36 @@ function apply(ctx, config) {
 			ctx.logger?.warn?.(message);
 		} catch {}
 	};
+	// Panel state: what this mount pinned and what the last delegation looked
+	// like afterwards. The wrapper below owns these counters.
+	const stats = {
+		applied: 0,
+		conflicts: 0,
+		lastAt: 0,
+		lastBackend: "",
+		lastRoute: "",
+		lastPreset: "",
+		presetSkipped: new Set()
+	};
+	const conflictWarn = (message) => {
+		stats.conflicts += 1;
+		warn(message);
+	};
+	const mountPanel = () => {
+		if (typeof ctx.inject !== "function") return;
+		try {
+			ctx.inject(["dshGo"], (bridgeCtx) => {
+				try {
+					const dispose = registerDshGo(bridgeCtx, { hostCtx: ctx, config, stats, service: ctx.subagents });
+					if (typeof dispose === "function") ctx.effect(() => dispose, "pin-subagent-model: dsh-go panel");
+				} catch (error) {
+					warn(`pin-subagent-model: could not register the dsh-go panel: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			});
+		} catch (error) {
+			warn(`pin-subagent-model: could not wait for the dsh-go bridge: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	};
 	if (initial === void 0) warn("pin-subagent-model: no `provider`/`model` or `agentPreset` configured, so no child route or preset is pinned. Set them on the `pin-subagent-model` entry in the profile's cordis.patch.yml or from the plugin's WebUI configuration page.");
 	else {
 		const parts = [];
@@ -118,7 +149,7 @@ function apply(ctx, config) {
 		const writable = "value" in descriptor ? descriptor.writable === true : typeof descriptor.set === "function";
 		if (!writable) throw new Error("pin-subagent-model: `subagents.startActivation` is not writable");
 	}
-	const presetSkipped = new Set();
+	const presetSkipped = stats.presetSkipped;
 	ctx.effect(() => {
 		// Stays true only while this decoration is mounted. A wrapper installed
 		// after us may have captured this function and keep delegating to it, so
@@ -137,7 +168,15 @@ function apply(ctx, config) {
 				presetSkipped.add(spec.provider);
 				warn(`pin-subagent-model: provider "${spec.provider}" cannot select an independent agent preset; its children keep inheriting the parent preset`);
 			}
-			return startActivation.call(this, pinnedSpec(spec, pin, warn, canPinPreset));
+			const next = pinnedSpec(spec, pin, conflictWarn, canPinPreset);
+			if (next !== spec) {
+				stats.applied += 1;
+				stats.lastAt = Date.now();
+				stats.lastBackend = String(spec.provider ?? "");
+				stats.lastRoute = pin.route === void 0 ? "" : `${pin.route.provider}/${pin.route.model}`;
+				stats.lastPreset = pin.preset ?? "";
+			}
+			return startActivation.call(this, next);
 		};
 		Object.defineProperty(wrapper, PATCH_MARKER, { value: true });
 		if (!Reflect.set(service, "startActivation", wrapper) || service.startActivation?.[PATCH_MARKER] !== true) {
@@ -168,6 +207,7 @@ function apply(ctx, config) {
 			if (service.startActivation?.[PATCH_MARKER] === true) warn("pin-subagent-model: `subagents.startActivation` still carries the pin decoration after restore");
 		};
 	}, "pin-subagent-model: decorate subagents.startActivation");
+	mountPanel();
 }
 
 export { apply, inject, name };

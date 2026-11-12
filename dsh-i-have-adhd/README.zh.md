@@ -54,6 +54,14 @@ bundle patch 默认 `enabled: true`、`subagents: false`。profile 覆盖会替�
 
 完整文本在 [`src/rules.js`](src/rules.js)。它比上游 skill 短，因为每一步都要随提示词发送；当前约 600 词（约 900 tokens）/步。
 
+## dsh-go 面板
+
+适配 dsh-go 的原生面板（`session.tab` 与 `features`），输入框胶囊（`composer.actions`）打开同一个面板。面板显示本会话是否套用（开 / 关 / 子代理不适用 / 插件已停用）与规则集规模，并提供**开启**、**关闭**、**刷新**：开关作用在点按时解析到的那个 live Agent 上，和 `/adhd` 共用同一份内存状态，下一轮回复生效。
+
+- 面板用 `scope.sessionId` 经 `ctx.agents.get` 找当前 Agent；找不到时显示真实原因（例如没有 `agents` 服务），不会假装切换成功。
+- 原生界面需要主机带 dsh-go 桥接：本机引擎自带，远程主机一般没有，经 DSH Remote 连接时不显示。
+- 只在单测里验证 manifest、视图与状态切换，未连接真实 dsh-go App 做端到端验收。
+
 ## 限制
 
 - 提示词引导而非强制：长回合仍可能漂移。`/adhd status` 只报告开关，不证明合规。

@@ -1,6 +1,6 @@
 {
   "name": "dsh-i-have-adhd",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "ADHD-friendly output shaping for DeepSeek Harness: one system-prompt section plus /adhd on|off, action first, numbered steps, no preamble",
   "private": true,
   "type": "module",
@@ -14,6 +14,7 @@
   "files": [
     "index.js",
     "src/rules.js",
+    "src/dsh-go/",
     "cordis.patch.yml",
     "assets/icon.svg",
     "locale/*.json",
@@ -24,6 +25,44 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    }
+  },
+  "dshGo": {
+    "v": 1,
+    "title": {
+      "zh": "ADHD 输出",
+      "en": "ADHD output"
+    },
+    "icon": "plugin",
+    "contributes": {
+      "composer.actions": [
+        {
+          "id": "open-adhd",
+          "label": {
+            "zh": "ADHD",
+            "en": "ADHD"
+          },
+          "icon": "plugin",
+          "effect": {
+            "type": "open",
+            "page": "panel:adhd"
+          }
+        }
+      ],
+      "panels": [
+        {
+          "id": "adhd",
+          "title": {
+            "zh": "ADHD 输出",
+            "en": "ADHD output"
+          },
+          "icon": "plugin",
+          "placement": [
+            "session.tab",
+            "features"
+          ]
+        }
+      ]
     }
   },
   "keywords": [

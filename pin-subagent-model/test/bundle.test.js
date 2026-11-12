@@ -60,7 +60,7 @@ test("declares the build-free browser half the client module graph reads", () =>
 test("declares the schema library behind the WebUI configuration page", () => {
 	assert.equal(typeof manifest.peerDependencies?.["@deepseek-ai/schemastery"], "string");
 	assert.match(manifest.peerDependencies["@deepseek-ai/schemastery"], /^\D*\d+\.\d+\.\d+/);
-	assert.equal(manifest.version, "0.4.0");
+	assert.equal(manifest.version, "0.5.0");
 });
 
 for (const language of ["en", "zh"]) {

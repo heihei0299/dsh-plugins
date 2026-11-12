@@ -6,15 +6,15 @@ DeepSeek Harness（DSH）插件集合：十个插件可独立装入 profile，�
 
 | 插件 | 版本 | 作用 | 构建 |
 | --- | --- | --- | --- |
-| [pin-subagent-model](<pin-subagent-model/README.md>) | 0.4.0 | 固定子代理路由和/或预设，只读展示实际请求的模型 | 无构建，需 Host 依赖 |
+| [pin-subagent-model](<pin-subagent-model/README.md>) | 0.5.0 | 固定子代理路由和/或预设，只读展示实际请求的模型 | 无构建，需 Host 依赖 + dsh-go |
 | [dsh-mobile](<dsh-mobile/README.md>) | 0.3.0 | 抽屉、触屏操作、状态徽标、下拉加载历史、软键盘适配 | Host + Client |
 | [dsh-smartui](<dsh-smartui/README.md>) | 0.1.3 | 主题与安全声明式卡片、表格、图表、表单及分组 | Host + Client |
 | [dsh-lan-connect](<dsh-lan-connect/README.md>) | 0.1.0 | 同端口 `/lan` 自动登录入口与本地二维码 | 仅 Client |
 | [dsh-mcp-skill-manager](<dsh-mcp-skill-manager/README.md>) | 0.2.0 | 按项目目录启停宿主 MCP server 与 skill，含 Web 与 dsh-go 面板 | Host + Client + dsh-go |
-| [dsh-history-budget](<dsh-history-budget/README.md>) | 0.2.1 | 按字节软预算裁剪会话首帧与历史页 | 纯 Host，无依赖 |
+| [dsh-history-budget](<dsh-history-budget/README.md>) | 0.3.0 | 按字节软预算裁剪会话首帧与历史页 | 纯 Host，无依赖 + dsh-go |
 | [dsh-memory](<dsh-memory/README.md>) | 0.1.0 | Codex v2 记忆引擎：后台摘要、`memory_summary.md` 合并与注入 | 纯 Host，无依赖 |
 | [dsh-session-header](<dsh-session-header/README.md>) | 0.2.1 | 复刻 `dsh-llm-deepseek` 的三个身份标头，可扩展到工具阶段白名单网关 | 纯 Host，无构建 |
-| [dsh-i-have-adhd](<dsh-i-have-adhd/README.md>) | 0.1.0 | ADHD 友好输出：行动优先、步骤编号、状态复述、无客套；`/adhd on/off` 按会话切换，子代理默认不套用 | 纯 Host，无依赖 |
+| [dsh-i-have-adhd](<dsh-i-have-adhd/README.md>) | 0.2.0 | ADHD 友好输出：行动优先、步骤编号、状态复述、无客套；`/adhd on/off` 按会话切换，子代理默认不套用 | 纯 Host，无依赖 + dsh-go |
 | [dsh-cache-optimizer](<dsh-cache-optimizer/README.md>) | 0.1.0 | 移植 `pi-cache-optimizer`：缓存键兜底、长保留、Anthropic TTL 修复、本地命中统计、compat 诊断与 `fix`/`rollback` | Host，TS 构建 |
 
 `pin-subagent-model`、`dsh-mobile`、`dsh-smartui`、`dsh-lan-connect` 声明 `@deepseek-ai/cordis ~4.0.5 || ~4.1.0`，`dsh-cache-optimizer` 声明 `~4.1.0`；配置、限制与更窄的验证命令见各插件 README。
@@ -30,6 +30,20 @@ dsh plugin --profile web add "link:$PWD/<插件>" --offline
 ```
 
 `dsh-history-budget`、`dsh-memory`、`dsh-i-have-adhd` 无需准备；装后在 **设置 → 插件** 启停，重启与刷新以插件管理器提示为准。
+
+## dsh-go 原生界面
+
+`dsh-i-have-adhd`、`dsh-history-budget`、`pin-subagent-model`、`dsh-mcp-skill-manager` 提供 dsh-go 原生面板：声明式视图（`v: 1` 的 stack / text / keyValue / list / callout / actions）、面板数据与原生动作；Host 侧在 `ctx.inject(['dshGo'])` 里注册。面板位置只有 `session.tab` 与 `features` 经过验证；输入框胶囊与加号工具用 `composer.actions` / `composer.tools` 指向同一个面板。App 指南里的状态条、消息菜单、回合尾注、对话操作没有可验证的 manifest 键，本仓库不声明。
+
+约束：
+
+- 面板只放有界数据；超出预算或引用不存在面板的 manifest 会被 `scripts/check-dsh-go.mjs` 拦下。
+- 面板不改变插件本身的生效路径：没有 dsh-go 桥接（远程主机、DSH Remote）时不注册，Web 侧行为不变。
+- 所有面板都**未**在真实 dsh-go App 上做端到端验收；单测只覆盖 manifest、视图与控制器状态机。
+
+```bash
+node scripts/check-dsh-go.mjs
+```
 
 ## 第三方插件
 
@@ -59,6 +73,7 @@ dsh plugin --profile web add "link:$PWD/<插件>" --offline
 
 ```bash
 node scripts/check-bundles.mjs
+node scripts/check-dsh-go.mjs
 node scripts/check-compat.mjs --contracts-only --dsh /path/to/dsh
 DSH_TEST_RUNTIME_ROOT=/path/to/dsh node --test scripts/compat-profile.test.mjs
 node scripts/verify-plugins.mjs [插件...]   # 构建 + 单测，会覆盖所选 dist/
