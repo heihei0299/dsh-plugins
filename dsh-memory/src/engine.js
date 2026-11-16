@@ -127,6 +127,9 @@ export class MemoryEngine {
   /** Drop outputs whose source session no longer exists in durable storage. */
   async pruneMissingSessions(store) {
     for (const output of store.listOutputs()) {
+      // Imported Codex rows keep their original UUID thread ids; they never
+      // correspond to a DSH session, so session existence cannot judge them.
+      if (output.imported) continue;
       let snapshot;
       try {
         snapshot = await this.persistence.stat(output.threadId);

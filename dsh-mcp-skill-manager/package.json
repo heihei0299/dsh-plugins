@@ -93,7 +93,7 @@
     }
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "node tool/build.mjs",
     "pretest": "pnpm run build",
     "test": "node --test --test-concurrency=1 test/*.test.js",
     "verify:bundle": "node --test --test-concurrency=1 test/bundle.test.js"

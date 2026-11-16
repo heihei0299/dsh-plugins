@@ -30,10 +30,10 @@
     }
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "node tool/build.mjs",
     "typecheck": "tsc --noEmit",
     "pretest": "pnpm run build",
-    "test": "node scripts/test.mjs"
+    "test": "node tool/test.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.1.0"

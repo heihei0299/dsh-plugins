@@ -1,5 +1,5 @@
 /**
- * Types for `scripts/probe-landmarks.mjs`.
+ * Types for `tool/probe-landmarks.mjs`.
  *
  * The runtime module stays plain ESM so the optional probe can run under bare
  * node without a build; this declaration lets the offline tests (which run

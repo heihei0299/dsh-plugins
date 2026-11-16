@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { debugBase, dshTargets, pageSocket } from '../scripts/browser-probe.mjs';
+import { debugBase, dshTargets, pageSocket } from '../tool/browser-probe.mjs';
 
 test('debug addresses accept the Chrome HTTP discovery paths without credentials', () => {
   assert.equal(debugBase('http://127.0.0.1:9222').href, 'http://127.0.0.1:9222/');

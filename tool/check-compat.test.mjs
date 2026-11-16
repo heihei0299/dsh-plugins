@@ -1,5 +1,5 @@
 /**
- * Narrow self-checks for scripts/check-compat.mjs.
+ * Narrow self-checks for tool/check-compat.mjs.
  *
  * These do not re-run the plugin suites: they pin the parts the tool itself
  * must get right — argument parsing, the documented exit codes, the

@@ -3,7 +3,7 @@ import http from 'node:http';
 import https from 'node:https';
 
 const DEFAULT_APP_ORIGIN = process.env.DSH_APP_ORIGIN || 'http://127.0.0.1:50020';
-const USAGE = 'Usage: node scripts/browser-probe.mjs http://HOST:PORT [TARGET_ID] [APP_ORIGIN]\nDefault APP_ORIGIN is http://127.0.0.1:50020 (override with the third argument or DSH_APP_ORIGIN).\nConnects only to an already-running Chrome CDP endpoint; never starts Chrome or reads credentials.';
+const USAGE = 'Usage: node tool/browser-probe.mjs http://HOST:PORT [TARGET_ID] [APP_ORIGIN]\nDefault APP_ORIGIN is http://127.0.0.1:50020 (override with the third argument or DSH_APP_ORIGIN).\nConnects only to an already-running Chrome CDP endpoint; never starts Chrome or reads credentials.';
 export function debugBase(input) {
   const url = new URL(input);
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {

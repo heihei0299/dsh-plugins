@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { HOST_LANDMARKS } from '../src/client/landmarks.js';
-import { PROBE_ANCHORS, PROBE_LANDMARKS } from '../scripts/probe-landmarks.mjs';
+import { PROBE_ANCHORS, PROBE_LANDMARKS } from '../tool/probe-landmarks.mjs';
 
 /**
  * The artifact check (`verify-bundle`) and the live probe are separate: the

@@ -21,12 +21,12 @@
  * two-version matrix — since the contract set depends on the target runtime
  * while the plugin tests do not.
  *
- * Usage: node scripts/check-compat.mjs [--dsh <dsh package dir>] [--contracts-only] [--baseline <file>]
+ * Usage: node tool/check-compat.mjs [--dsh <dsh package dir>] [--contracts-only] [--baseline <file>]
  * Exit codes: 0 every check passed and the baseline matches; 2 every check
  * passed but dsh/cordis drifted from the baseline; 1 a check, argument or
  * environment failure.
  *
- * The local skill at .agents/skills/dsh-compat-check/scripts/check.mjs imports
+ * The local skill at .agents/skills/dsh-compat-check/tool/check.mjs imports
  * this module and only supplies its own baseline path, so there is one contract
  * list and one evaluation path, not two.
  */
@@ -1183,7 +1183,7 @@ export function parseArgs(argv) {
 }
 
 /** Help text shared by the CLI and the skill wrapper. */
-export const HELP = `Usage: node scripts/check-compat.mjs [--dsh <dsh package dir>] [--contracts-only] [--baseline <file>]
+export const HELP = `Usage: node tool/check-compat.mjs [--dsh <dsh package dir>] [--contracts-only] [--baseline <file>]
 
   --dsh <dir>         check another install (default: the dsh package on PATH)
   --contracts-only    check engines.dsh and the listed contracts; skips plugin

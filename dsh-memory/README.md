@@ -86,7 +86,7 @@ Artifacts are plain UTF-8 files plus a SQLite database and can contain user requ
 
 ```bash
 node --test --test-concurrency=1          # unit/integration tests
-node ../scripts/check-bundles.mjs .       # bundle metadata
+node ../tool/check-bundles.mjs .       # bundle metadata
 ```
 
 Tests use fake `ctx`, persistence and LLM; they cover selection, claims/retries, tiering, redaction, schema validation, baseline diffs, both phases, the no-change path and mounting. Live acceptance still needs a profile install and an idle session older than `minRolloutIdleHours`.

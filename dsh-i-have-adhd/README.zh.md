@@ -75,7 +75,7 @@ bundle patch 默认 `enabled: true`、`subagents: false`。profile 覆盖会替�
 
 ~~~sh
 node --test --test-concurrency=1
-node ../scripts/check-bundles.mjs .
+node ../tool/check-bundles.mjs .
 ~~~
 
 ## 署名

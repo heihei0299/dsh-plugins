@@ -18,12 +18,12 @@ import { PROBE_ANCHORS, PROBE_LANDMARKS, probeExitCode, probeVerdict } from './p
  * check and cannot observe host markup.
  *
  * Usage:
- *   node scripts/browser-probe.mjs http://127.0.0.1:9222 [--viewport 390x844] [--app http://127.0.0.1:50020] [--target <id>] [--touch] [--verify]
+ *   node tool/browser-probe.mjs http://127.0.0.1:9222 [--viewport 390x844] [--app http://127.0.0.1:50020] [--target <id>] [--touch] [--verify]
  */
 
 const DEFAULT_APP_ORIGIN = process.env.DSH_APP_ORIGIN || 'http://127.0.0.1:50020';
 const USAGE = [
-  'Usage: node scripts/browser-probe.mjs http://HOST:PORT [options]',
+  'Usage: node tool/browser-probe.mjs http://HOST:PORT [options]',
   '  --viewport WxH   emulate a viewport for the measurement (default 390x844)',
   '  --app ORIGIN     DSH page origin (default http://127.0.0.1:50020)',
   '  --target ID      pick one DSH tab instead of the only one',

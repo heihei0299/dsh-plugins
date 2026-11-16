@@ -76,6 +76,19 @@ test("writeSummary/readSummary round-trip", () => {
   });
 });
 
+test("baseline ignores the state database and its sidecars", () => {
+  withRoot((root) => {
+    ensureLayout(root);
+    const paths = memoryPaths(root);
+    writeFileSync(paths.summary, "v1\n\n## User Profile\nA\n\n## User preferences\n- b\n\n## General Tips\n- c\n\n## What's in Memory\n- d\n");
+    writeFileSync(paths.database, "db");
+    writeFileSync(`${paths.database}-wal`, "wal");
+    writeFileSync(`${paths.database}-shm`, "shm");
+    const manifest = currentManifest(root);
+    assert.deepEqual(Object.keys(manifest.files), ["memory_summary.md"]);
+  });
+});
+
 test("baseline diff sees additions, modifications, and deletions", () => {
   withRoot((root) => {
     ensureLayout(root);

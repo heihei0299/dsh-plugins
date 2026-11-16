@@ -230,6 +230,15 @@ export function insideRoot(root, candidate) {
 /** List every artifact that participates in the baseline. */
 export function listArtifactFiles(root) {
   const paths = memoryPaths(root);
+  const databaseName = path.basename(paths.database);
+  const ignoredNames = new Set([
+    ".git",
+    path.basename(paths.baseline),
+    databaseName,
+    `${databaseName}-wal`,
+    `${databaseName}-shm`,
+    `${databaseName}-journal`,
+  ]);
   const files = [];
   const visit = (dir, prefix = "") => {
     let entries;
@@ -239,7 +248,7 @@ export function listArtifactFiles(root) {
       return;
     }
     for (const entry of entries) {
-      if (entry.name === ".git" || entry.name === path.basename(paths.baseline) || entry.name.endsWith(".tmp")) continue;
+      if (ignoredNames.has(entry.name) || entry.name.endsWith(".tmp")) continue;
       const full = path.join(dir, entry.name);
       const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
       let metadata;

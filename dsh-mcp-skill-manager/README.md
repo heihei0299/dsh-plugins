@@ -63,7 +63,7 @@ dsh plugin --profile web add "link:$PWD" --offline
 ## 测试
 
 ```bash
-node scripts/check-bundles.mjs dsh-mcp-skill-manager   # 仓库根目录
+node tool/check-bundles.mjs dsh-mcp-skill-manager   # 仓库根目录
 cd dsh-mcp-skill-manager && pnpm test && pnpm run verify:bundle
 ```
 

@@ -38,7 +38,7 @@ dsh plugin --profile web add "link:$PWD" --offline
 ## 测试
 
 ```bash
-node scripts/check-bundles.mjs dsh-lan-connect          # 仓库根目录
+node tool/check-bundles.mjs dsh-lan-connect          # 仓库根目录
 cd dsh-lan-connect && pnpm install --ignore-scripts && pnpm run build
 pnpm test && pnpm run verify:bundle
 DSH_TEST_RUNTIME_ROOT=/path/to/installed/dsh GOMAXPROCS=2 \

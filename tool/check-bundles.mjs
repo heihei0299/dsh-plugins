@@ -14,7 +14,7 @@
  * Dependency-free on purpose: it must run on a bare checkout, before any
  * install or build is authorized.
  *
- * Usage: node scripts/check-bundles.mjs [plugin-dir...]
+ * Usage: node tool/check-bundles.mjs [plugin-dir...]
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";

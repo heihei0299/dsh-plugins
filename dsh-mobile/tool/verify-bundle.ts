@@ -37,7 +37,7 @@ for (const service of ['slots', 'locale', 'configForms', 'layout', 'sessions', '
 //    bundle contains no host markup, so it cannot observe a host upgrade.
 //    Redirecting that claim here would be false. The live host contract is the
 //    separate optional probe gate:
-//      node scripts/browser-probe.mjs <cdp-origin> --verify
+//      node tool/browser-probe.mjs <cdp-origin> --verify
 //    `VIEW_TABS` and `COLLAPSED_ATTRIBUTE` are deliberately not in
 //    HOST_LANDMARKS (see src/client/landmarks.ts).
 
@@ -153,4 +153,4 @@ assert.equal(locales.size, 0);
 assert.equal(attributes.size, 0, 'teardown removes the root attribute');
 assert.equal(styles.size, 0, 'teardown removes every style tag it added');
 
-console.log('Artifact verified: lazy factory, host React only, exported resources, stylesheet landmark usage, registration and teardown. This is not a host check; live host landmarks are verified separately by `node scripts/browser-probe.mjs <cdp-origin> --verify`.');
+console.log('Artifact verified: lazy factory, host React only, exported resources, stylesheet landmark usage, registration and teardown. This is not a host check; live host landmarks are verified separately by `node tool/browser-probe.mjs <cdp-origin> --verify`.');

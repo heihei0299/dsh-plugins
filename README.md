@@ -37,12 +37,12 @@ dsh plugin --profile web add "link:$PWD/<插件>" --offline
 
 约束：
 
-- 面板只放有界数据；超出预算或引用不存在面板的 manifest 会被 `scripts/check-dsh-go.mjs` 拦下。
+- 面板只放有界数据；超出预算或引用不存在面板的 manifest 会被 `tool/check-dsh-go.mjs` 拦下。
 - 面板不改变插件本身的生效路径：没有 dsh-go 桥接（远程主机、DSH Remote）时不注册，Web 侧行为不变。
 - 所有面板都**未**在真实 dsh-go App 上做端到端验收；单测只覆盖 manifest、视图与控制器状态机。
 
 ```bash
-node scripts/check-dsh-go.mjs
+node tool/check-dsh-go.mjs
 ```
 
 ## 第三方插件
@@ -72,14 +72,14 @@ node scripts/check-dsh-go.mjs
 ## 验证
 
 ```bash
-node scripts/check-bundles.mjs
-node scripts/check-dsh-go.mjs
-node scripts/check-compat.mjs --contracts-only --dsh /path/to/dsh
-DSH_TEST_RUNTIME_ROOT=/path/to/dsh node --test scripts/compat-profile.test.mjs
-node scripts/verify-plugins.mjs [插件...]   # 构建 + 单测，会覆盖所选 dist/
+node tool/check-bundles.mjs
+node tool/check-dsh-go.mjs
+node tool/check-compat.mjs --contracts-only --dsh /path/to/dsh
+DSH_TEST_RUNTIME_ROOT=/path/to/dsh node --test tool/compat-profile.test.mjs
+node tool/verify-plugins.mjs [插件...]   # 构建 + 单测，会覆盖所选 dist/
 ```
 
-退出码 0/2/1 = 通过且基线一致 / 通过但基线漂移 / 失败；默认模式会跑各插件单测。`docs/*.md` 与 lockfile 留在本地，可分发契约写在各插件 README。
+退出码 0/2/1 = 通过且基线一致 / 通过但基线漂移 / 失败；默认模式会跑各插件单测。`doc/*.md` 与 lockfile 留在本地，可分发契约写在各插件 README。
 
 ## 许可
 

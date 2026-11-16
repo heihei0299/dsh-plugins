@@ -77,8 +77,8 @@ pnpm run verify:bundle   # 惰性 factory、仅宿主 React、地标引用与插
 - **页面探针**：连接已在运行的 Chrome CDP，报告或 `--verify` 验收：
 
 ```bash
-node scripts/browser-probe.mjs http://127.0.0.1:9222 --viewport 390x844 --touch
-node scripts/browser-probe.mjs http://127.0.0.1:9222 --viewport 390x844 --touch --verify --expect conversation
+node tool/browser-probe.mjs http://127.0.0.1:9222 --viewport 390x844 --touch
+node tool/browser-probe.mjs http://127.0.0.1:9222 --viewport 390x844 --touch --verify --expect conversation
 ```
 
 `--verify` 始终要求 root/AppFrame/sidebar/main/rightbar 锚点；其余地标只在 `--expect conversation|settings|tabs|table` 声明时要求。退出码 0 成功/报告，1 探针或验收失败，2 用法错误。

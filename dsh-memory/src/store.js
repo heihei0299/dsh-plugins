@@ -44,6 +44,8 @@ export function outputFromRow(row) {
     cwd: row.cwd ?? undefined,
     rolloutPath: row.rollout_path ?? undefined,
     gitBranch: row.git_branch ?? undefined,
+    origin: row.origin ?? "dsh",
+    imported: row.origin === "codex",
   };
 }
 
@@ -79,7 +81,8 @@ export class MemoryStore {
         summary_file TEXT,
         cwd TEXT,
         rollout_path TEXT,
-        git_branch TEXT
+        git_branch TEXT,
+        origin TEXT NOT NULL DEFAULT 'dsh'
       );
       CREATE INDEX IF NOT EXISTS idx_stage1_outputs_source_updated_at
         ON stage1_outputs(source_updated_at DESC, thread_id DESC);
@@ -116,6 +119,7 @@ export class MemoryStore {
       ["cwd", "TEXT"],
       ["rollout_path", "TEXT"],
       ["git_branch", "TEXT"],
+      ["origin", "TEXT NOT NULL DEFAULT 'dsh'"],
     ]) {
       const columns = this.db.prepare("PRAGMA table_info(stage1_outputs)").all().map((row) => row.name);
       if (!columns.includes(column)) this.db.exec(`ALTER TABLE stage1_outputs ADD COLUMN ${column} ${definition}`);

@@ -2,7 +2,7 @@
 
 给现有 DSH 添加 **ChatGPT 风格外观 + 对话内声明式交互组件**。不是独立聊天网站，不替换模型、会话、编辑器或权限审批。包版本 `0.1.3`，文档协议 `schemaVersion: 1`。
 
-本 README 与源码是可分发契约：v1 协议、交互边界和验证基线都在这里；仓库只跟踪源码、测试、配置、README 与独立视觉演示 `docs/visual-demo.html`（不加载插件、不参与构建、不在 `files`）。
+本 README 与源码是可分发契约：v1 协议、交互边界和验证基线都在这里；仓库只跟踪源码、测试、配置、README 与独立视觉演示 `doc/visual-demo.html`（不加载插件、不参与构建、不在 `files`）。
 
 ## 能做什么
 
@@ -103,7 +103,7 @@ DSH_TEST_RUNTIME_ROOT=/path/to/dsh node --test tests/runtime-integration.test.mj
 pnpm run verify:bundle
 ```
 
-先构建再跑测试与 bundle 校验（部分用例读取实际 `dist/client.js`）。`node scripts/verify-plugins.mjs dsh-smartui` 依次执行这些门禁并覆盖 `dist/`。安装：
+先构建再跑测试与 bundle 校验（部分用例读取实际 `dist/client.js`）。`node tool/verify-plugins.mjs dsh-smartui` 依次执行这些门禁并覆盖 `dist/`。安装：
 
 ```bash
 cd dsh-smartui

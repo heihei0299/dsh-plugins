@@ -5,7 +5,7 @@
  * dsh-go reads one `dshGo` manifest field and one host registration; both live
  * in this repository, so they can be checked without the App. The rules here
  * are the ones the bridge grammar actually evidences (see
- * `docs/dsh-go-bridge.md`): protocol v1, bounded contribution budgets, panel ids
+ * `doc/dsh-go-bridge.md`): protocol v1, bounded contribution budgets, panel ids
  * that every entry point resolves to, and a host module that really registers
  * the panel the manifest advertises.
  *
@@ -15,7 +15,7 @@
  * Dependency-free on purpose: it must run on a bare checkout, before any
  * install or build is authorized.
  *
- * Usage: node scripts/check-dsh-go.mjs [plugin-dir...]
+ * Usage: node tool/check-dsh-go.mjs [plugin-dir...]
  * Exit codes: 0 every adapted plugin passes; 1 a contract violation.
  */
 

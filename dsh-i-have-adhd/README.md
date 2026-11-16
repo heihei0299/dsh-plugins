@@ -75,7 +75,7 @@ Registers a native panel (`session.tab` and `features`), also reachable from the
 
 ~~~sh
 node --test --test-concurrency=1
-node ../scripts/check-bundles.mjs .
+node ../tool/check-bundles.mjs .
 ~~~
 
 ## Attribution

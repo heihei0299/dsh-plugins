@@ -16,7 +16,7 @@ export function verificationPlan(requested = []) {
   for (const name of selected) {
     if (!plugins.includes(name)) throw new Error(`Unknown plugin: ${name}`);
   }
-  const plan = [{ label: 'bundle metadata', cwd: root, command: process.execPath, args: ['scripts/check-bundles.mjs', ...selected] }];
+  const plan = [{ label: 'bundle metadata', cwd: root, command: process.execPath, args: ['tool/check-bundles.mjs', ...selected] }];
   const add = (name, label, command, ...args) => plan.push({ label: `${name}: ${label}`, cwd: path.join(root, name), command, args });
   for (const name of selected) {
     if (name === 'pin-subagent-model' || name === 'dsh-history-budget' || name === 'dsh-memory' || name === 'dsh-session-header' || name === 'dsh-i-have-adhd') {
@@ -48,7 +48,7 @@ export function runPlan(plan, runner = spawnSync) {
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const requested = process.argv.slice(2);
   if (requested.includes('--help')) {
-    console.log(`Usage: node scripts/verify-plugins.mjs [${plugins.join(' | ')} ...]\nBuilds and runs offline checks without installing dependencies. The selected dist/ directories will be overwritten.`);
+    console.log(`Usage: node tool/verify-plugins.mjs [${plugins.join(' | ')} ...]\nBuilds and runs offline checks without installing dependencies. The selected dist/ directories will be overwritten.`);
   } else {
     try {
       runPlan(verificationPlan(requested));

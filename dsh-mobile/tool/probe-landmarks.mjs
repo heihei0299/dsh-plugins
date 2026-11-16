@@ -1,13 +1,13 @@
 /**
  * Key host landmarks for the live probe, plus the pure acceptance verdict.
  *
- * This is deliberately plain ESM: `scripts/browser-probe.mjs` runs under bare
+ * This is deliberately plain ESM: `tool/browser-probe.mjs` runs under bare
  * node in an environment where installing the project is not required, so it
  * cannot import the TypeScript landmarks module. The selectors are duplicated
  * and `tests/landmark-contract.test.ts` keeps every shared name byte-identical
  * to `src/client/landmarks.ts`.
  *
- * The probe is a LIVE host check. `scripts/verify-bundle.ts` only proves the
+ * The probe is a LIVE host check. `tool/verify-bundle.ts` only proves the
  * built artifact still uses the plugin's own landmark selectors; it can never
  * observe a host upgrade, because the artifact contains no host markup.
  *

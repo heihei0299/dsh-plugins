@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { debugBase, dshTargets, parseViewport, pageSocket } from '../scripts/browser-probe.mjs';
+import { debugBase, dshTargets, parseViewport, pageSocket } from '../tool/browser-probe.mjs';
 import {
   PROBE_ANCHORS, PROBE_EXIT_FAIL, PROBE_EXIT_PASS, PROBE_LANDMARKS, probeExitCode, probeVerdict,
-} from '../scripts/probe-landmarks.mjs';
+} from '../tool/probe-landmarks.mjs';
 
 test('only a bare HTTP(S) debugging address is accepted', () => {
   assert.equal(debugBase('http://127.0.0.1:9222').pathname, '/');
@@ -174,7 +174,7 @@ test('a renamed unconditional shell anchor fails instead of silently skipping it
 });
 
 test('CLI rejects an incomplete expectation before contacting Chrome', () => {
-  const script = fileURLToPath(new URL('../scripts/browser-probe.mjs', import.meta.url));
+  const script = fileURLToPath(new URL('../tool/browser-probe.mjs', import.meta.url));
   for (const args of [
     ['--verify', '--expect'],
     ['--verify', '--expect', '--touch'],

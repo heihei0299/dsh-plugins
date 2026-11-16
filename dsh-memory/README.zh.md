@@ -76,7 +76,7 @@ profile 覆盖会替换整份 config，需重述要保留的键。完整默认�
 
 ```bash
 node --test --test-concurrency=1
-node ../scripts/check-bundles.mjs .
+node ../tool/check-bundles.mjs .
 ```
 
 测试使用伪 `ctx`、伪持久化与伪 LLM，覆盖选择、领取/重试、证据分层、脱敏、摘要校验、基线 diff、两个阶段、无变化路径与挂载。活体验收仍需装入 profile 并等待一个空闲超过 `minRolloutIdleHours` 的会话。
